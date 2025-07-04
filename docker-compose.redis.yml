@@ -1,0 +1,111 @@
+version: "3.8"
+services:
+  postgres:
+    image: pgvector/pgvector:pg15
+    environment:
+      POSTGRES_USER: letta
+      POSTGRES_PASSWORD: letta
+      POSTGRES_DB: letta
+      POSTGRES_SHARED_BUFFERS: 1280MB
+      POSTGRES_EFFECTIVE_CACHE_SIZE: 3840MB
+    volumes:
+      - type: bind
+        source: ${HOME}/.letta/.persist/pgdata
+        target: /var/lib/postgresql/data
+    ports:
+      - 5432:5432
+    deploy:
+      resources:
+        limits:
+          memory: 51200M
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U letta -d letta
+      interval: 5s
+      timeout: 5s
+      retries: 5
+  redis:
+    image: valkey/valkey:8-alpine
+    ports:
+      - 6380:6379
+    volumes:
+      - ${HOME}/.letta/.persist/redis:/data
+    command: valkey-server --save 60 1 --loglevel warning --maxmemory 2gb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 2048M
+  letta:
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - 8283:8283
+    environment:
+      - SECURE=true
+      - LETTA_SERVER_PASSWORD=lettaSecurePass123
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - COMPOSIO_API_KEY=${COMPOSIO_API_KEY}
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
+      - TOGETHER_API_KEY=${TOGETHER_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL}
+      - TAVILY_API_KEY=${TAVILY_API_KEY}
+      - DATABASE_URL=postgresql://letta:letta@postgres:5432/letta
+      - LETTA_REDIS_URL=redis://redis:6379/0
+      - NODE_OPTIONS="--max-old-space-size=4096"
+    image: letta/letta:latest
+    volumes:
+      - type: bind
+        source: /root/.letta/mcp_config.json
+        target: /root/.letta/mcp_config.json
+      - type: bind
+        source: /opt/stacks/letta/custom_modules/redis_cache.py
+        target: /app/letta/cache/redis_cache.py
+    deploy:
+      resources:
+        limits:
+          memory: 81902M
+  letta-workers:
+    image: letta/letta:latest
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    environment:
+      - LETTA_REDIS_URL=redis://redis:6379/0
+      - DATABASE_URL=postgresql://letta:letta@postgres:5432/letta
+      - LETTA_WORKER_COUNT=4
+      - LETTA_WORKER_LOG_LEVEL=INFO
+      - PYTHONPATH=/app
+    volumes:
+      - type: bind
+        source: /opt/stacks/letta/custom_modules/redis_job_queue.py
+        target: /app/letta/jobs/redis_job_queue.py
+      - type: bind
+        source: /opt/stacks/letta/custom_modules/webhook_worker.py
+        target: /app/letta/jobs/webhook_worker.py
+      - type: bind
+        source: /opt/stacks/letta/custom_modules/llm_batch_worker.py
+        target: /app/letta/jobs/llm_batch_worker.py
+      - type: bind
+        source: /opt/stacks/letta/custom_modules/start_workers.sh
+        target: /app/start_workers.sh
+    command: /app/start_workers.sh
+    deploy:
+      resources:
+        limits:
+          memory: 4096M
+networks:
+  default:
+    name: letta_network
