@@ -1,0 +1,44 @@
+{
+  "name": "letta-acp-agent",
+  "version": "0.1.0",
+  "description": "ACP wrapper for Letta agents - enabling stateful AI agents in any ACP-compatible code editor",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "letta-acp-agent": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx watch src/index.ts",
+    "test": "vitest",
+    "test:once": "vitest run",
+    "start": "node dist/index.js",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "letta",
+    "acp",
+    "agent",
+    "ai",
+    "code-editor",
+    "agent-client-protocol",
+    "stateful-agents"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@agentclientprotocol/sdk": "^0.5.1",
+    "@letta-ai/letta-client": "^0.1.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.20.5",
+    "typescript": "^5.6.0",
+    "vitest": "^2.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

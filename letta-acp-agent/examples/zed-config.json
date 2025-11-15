@@ -1,0 +1,14 @@
+{
+  "comment": "Example Zed editor configuration for Letta ACP Agent",
+  "agents": {
+    "letta": {
+      "command": "/path/to/letta-acp-agent/dist/index.js",
+      "args": [],
+      "env": {
+        "LETTA_API_URL": "http://localhost:8283",
+        "LETTA_API_KEY": "your-api-key-here",
+        "LETTA_DEFAULT_MODEL": "openai/gpt-4.1"
+      }
+    }
+  }
+}
