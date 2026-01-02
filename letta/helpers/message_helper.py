@@ -1,13 +1,17 @@
 import asyncio
 import base64
 import mimetypes
+import uuid
+from typing import List, Union
 from urllib.parse import unquote, urlparse
 
 import httpx
 
 from letta import __version__, system
 from letta.errors import LettaImageFetchError
+from letta.helpers.datetime_helpers import get_utc_time
 from letta.schemas.enums import MessageRole
+from letta.schemas.letta_message import AssistantMessage, LettaMessage, MessageType
 from letta.schemas.letta_message_content import Base64Image, ImageContent, ImageSourceType, TextContent
 from letta.schemas.message import Message, MessageCreate
 
@@ -137,3 +141,69 @@ async def _convert_message_create_to_message(
         batch_item_id=message_create.batch_item_id,
         run_id=run_id,
     )
+
+
+def _extract_text_from_content(content: Union[str, List[TextContent]]) -> str:
+    """Extract text string from AssistantMessage content (string or list of TextContent)."""
+    if isinstance(content, str):
+        return content
+    elif isinstance(content, list):
+        text_parts = []
+        for item in content:
+            if isinstance(item, TextContent):
+                text_parts.append(item.text)
+            elif hasattr(item, "text"):
+                text_parts.append(str(item.text))
+        return "".join(text_parts)
+    return ""
+
+
+def consolidate_streaming_messages(messages: List[LettaMessage]) -> List[LettaMessage]:
+    """
+    Merge consecutive AssistantMessage streaming chunks into single messages.
+
+    Example: [AssistantMessage("Let"), AssistantMessage(" me")] -> [AssistantMessage("Let me")]
+    """
+    if not messages:
+        return []
+
+    consolidated: List[LettaMessage] = []
+    current_assistant_chunks: List[AssistantMessage] = []
+
+    def flush_assistant_chunks():
+        nonlocal current_assistant_chunks
+        if not current_assistant_chunks:
+            return
+
+        text_parts = [_extract_text_from_content(chunk.content) for chunk in current_assistant_chunks]
+        merged_content = "".join(text_parts)
+
+        if not merged_content.strip():
+            current_assistant_chunks = []
+            return
+
+        first_chunk = current_assistant_chunks[0]
+        consolidated_msg = AssistantMessage(
+            id=first_chunk.id,
+            date=first_chunk.date,
+            name=first_chunk.name,
+            message_type=MessageType.assistant_message,
+            otid=first_chunk.otid,
+            sender_id=first_chunk.sender_id,
+            step_id=first_chunk.step_id,
+            run_id=first_chunk.run_id,
+            content=merged_content,
+        )
+        consolidated.append(consolidated_msg)
+        current_assistant_chunks = []
+
+    for msg in messages:
+        if isinstance(msg, AssistantMessage):
+            current_assistant_chunks.append(msg)
+        else:
+            flush_assistant_chunks()
+            consolidated.append(msg)
+
+    flush_assistant_chunks()
+
+    return consolidated

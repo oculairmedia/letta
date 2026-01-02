@@ -1036,3 +1036,182 @@ class TestAgentToolWebhookEvents:
         assert config.is_subscribed_to(WebhookEventType.AGENT_TOOL_DETACHED)
         assert config.is_subscribed_to(WebhookEventType.TOOL_CREATED)
         assert not config.is_subscribed_to(WebhookEventType.AGENT_RUN_COMPLETED)
+
+
+class TestWebhookMessageConsolidation:
+    """Tests for consolidating streaming token chunks before webhook delivery (LCORE-14)."""
+
+    @pytest.fixture
+    def now(self):
+        from datetime import datetime, timezone
+        return datetime(2025, 1, 2, 14, 30, 0, tzinfo=timezone.utc)
+
+    def test_consolidate_consecutive_assistant_chunks(self, now):
+        from letta.helpers.message_helper import consolidate_streaming_messages
+        from letta.schemas.letta_message import AssistantMessage, MessageType
+
+        chunks = [
+            AssistantMessage(id="msg-1", date=now, message_type=MessageType.assistant_message, content="Let"),
+            AssistantMessage(id="msg-2", date=now, message_type=MessageType.assistant_message, content=" me"),
+            AssistantMessage(id="msg-3", date=now, message_type=MessageType.assistant_message, content=" help"),
+            AssistantMessage(id="msg-4", date=now, message_type=MessageType.assistant_message, content=" you."),
+        ]
+
+        result = consolidate_streaming_messages(chunks)
+
+        assert len(result) == 1
+        assert isinstance(result[0], AssistantMessage)
+        assert result[0].content == "Let me help you."
+        assert result[0].id == "msg-1"
+
+    def test_consolidate_preserves_non_assistant_messages(self, now):
+        from letta.helpers.message_helper import consolidate_streaming_messages
+        from letta.schemas.letta_message import (
+            AssistantMessage,
+            MessageType,
+            ReasoningMessage,
+            ToolCallMessage,
+            ToolCall,
+            ToolReturnMessage,
+        )
+
+        messages = [
+            ReasoningMessage(id="msg-1", date=now, message_type=MessageType.reasoning_message, reasoning="Thinking..."),
+            AssistantMessage(id="msg-2", date=now, message_type=MessageType.assistant_message, content="Let"),
+            AssistantMessage(id="msg-3", date=now, message_type=MessageType.assistant_message, content=" me"),
+            ToolCallMessage(
+                id="msg-4",
+                date=now,
+                message_type=MessageType.tool_call_message,
+                tool_call=ToolCall(name="search", arguments="{}", tool_call_id="call-1"),
+            ),
+            ToolReturnMessage(
+                id="msg-5",
+                date=now,
+                message_type=MessageType.tool_return_message,
+                tool_return="result",
+                status="success",
+                tool_call_id="call-1",
+                stdout=None,
+                stderr=None,
+            ),
+            AssistantMessage(id="msg-6", date=now, message_type=MessageType.assistant_message, content="Here's"),
+            AssistantMessage(id="msg-7", date=now, message_type=MessageType.assistant_message, content=" the result."),
+        ]
+
+        result = consolidate_streaming_messages(messages)
+
+        assert len(result) == 5
+        assert isinstance(result[0], ReasoningMessage)
+        assert result[0].reasoning == "Thinking..."
+        assert isinstance(result[1], AssistantMessage)
+        assert result[1].content == "Let me"
+        assert isinstance(result[2], ToolCallMessage)
+        assert isinstance(result[3], ToolReturnMessage)
+        assert isinstance(result[4], AssistantMessage)
+        assert result[4].content == "Here's the result."
+
+    def test_consolidate_single_message_unchanged(self, now):
+        from letta.helpers.message_helper import consolidate_streaming_messages
+        from letta.schemas.letta_message import AssistantMessage, MessageType
+
+        messages = [
+            AssistantMessage(id="msg-1", date=now, message_type=MessageType.assistant_message, content="Hello!"),
+        ]
+
+        result = consolidate_streaming_messages(messages)
+
+        assert len(result) == 1
+        assert result[0].content == "Hello!"
+
+    def test_consolidate_empty_list(self):
+        from letta.helpers.message_helper import consolidate_streaming_messages
+
+        result = consolidate_streaming_messages([])
+
+        assert result == []
+
+    def test_consolidate_skips_empty_content(self, now):
+        from letta.helpers.message_helper import consolidate_streaming_messages
+        from letta.schemas.letta_message import AssistantMessage, MessageType
+
+        chunks = [
+            AssistantMessage(id="msg-1", date=now, message_type=MessageType.assistant_message, content=""),
+            AssistantMessage(id="msg-2", date=now, message_type=MessageType.assistant_message, content="Hello"),
+            AssistantMessage(id="msg-3", date=now, message_type=MessageType.assistant_message, content=""),
+        ]
+
+        result = consolidate_streaming_messages(chunks)
+
+        assert len(result) == 1
+        assert result[0].content == "Hello"
+
+    def test_consolidate_handles_list_content(self, now):
+        from letta.helpers.message_helper import consolidate_streaming_messages
+        from letta.schemas.letta_message import AssistantMessage, MessageType
+        from letta.schemas.letta_message_content import TextContent, MessageContentType
+
+        chunks = [
+            AssistantMessage(
+                id="msg-1",
+                date=now,
+                message_type=MessageType.assistant_message,
+                content=[TextContent(type=MessageContentType.text, text="Part 1")],
+            ),
+            AssistantMessage(
+                id="msg-2",
+                date=now,
+                message_type=MessageType.assistant_message,
+                content=[TextContent(type=MessageContentType.text, text=" Part 2")],
+            ),
+        ]
+
+        result = consolidate_streaming_messages(chunks)
+
+        assert len(result) == 1
+        assert result[0].content == "Part 1 Part 2"
+
+    def test_consolidate_preserves_metadata_from_first_chunk(self, now):
+        from letta.helpers.message_helper import consolidate_streaming_messages
+        from letta.schemas.letta_message import AssistantMessage, MessageType
+
+        chunks = [
+            AssistantMessage(
+                id="msg-first",
+                date=now,
+                message_type=MessageType.assistant_message,
+                content="First",
+                step_id="step-123",
+                run_id="run-456",
+                sender_id="sender-789",
+            ),
+            AssistantMessage(
+                id="msg-second",
+                date=now,
+                message_type=MessageType.assistant_message,
+                content=" Second",
+                step_id="step-other",
+                run_id="run-other",
+            ),
+        ]
+
+        result = consolidate_streaming_messages(chunks)
+
+        assert len(result) == 1
+        assert result[0].id == "msg-first"
+        assert result[0].step_id == "step-123"
+        assert result[0].run_id == "run-456"
+        assert result[0].sender_id == "sender-789"
+
+    def test_consolidate_only_whitespace_skipped(self, now):
+        from letta.helpers.message_helper import consolidate_streaming_messages
+        from letta.schemas.letta_message import AssistantMessage, MessageType
+
+        chunks = [
+            AssistantMessage(id="msg-1", date=now, message_type=MessageType.assistant_message, content="   "),
+            AssistantMessage(id="msg-2", date=now, message_type=MessageType.assistant_message, content="\n"),
+        ]
+
+        result = consolidate_streaming_messages(chunks)
+
+        assert result == []

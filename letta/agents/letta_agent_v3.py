@@ -23,7 +23,7 @@ from letta.constants import DEFAULT_MAX_STEPS, NON_USER_MSG_PREFIX, REQUEST_HEAR
 from letta.errors import ContextWindowExceededError, LLMError, SystemPromptTokenExceededError
 from letta.helpers import ToolRulesSolver
 from letta.helpers.datetime_helpers import get_utc_time, get_utc_timestamp_ns
-from letta.helpers.message_helper import convert_message_creates_to_messages
+from letta.helpers.message_helper import consolidate_streaming_messages, convert_message_creates_to_messages
 from letta.helpers.tool_execution_helper import enable_strict_mode
 from letta.local_llm.constants import INNER_THOUGHTS_KWARG
 from letta.otel.tracing import trace_method
@@ -393,15 +393,15 @@ class LettaAgentV3(LettaAgentV2):
                 request_span=request_span, request_start_timestamp_ns=request_start_timestamp_ns, run_id=run_id
             )
 
-            # Publish webhook event for run completion
+            consolidated_messages = consolidate_streaming_messages(response_letta_messages)
             await self._publish_webhook_event(
                 event_type=WebhookEventType.AGENT_RUN_COMPLETED,
                 payload={
                     "run_id": run_id,
                     "stop_reason": self.stop_reason.model_dump(mode="json") if self.stop_reason else None,
                     "usage": self.usage.model_dump(mode="json") if self.usage else None,
-                    "message_count": len(response_letta_messages),
-                    "messages": [m.model_dump(mode="json") for m in response_letta_messages],
+                    "message_count": len(consolidated_messages),
+                    "messages": [m.model_dump(mode="json") for m in consolidated_messages],
                 },
             )
 
