@@ -68,7 +68,7 @@ from letta.services.telemetry_manager import TelemetryManager
 from letta.services.tool_executor.tool_execution_manager import ToolExecutionManager
 from letta.services.webhook_manager import WebhookManager
 from letta.schemas.webhook import WebhookConfig, WebhookEventType
-from letta.settings import model_settings, settings, summarizer_settings
+from letta.settings import model_settings, settings, summarizer_settings, webhook_settings
 from letta.system import package_function_response
 from letta.types import JsonDict
 from letta.utils import log_telemetry, safe_create_task, united_diff, validate_function_response
@@ -107,7 +107,13 @@ class LettaAgentV2(BaseAgentV2):
         self.passage_manager = PassageManager()
         self.step_manager = StepManager()
         self.telemetry_manager = TelemetryManager()
-        self.webhook_manager = WebhookManager(actor=self.actor)
+        self.webhook_manager = WebhookManager(
+            actor=self.actor,
+            timeout_seconds=webhook_settings.timeout_seconds,
+            max_retries=webhook_settings.max_retries,
+            blocked_hosts=webhook_settings.blocked_hosts,
+            allowed_hosts=webhook_settings.allowed_hosts,
+        )
 
         ## TODO: Expand to more
         # if summarizer_settings.enable_summarization and model_settings.openai_api_key:
