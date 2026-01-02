@@ -164,6 +164,10 @@ class AgentState(OrmMetadataBase, validate_assignment=True):
         description="If set to True, the agent will be hidden.",
     )
 
+    webhook_url: Optional[str] = Field(None, description="The URL to send webhook events to.")
+    webhook_events: List[str] = Field(default_factory=list, description="List of event types to send to the webhook.")
+    webhook_enabled: bool = Field(False, description="Whether webhooks are enabled for this agent.")
+
     def get_agent_env_vars_as_dict(self) -> Dict[str, str]:
         # Get environment variables for this agent (value is already decrypted via from_orm_async)
         per_agent_env_vars = {}
@@ -331,6 +335,9 @@ class CreateAgent(BaseModel, validate_assignment=True):  #
         description="Deprecated: Use `model_settings` to configure parallel tool calls instead. If set to True, enables parallel tool calling.",
         deprecated=True,
     )
+    webhook_url: Optional[str] = Field(None, description="The URL to send webhook events to.")
+    webhook_events: Optional[List[str]] = Field(None, description="List of event types to send to the webhook.")
+    webhook_enabled: bool = Field(False, description="Whether webhooks are enabled for this agent.")
 
     @field_validator("name")
     @classmethod
@@ -489,6 +496,9 @@ class UpdateAgent(BaseModel):
         None,
         description="If set to True, the agent will be hidden.",
     )
+    webhook_url: Optional[str] = Field(None, description="The URL to send webhook events to.")
+    webhook_events: Optional[List[str]] = Field(None, description="List of event types to send to the webhook.")
+    webhook_enabled: Optional[bool] = Field(None, description="Whether webhooks are enabled for this agent.")
 
     model_config = ConfigDict(extra="ignore")  # Ignores extra fields
 

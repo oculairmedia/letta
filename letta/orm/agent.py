@@ -117,6 +117,12 @@ class Agent(SqlalchemyBase, OrganizationMixin, ProjectMixin, TemplateEntityMixin
     hidden: Mapped[Optional[bool]] = mapped_column(Boolean, nullable=True, default=None, doc="If set to True, the agent will be hidden.")
     _vector_db_namespace: Mapped[Optional[str]] = mapped_column(String, nullable=True, doc="Private field for vector database namespace")
 
+    # webhook configuration
+    webhook_url: Mapped[Optional[str]] = mapped_column(String, nullable=True, doc="The URL to send webhook events to.")
+    webhook_secret: Mapped[Optional[str]] = mapped_column(String, nullable=True, doc="The secret used to sign webhook payloads (HMAC-SHA256).")
+    webhook_events: Mapped[Optional[List[str]]] = mapped_column(JSON, nullable=True, doc="List of event types to send to the webhook.")
+    webhook_enabled: Mapped[bool] = mapped_column(Boolean, default=False, doc="Whether webhooks are enabled for this agent.")
+
     # relationships
     organization: Mapped["Organization"] = relationship("Organization", back_populates="agents", lazy="raise")
     tool_exec_environment_variables: Mapped[List["AgentEnvironmentVariable"]] = relationship(
@@ -248,6 +254,9 @@ class Agent(SqlalchemyBase, OrganizationMixin, ProjectMixin, TemplateEntityMixin
             "max_files_open": self.max_files_open,
             "per_file_view_window_char_limit": self.per_file_view_window_char_limit,
             "hidden": self.hidden,
+            "webhook_url": self.webhook_url,
+            "webhook_events": self.webhook_events or [],
+            "webhook_enabled": self.webhook_enabled,
             # optional field defaults
             "tags": [],
             "tools": [],
@@ -355,6 +364,9 @@ class Agent(SqlalchemyBase, OrganizationMixin, ProjectMixin, TemplateEntityMixin
             "max_files_open": self.max_files_open,
             "per_file_view_window_char_limit": self.per_file_view_window_char_limit,
             "hidden": self.hidden,
+            "webhook_url": self.webhook_url,
+            "webhook_events": self.webhook_events or [],
+            "webhook_enabled": self.webhook_enabled,
         }
         optional_fields = {
             "tags": [],
