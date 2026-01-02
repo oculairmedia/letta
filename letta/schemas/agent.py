@@ -497,6 +497,7 @@ class UpdateAgent(BaseModel):
         description="If set to True, the agent will be hidden.",
     )
     webhook_url: Optional[str] = Field(None, description="The URL to send webhook events to.")
+    webhook_secret: Optional[str] = Field(None, description="The secret used for signing webhook payloads.")
     webhook_events: Optional[List[str]] = Field(None, description="List of event types to send to the webhook.")
     webhook_enabled: Optional[bool] = Field(None, description="Whether webhooks are enabled for this agent.")
 

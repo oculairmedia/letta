@@ -2232,6 +2232,8 @@ async def update_agent_webhook_config(
     update_data = UpdateAgent()
     if config.url is not None:
         update_data.webhook_url = config.url
+    if config.secret is not None:
+        update_data.webhook_secret = config.secret
     if config.events is not None:
         update_data.webhook_events = [e.value for e in config.events]
     if config.enabled is not None:
@@ -2251,5 +2253,5 @@ async def update_agent_webhook_config(
         url=agent.webhook_url,
         events=events,
         enabled=agent.webhook_enabled,
-        has_secret=False,
+        has_secret=bool(agent.webhook_secret),
     )
