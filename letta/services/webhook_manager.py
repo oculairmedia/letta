@@ -33,12 +33,14 @@ class WebhookManager:
         max_retries: int = DEFAULT_MAX_RETRIES,
         blocked_hosts: Optional[List[str]] = None,
         allowed_hosts: Optional[List[str]] = None,
+        persist_deliveries: bool = True,
     ):
         self.actor = actor
         self.timeout_seconds = timeout_seconds
         self.max_retries = max_retries
         self.blocked_hosts = blocked_hosts
         self.allowed_hosts = allowed_hosts
+        self.persist_deliveries = persist_deliveries
 
     @trace_method
     async def publish_event(
@@ -88,6 +90,38 @@ class WebhookManager:
             secret=webhook_config.secret,
         )
 
+    async def _persist_delivery(self, delivery: WebhookDelivery, organization_id: str) -> None:
+        """Persist the webhook delivery record to the database."""
+        if not self.persist_deliveries:
+            return
+
+        try:
+            from letta.orm.webhook_delivery import WebhookDeliveryORM
+            from letta.server.db import db_registry
+
+            async with db_registry.async_session() as session:
+                # Check if delivery already exists
+                existing = await session.get(WebhookDeliveryORM, delivery.id)
+                if existing:
+                    # Update existing record
+                    existing.status = delivery.status.value
+                    existing.attempt_count = delivery.attempt_count
+                    existing.last_attempt_at = delivery.last_attempt_at
+                    existing.delivered_at = delivery.delivered_at
+                    existing.next_retry_at = delivery.next_retry_at
+                    existing.status_code = delivery.status_code
+                    existing.error_message = delivery.error_message
+                    existing.response_time_ms = delivery.response_time_ms
+                    session.add(existing)
+                else:
+                    # Create new record
+                    orm_delivery = WebhookDeliveryORM.from_pydantic(delivery, organization_id)
+                    session.add(orm_delivery)
+                # Session auto-commits on exit
+        except Exception as e:
+            logger.error(f"Failed to persist webhook delivery {delivery.id}: {e}")
+            # Don't fail the webhook delivery if persistence fails
+
     @trace_method
     async def _dispatch_webhook_async(
         self,
@@ -132,6 +166,8 @@ class WebhookManager:
                         f"Webhook delivered successfully: event={event.id} "
                         f"url={webhook_url} status={response.status_code}"
                     )
+                    # Persist successful delivery
+                    await self._persist_delivery(delivery, event.organization_id)
                     return delivery
 
                 delivery.error_message = f"HTTP {response.status_code}: {response.text[:500]}"
@@ -162,12 +198,16 @@ class WebhookManager:
                 delay = delivery.get_next_retry_delay_seconds()
                 delivery.next_retry_at = get_utc_time()
                 logger.debug(f"Scheduling retry in {delay}s for event={event.id}")
+                # Persist retry status
+                await self._persist_delivery(delivery, event.organization_id)
             else:
                 delivery.status = WebhookDeliveryStatus.FAILED
                 logger.error(
                     f"Webhook delivery exhausted retries: event={event.id} "
                     f"url={webhook_url} last_error={delivery.error_message}"
                 )
+                # Persist failed delivery
+                await self._persist_delivery(delivery, event.organization_id)
 
         return delivery
 
@@ -202,3 +242,50 @@ class WebhookManager:
             return hmac.compare_digest(computed_sig, expected_sig)
         except Exception:
             return False
+
+    @classmethod
+    async def list_deliveries_async(
+        cls,
+        agent_id: str,
+        actor: PydanticUser,
+        limit: int = 50,
+        status: Optional[WebhookDeliveryStatus] = None,
+    ) -> List[WebhookDelivery]:
+        """List webhook deliveries for an agent."""
+        from letta.orm.webhook_delivery import WebhookDeliveryORM
+        from letta.server.db import db_registry
+
+        async with db_registry.async_session() as session:
+            filter_kwargs: Dict[str, Any] = {"agent_id": agent_id}
+            if status:
+                filter_kwargs["status"] = status.value
+
+            deliveries = await WebhookDeliveryORM.list_async(
+                db_session=session,
+                actor=actor,
+                limit=limit,
+                ascending=False,
+                **filter_kwargs,
+            )
+            return [d.to_pydantic() for d in deliveries]
+
+    @classmethod
+    async def get_delivery_async(
+        cls,
+        delivery_id: str,
+        actor: PydanticUser,
+    ) -> Optional[WebhookDelivery]:
+        """Get a specific webhook delivery by ID."""
+        from letta.orm.webhook_delivery import WebhookDeliveryORM
+        from letta.server.db import db_registry
+
+        try:
+            async with db_registry.async_session() as session:
+                delivery = await WebhookDeliveryORM.read_async(
+                    db_session=session,
+                    identifier=delivery_id,
+                    actor=actor,
+                )
+                return delivery.to_pydantic()
+        except Exception:
+            return None
