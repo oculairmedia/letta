@@ -60,6 +60,7 @@ from letta.schemas.source import BaseSource, Source
 from letta.schemas.tool import BaseTool, Tool
 from letta.schemas.tool_execution_result import ToolExecutionResult
 from letta.schemas.user import User
+from letta.schemas.webhook import AgentWebhookConfig, AgentWebhookConfigUpdate, WebhookEventType
 from letta.serialize_schemas.pydantic_agent_schema import AgentSchema
 from letta.server.rest_api.dependencies import HeaderParams, get_headers, get_letta_server
 from letta.server.server import SyncServer
@@ -2192,3 +2193,63 @@ async def capture_messages(
         run_ids = await sleeptime_agent_loop.run_sleeptime_agents()
 
     return JSONResponse({"success": True, "messages_created": len(response_messages), "run_ids": run_ids})
+
+
+@router.get("/{agent_id}/webhook", response_model=AgentWebhookConfig, operation_id="get_agent_webhook_config")
+async def get_agent_webhook_config(
+    agent_id: AgentId,
+    server: SyncServer = Depends(get_letta_server),
+    headers: HeaderParams = Depends(get_headers),
+) -> AgentWebhookConfig:
+    actor = await server.user_manager.get_actor_or_default_async(actor_id=headers.actor_id)
+    agent = await server.agent_manager.get_agent_by_id_async(agent_id, actor)
+
+    events = []
+    if agent.webhook_events:
+        for event_str in agent.webhook_events:
+            try:
+                events.append(WebhookEventType(event_str))
+            except ValueError:
+                pass
+
+    return AgentWebhookConfig(
+        url=agent.webhook_url,
+        events=events,
+        enabled=agent.webhook_enabled,
+        has_secret=False,
+    )
+
+
+@router.put("/{agent_id}/webhook", response_model=AgentWebhookConfig, operation_id="update_agent_webhook_config")
+async def update_agent_webhook_config(
+    agent_id: AgentId,
+    config: AgentWebhookConfigUpdate,
+    server: SyncServer = Depends(get_letta_server),
+    headers: HeaderParams = Depends(get_headers),
+) -> AgentWebhookConfig:
+    actor = await server.user_manager.get_actor_or_default_async(actor_id=headers.actor_id)
+
+    update_data = UpdateAgent()
+    if config.url is not None:
+        update_data.webhook_url = config.url
+    if config.events is not None:
+        update_data.webhook_events = [e.value for e in config.events]
+    if config.enabled is not None:
+        update_data.webhook_enabled = config.enabled
+
+    agent = await server.agent_manager.update_agent_async(agent_id, update_data, actor)
+
+    events = []
+    if agent.webhook_events:
+        for event_str in agent.webhook_events:
+            try:
+                events.append(WebhookEventType(event_str))
+            except ValueError:
+                pass
+
+    return AgentWebhookConfig(
+        url=agent.webhook_url,
+        events=events,
+        enabled=agent.webhook_enabled,
+        has_secret=False,
+    )

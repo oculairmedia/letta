@@ -125,3 +125,29 @@ class WebhookEventPayload(BaseModel):
         if signature:
             headers["X-Letta-Signature"] = signature
         return cls(event=event, headers=headers)
+
+
+class AgentWebhookConfig(BaseModel):
+    """Agent webhook configuration returned by the API (secret is masked)."""
+
+    url: Optional[str] = Field(None, description="The URL to send webhook events to.")
+    events: List[WebhookEventType] = Field(default_factory=list, description="List of event types to send to the webhook (empty = all).")
+    enabled: bool = Field(False, description="Whether webhooks are enabled for this agent.")
+    has_secret: bool = Field(False, description="Whether a webhook secret is configured (actual secret is not exposed).")
+
+
+class AgentWebhookConfigUpdate(BaseModel):
+    """Request body for updating agent webhook configuration."""
+
+    url: Optional[str] = Field(None, description="The URL to send webhook events to. Set to null to remove.")
+    secret: Optional[str] = Field(None, description="Shared secret for HMAC-SHA256 signature verification. Set to null to remove.")
+    events: Optional[List[WebhookEventType]] = Field(None, description="Event types to subscribe to (empty list = all events).")
+    enabled: Optional[bool] = Field(None, description="Whether webhooks are enabled for this agent.")
+
+    @field_validator("url")
+    @classmethod
+    def validate_url(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v != "":
+            if not v.startswith(("http://", "https://")):
+                raise ValueError("Webhook URL must start with http:// or https://")
+        return v
