@@ -232,6 +232,7 @@ class LettaAgentV3(LettaAgentV2):
                 "stop_reason": self.stop_reason.model_dump(mode="json") if self.stop_reason else None,
                 "usage": self.usage.model_dump(mode="json") if self.usage else None,
                 "message_count": len(response_letta_messages),
+                "messages": [m.model_dump(mode="json") for m in response_letta_messages],
             },
         )
 
@@ -400,6 +401,7 @@ class LettaAgentV3(LettaAgentV2):
                     "stop_reason": self.stop_reason.model_dump(mode="json") if self.stop_reason else None,
                     "usage": self.usage.model_dump(mode="json") if self.usage else None,
                     "message_count": len(response_letta_messages),
+                    "messages": [m.model_dump(mode="json") for m in response_letta_messages],
                 },
             )
 
