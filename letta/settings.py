@@ -416,9 +416,23 @@ class LogSettings(BaseSettings):
     verbose_telemetry_logging: bool = Field(default=False)
 
 
-class TelemetrySettings(BaseSettings):
-    """Configuration for telemetry and observability integrations."""
+class WebhookSettings(BaseSettings):
+    model_config = SettingsConfigDict(env_prefix="letta_webhook_", extra="ignore")
 
+    timeout_seconds: int = Field(default=30, ge=1, le=300, description="Timeout for webhook HTTP requests")
+    max_retries: int = Field(default=3, ge=0, le=10, description="Maximum number of retry attempts for failed webhooks")
+    blocked_hosts: list[str] = Field(
+        default=["localhost", "127.0.0.1", "0.0.0.0", "::1", "metadata.google.internal", "169.254.169.254"],
+        description="Hosts blocked from receiving webhooks (SSRF protection)",
+    )
+    allowed_hosts: list[str] | None = Field(
+        default=None,
+        description="If set, only these hosts can receive webhooks (allowlist mode)",
+    )
+    require_https: bool = Field(default=False, description="Require HTTPS for webhook URLs")
+
+
+class TelemetrySettings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="letta_telemetry_", extra="ignore")
 
     # Datadog APM and Profiling
@@ -463,3 +477,4 @@ tool_settings = ToolSettings()
 summarizer_settings = SummarizerSettings()
 log_settings = LogSettings()
 telemetry_settings = TelemetrySettings()
+webhook_settings = WebhookSettings()
