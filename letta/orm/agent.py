@@ -255,6 +255,7 @@ class Agent(SqlalchemyBase, OrganizationMixin, ProjectMixin, TemplateEntityMixin
             "per_file_view_window_char_limit": self.per_file_view_window_char_limit,
             "hidden": self.hidden,
             "webhook_url": self.webhook_url,
+            "webhook_secret": self.webhook_secret,
             "webhook_events": self.webhook_events or [],
             "webhook_enabled": self.webhook_enabled,
             # optional field defaults
@@ -365,6 +366,7 @@ class Agent(SqlalchemyBase, OrganizationMixin, ProjectMixin, TemplateEntityMixin
             "per_file_view_window_char_limit": self.per_file_view_window_char_limit,
             "hidden": self.hidden,
             "webhook_url": self.webhook_url,
+            "webhook_secret": self.webhook_secret,
             "webhook_events": self.webhook_events or [],
             "webhook_enabled": self.webhook_enabled,
         }

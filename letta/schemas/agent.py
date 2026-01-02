@@ -165,6 +165,7 @@ class AgentState(OrmMetadataBase, validate_assignment=True):
     )
 
     webhook_url: Optional[str] = Field(None, description="The URL to send webhook events to.")
+    webhook_secret: Optional[str] = Field(None, description="The secret used for signing webhook payloads.")
     webhook_events: List[str] = Field(default_factory=list, description="List of event types to send to the webhook.")
     webhook_enabled: bool = Field(False, description="Whether webhooks are enabled for this agent.")
 
@@ -336,6 +337,7 @@ class CreateAgent(BaseModel, validate_assignment=True):  #
         deprecated=True,
     )
     webhook_url: Optional[str] = Field(None, description="The URL to send webhook events to.")
+    webhook_secret: Optional[str] = Field(None, description="The secret used for signing webhook payloads.")
     webhook_events: Optional[List[str]] = Field(None, description="List of event types to send to the webhook.")
     webhook_enabled: bool = Field(False, description="Whether webhooks are enabled for this agent.")
 
