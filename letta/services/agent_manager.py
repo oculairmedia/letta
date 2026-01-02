@@ -117,6 +117,45 @@ from letta.validators import raise_on_invalid_id
 logger = get_logger(__name__)
 
 
+async def _publish_agent_tool_webhook(
+    agent_id: str,
+    tool_id: str,
+    tool_name: str,
+    actor: PydanticUser,
+    event_type: str,
+) -> None:
+    from letta.schemas.webhook import WebhookConfig, WebhookEventType
+    from letta.services.webhook_manager import WebhookManager
+
+    try:
+        async with db_registry.async_session() as session:
+            agent = await AgentModel.read_async(db_session=session, identifier=agent_id, actor=actor)
+            if not agent.webhook_url or not agent.webhook_enabled:
+                return
+
+            webhook_config = WebhookConfig(
+                url=agent.webhook_url,
+                secret=agent.webhook_secret,
+                events=[],
+                enabled=agent.webhook_enabled,
+            )
+
+            event_type_enum = WebhookEventType(event_type)
+            webhook_manager = WebhookManager(actor=actor, persist_deliveries=False)
+            await webhook_manager.publish_event(
+                agent_id=agent_id,
+                event_type=event_type_enum,
+                payload={
+                    "agent_id": agent_id,
+                    "tool_id": tool_id,
+                    "tool_name": tool_name,
+                },
+                webhook_config=webhook_config,
+            )
+    except Exception as e:
+        logger.warning(f"Failed to publish agent tool webhook for agent {agent_id}: {e}")
+
+
 class AgentManager:
     """Manager class to handle business logic related to Agents."""
 
@@ -2576,6 +2615,13 @@ class AgentManager:
 
             await session.commit()
 
+        from letta.utils import fire_and_forget
+
+        fire_and_forget(
+            _publish_agent_tool_webhook(agent_id, tool_id, tool_name, actor, "agent.tool.attached"),
+            task_name=f"webhook_tool_attached_{agent_id}_{tool_id}",
+        )
+
     @enforce_types
     @raise_on_invalid_id(param_name="agent_id", expected_prefix=PrimitiveType.AGENT)
     @trace_method
@@ -2758,9 +2804,18 @@ class AgentManager:
         Raises:
             NoResultFound: If the agent is not found.
         """
+        tool_name = None
         async with db_registry.async_session() as session:
             # Verify the agent exists and user has permission to access it
             await validate_agent_exists_async(session, agent_id, actor)
+
+            tool_query = select(ToolModel.name).where(
+                ToolModel.id == tool_id, ToolModel.organization_id == actor.organization_id
+            )
+            tool_result = await session.execute(tool_query)
+            tool_row = tool_result.fetchone()
+            if tool_row:
+                tool_name = tool_row[0]
 
             # Delete the association directly - if it doesn't exist, rowcount will be 0
             delete_query = delete(ToolsAgents).where(ToolsAgents.agent_id == agent_id, ToolsAgents.tool_id == tool_id)
@@ -2772,6 +2827,14 @@ class AgentManager:
                 logger.debug(f"Detached tool id={tool_id} from agent id={agent_id}")
 
             await session.commit()
+
+        if tool_name:
+            from letta.utils import fire_and_forget
+
+            fire_and_forget(
+                _publish_agent_tool_webhook(agent_id, tool_id, tool_name, actor, "agent.tool.detached"),
+                task_name=f"webhook_tool_detached_{agent_id}_{tool_id}",
+            )
 
     @enforce_types
     @raise_on_invalid_id(param_name="agent_id", expected_prefix=PrimitiveType.AGENT)
