@@ -40,6 +40,7 @@ from letta.schemas.step import StepProgression
 from letta.schemas.step_metrics import StepMetrics
 from letta.schemas.tool_execution_result import ToolExecutionResult
 from letta.schemas.usage import LettaUsageStatistics
+from letta.schemas.webhook import WebhookEventType
 from letta.server.rest_api.utils import (
     create_approval_request_message_from_llm_response,
     create_letta_messages_from_llm_response,
@@ -222,6 +223,18 @@ class LettaAgentV3(LettaAgentV2):
         await self._request_checkpoint_finish(
             request_span=request_span, request_start_timestamp_ns=request_start_timestamp_ns, run_id=run_id
         )
+
+        # Publish webhook event for run completion
+        await self._publish_webhook_event(
+            event_type=WebhookEventType.AGENT_RUN_COMPLETED,
+            payload={
+                "run_id": run_id,
+                "stop_reason": self.stop_reason.model_dump(mode="json") if self.stop_reason else None,
+                "usage": self.usage.model_dump(mode="json") if self.usage else None,
+                "message_count": len(response_letta_messages),
+            },
+        )
+
         return result
 
     @trace_method
@@ -378,6 +391,18 @@ class LettaAgentV3(LettaAgentV2):
             await self._request_checkpoint_finish(
                 request_span=request_span, request_start_timestamp_ns=request_start_timestamp_ns, run_id=run_id
             )
+
+            # Publish webhook event for run completion
+            await self._publish_webhook_event(
+                event_type=WebhookEventType.AGENT_RUN_COMPLETED,
+                payload={
+                    "run_id": run_id,
+                    "stop_reason": self.stop_reason.model_dump(mode="json") if self.stop_reason else None,
+                    "usage": self.usage.model_dump(mode="json") if self.usage else None,
+                    "message_count": len(response_letta_messages),
+                },
+            )
+
             for finish_chunk in self.get_finish_chunks_for_stream(self.usage, self.stop_reason):
                 yield f"data: {finish_chunk}\n\n"
         except Exception as cleanup_error:

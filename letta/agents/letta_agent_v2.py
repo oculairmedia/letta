@@ -66,6 +66,8 @@ from letta.services.summarizer.enums import SummarizationMode
 from letta.services.summarizer.summarizer import Summarizer
 from letta.services.telemetry_manager import TelemetryManager
 from letta.services.tool_executor.tool_execution_manager import ToolExecutionManager
+from letta.services.webhook_manager import WebhookManager
+from letta.schemas.webhook import WebhookConfig, WebhookEventType
 from letta.settings import model_settings, settings, summarizer_settings
 from letta.system import package_function_response
 from letta.types import JsonDict
@@ -105,6 +107,7 @@ class LettaAgentV2(BaseAgentV2):
         self.passage_manager = PassageManager()
         self.step_manager = StepManager()
         self.telemetry_manager = TelemetryManager()
+        self.webhook_manager = WebhookManager(actor=self.actor)
 
         ## TODO: Expand to more
         # if summarizer_settings.enable_summarization and model_settings.openai_api_key:
@@ -133,6 +136,53 @@ class LettaAgentV2(BaseAgentV2):
             actor=self.actor,
             agent_id=self.agent_state.id,
         )
+
+    def _get_webhook_config(self) -> Optional[WebhookConfig]:
+        """Build a WebhookConfig from the agent's webhook settings."""
+        if not self.agent_state.webhook_url or not self.agent_state.webhook_enabled:
+            return None
+
+        # Convert string event names to WebhookEventType enum values
+        events = []
+        for event_name in self.agent_state.webhook_events:
+            try:
+                events.append(WebhookEventType(event_name))
+            except ValueError:
+                self.logger.warning(f"Unknown webhook event type: {event_name}")
+
+        return WebhookConfig(
+            url=self.agent_state.webhook_url,
+            secret=getattr(self.agent_state, "webhook_secret", None),
+            events=events,
+            enabled=self.agent_state.webhook_enabled,
+        )
+
+    async def _publish_webhook_event(
+        self,
+        event_type: WebhookEventType,
+        payload: dict,
+    ) -> None:
+        """
+        Publish a webhook event for this agent.
+
+        Args:
+            event_type: The type of webhook event to publish
+            payload: The event-specific data to include in the webhook
+        """
+        webhook_config = self._get_webhook_config()
+        if not webhook_config:
+            return
+
+        try:
+            await self.webhook_manager.publish_event(
+                agent_id=self.agent_state.id,
+                event_type=event_type,
+                payload=payload,
+                webhook_config=webhook_config,
+            )
+        except Exception as e:
+            # Log but don't fail the agent execution on webhook errors
+            self.logger.error(f"Failed to publish webhook event {event_type.value}: {e}")
 
     @trace_method
     async def build_request(self, input_messages: list[MessageCreate]) -> dict:
