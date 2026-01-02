@@ -392,6 +392,12 @@ class ToolManager:
                 task_name=f"embed_tool_{upserted_tool.id}",
             )
 
+        # Publish webhook for tool upsert (treated as update since we don't know if it was insert or update)
+        fire_and_forget(
+            _publish_tool_webhook(upserted_tool, actor, "tool.updated"),
+            task_name=f"webhook_tool_upserted_{upserted_tool.id}",
+        )
+
         return upserted_tool
 
     @enforce_types
