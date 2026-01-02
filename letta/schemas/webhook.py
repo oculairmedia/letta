@@ -22,6 +22,9 @@ class WebhookEventType(str, Enum):
     AGENT_JOB_COMPLETED = "agent.job.completed"
     AGENT_JOB_FAILED = "agent.job.failed"
     AGENT_MEMORY_UPDATED = "agent.memory.updated"
+    TOOL_CREATED = "tool.created"
+    TOOL_UPDATED = "tool.updated"
+    TOOL_DELETED = "tool.deleted"
 
 
 class WebhookDeliveryStatus(str, Enum):
@@ -35,8 +38,9 @@ class WebhookEvent(BaseModel):
     id: str = Field(..., description="Unique identifier for this event (format: evt-{uuid})")
     event_type: WebhookEventType = Field(..., description="The type of event that occurred")
     timestamp: datetime = Field(default_factory=get_utc_time, description="ISO 8601 timestamp when the event was created")
-    agent_id: str = Field(..., description="The agent that triggered this event")
-    organization_id: str = Field(..., description="The organization that owns the agent")
+    agent_id: Optional[str] = Field(default=None, description="The agent that triggered this event (None for global events)")
+    tool_id: Optional[str] = Field(default=None, description="The tool ID for tool-related events")
+    organization_id: str = Field(..., description="The organization that owns the resource")
     data: Dict[str, Any] = Field(default_factory=dict, description="Event-specific payload data")
 
     @classmethod
@@ -69,7 +73,8 @@ class WebhookConfig(BaseModel):
 class WebhookDelivery(BaseModel):
     id: str = Field(..., description="Unique identifier for this delivery attempt")
     event_id: str = Field(..., description="The event ID being delivered")
-    agent_id: str = Field(..., description="The agent this delivery is for")
+    agent_id: Optional[str] = Field(default=None, description="The agent this delivery is for (None for global events)")
+    tool_id: Optional[str] = Field(default=None, description="The tool ID for tool-related events")
     webhook_url: str = Field(..., description="The target URL for delivery")
     event_type: WebhookEventType = Field(..., description="The type of event")
 

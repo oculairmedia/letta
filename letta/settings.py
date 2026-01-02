@@ -430,6 +430,14 @@ class WebhookSettings(BaseSettings):
         description="If set, only these hosts can receive webhooks (allowlist mode)",
     )
     require_https: bool = Field(default=False, description="Require HTTPS for webhook URLs")
+    global_url: str | None = Field(
+        default=None,
+        description="Global webhook URL for platform-level events (tool.created, tool.updated, tool.deleted)",
+    )
+    global_secret: str | None = Field(
+        default=None,
+        description="Shared secret for HMAC-SHA256 signature verification of global webhooks",
+    )
 
 
 class TelemetrySettings(BaseSettings):

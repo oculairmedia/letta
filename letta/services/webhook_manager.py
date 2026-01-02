@@ -90,6 +90,47 @@ class WebhookManager:
             secret=webhook_config.secret,
         )
 
+    @trace_method
+    async def publish_tool_event(
+        self,
+        tool_id: str,
+        event_type: WebhookEventType,
+        payload: Dict[str, Any],
+    ) -> Optional[WebhookDelivery]:
+        from letta.settings import webhook_settings
+
+        if not webhook_settings.global_url:
+            logger.debug(f"No global webhook URL configured, skipping tool event {event_type.value}")
+            return None
+
+        is_valid, error = validate_webhook_url(
+            webhook_settings.global_url,
+            blocked_hosts=self.blocked_hosts,
+            allowed_hosts=self.allowed_hosts,
+        )
+        if not is_valid:
+            logger.warning(f"Invalid global webhook URL: {error}")
+            return None
+
+        organization_id = self.actor.organization_id
+        if not organization_id:
+            logger.error(f"Actor has no organization_id, cannot publish tool webhook for tool {tool_id}")
+            return None
+
+        event = WebhookEvent(
+            id=WebhookEvent.generate_event_id(),
+            event_type=event_type,
+            tool_id=tool_id,
+            organization_id=organization_id,
+            data=payload,
+        )
+
+        return await self._dispatch_webhook_async(
+            webhook_url=webhook_settings.global_url,
+            event=event,
+            secret=webhook_settings.global_secret,
+        )
+
     async def _persist_delivery(self, delivery: WebhookDelivery, organization_id: str) -> None:
         """Persist the webhook delivery record to the database."""
         if not self.persist_deliveries:
@@ -133,6 +174,7 @@ class WebhookManager:
             id=WebhookDelivery.generate_id(),
             event_id=event.id,
             agent_id=event.agent_id,
+            tool_id=event.tool_id,
             webhook_url=webhook_url,
             event_type=event.event_type,
             max_attempts=self.max_retries,

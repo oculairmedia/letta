@@ -47,6 +47,37 @@ from letta.validators import raise_on_invalid_id
 logger = get_logger(__name__)
 
 
+async def _publish_tool_webhook(
+    tool: PydanticTool,
+    actor: PydanticUser,
+    event_type: str,
+) -> None:
+    from letta.schemas.webhook import WebhookEventType
+    from letta.services.webhook_manager import WebhookManager
+    from letta.settings import webhook_settings
+
+    if not webhook_settings.global_url:
+        return
+
+    try:
+        event_type_enum = WebhookEventType(event_type)
+        webhook_manager = WebhookManager(actor=actor, persist_deliveries=False)
+        await webhook_manager.publish_tool_event(
+            tool_id=tool.id,
+            event_type=event_type_enum,
+            payload={
+                "tool_id": tool.id,
+                "tool_name": tool.name,
+                "tool_type": tool.tool_type.value if tool.tool_type else None,
+                "description": tool.description,
+                "json_schema": tool.json_schema,
+                "tags": tool.tags,
+            },
+        )
+    except Exception as e:
+        logger.warning(f"Failed to publish tool webhook for {tool.id}: {e}")
+
+
 # NOTE: function name and nested modal function decorator name must stay in sync with MODAL_DEFAULT_TOOL_NAME
 def modal_tool_wrapper(tool: PydanticTool, actor: PydanticUser, sandbox_env_vars: dict = None, project_id: str = "default"):
     """Create a Modal function wrapper for a tool"""
@@ -450,6 +481,11 @@ class ToolManager:
                 self._embed_tool_background(created_tool, actor),
                 task_name=f"embed_tool_{created_tool.id}",
             )
+
+        fire_and_forget(
+            _publish_tool_webhook(created_tool, actor, "tool.created"),
+            task_name=f"webhook_tool_created_{created_tool.id}",
+        )
 
         return created_tool
 
@@ -1057,6 +1093,11 @@ class ToolManager:
                 task_name=f"update_tool_embedding_{updated_tool.id}",
             )
 
+        fire_and_forget(
+            _publish_tool_webhook(updated_tool, actor, "tool.updated"),
+            task_name=f"webhook_tool_updated_{updated_tool.id}",
+        )
+
         return updated_tool
 
     @enforce_types
@@ -1087,8 +1128,15 @@ class ToolManager:
                     # Tool is corrupted and can't be converted to Pydantic
                     # Skip Modal cleanup and just delete the tool from database
                     logger.warning(f"Skipping Modal cleanup for corrupted tool {tool_id}: {e}")
+                    tool_pydantic = None
 
                 await tool.hard_delete_async(db_session=session, actor=actor)
+
+                if tool_pydantic:
+                    fire_and_forget(
+                        _publish_tool_webhook(tool_pydantic, actor, "tool.deleted"),
+                        task_name=f"webhook_tool_deleted_{tool_id}",
+                    )
 
                 # Delete from Turbopuffer if enabled
                 from letta.helpers.tpuf_client import should_use_tpuf_for_tools
