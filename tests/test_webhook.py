@@ -1215,3 +1215,105 @@ class TestWebhookMessageConsolidation:
         result = consolidate_streaming_messages(chunks)
 
         assert result == []
+
+
+class TestInputMessagesToWebhookFormat:
+
+    def test_converts_user_message_to_webhook_format(self):
+        from letta.helpers.message_helper import input_messages_to_webhook_format
+        from letta.schemas.enums import MessageRole
+        from letta.schemas.message import MessageCreate
+
+        input_messages = [
+            MessageCreate(role=MessageRole.user, content="What is the capital of France?"),
+        ]
+
+        result = input_messages_to_webhook_format(input_messages)
+
+        assert len(result) == 1
+        assert result[0]["message_type"] == "user_message"
+        assert result[0]["content"] == "What is the capital of France?"
+
+    def test_filters_non_user_messages(self):
+        from letta.helpers.message_helper import input_messages_to_webhook_format
+        from letta.schemas.enums import MessageRole
+        from letta.schemas.message import MessageCreate
+
+        input_messages = [
+            MessageCreate(role=MessageRole.system, content="System prompt"),
+            MessageCreate(role=MessageRole.user, content="User question"),
+            MessageCreate(role=MessageRole.assistant, content="Assistant reply"),
+        ]
+
+        result = input_messages_to_webhook_format(input_messages)
+
+        assert len(result) == 1
+        assert result[0]["content"] == "User question"
+
+    def test_handles_empty_input(self):
+        from letta.helpers.message_helper import input_messages_to_webhook_format
+
+        result = input_messages_to_webhook_format([])
+
+        assert result == []
+
+    def test_handles_list_content(self):
+        from letta.helpers.message_helper import input_messages_to_webhook_format
+        from letta.schemas.enums import MessageRole
+        from letta.schemas.letta_message_content import TextContent
+        from letta.schemas.message import MessageCreate
+
+        input_messages = [
+            MessageCreate(
+                role=MessageRole.user,
+                content=[TextContent(text="Hello "), TextContent(text="World")],
+            ),
+        ]
+
+        result = input_messages_to_webhook_format(input_messages)
+
+        assert len(result) == 1
+        assert result[0]["content"] == "Hello World"
+
+    def test_skips_empty_content(self):
+        from letta.helpers.message_helper import input_messages_to_webhook_format
+        from letta.schemas.enums import MessageRole
+        from letta.schemas.message import MessageCreate
+
+        input_messages = [
+            MessageCreate(role=MessageRole.user, content=""),
+        ]
+
+        result = input_messages_to_webhook_format(input_messages)
+
+        assert result == []
+
+    def test_preserves_name_field(self):
+        from letta.helpers.message_helper import input_messages_to_webhook_format
+        from letta.schemas.enums import MessageRole
+        from letta.schemas.message import MessageCreate
+
+        input_messages = [
+            MessageCreate(role=MessageRole.user, content="Hello", name="Emmanuel"),
+        ]
+
+        result = input_messages_to_webhook_format(input_messages)
+
+        assert len(result) == 1
+        assert result[0]["name"] == "Emmanuel"
+
+    def test_multiple_user_messages(self):
+        from letta.helpers.message_helper import input_messages_to_webhook_format
+        from letta.schemas.enums import MessageRole
+        from letta.schemas.message import MessageCreate
+
+        input_messages = [
+            MessageCreate(role=MessageRole.user, content="First message"),
+            MessageCreate(role=MessageRole.user, content="Second message"),
+        ]
+
+        result = input_messages_to_webhook_format(input_messages)
+
+        assert len(result) == 2
+        assert result[0]["content"] == "First message"
+        assert result[1]["content"] == "Second message"

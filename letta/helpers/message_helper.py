@@ -11,7 +11,7 @@ from letta import __version__, system
 from letta.errors import LettaImageFetchError
 from letta.helpers.datetime_helpers import get_utc_time
 from letta.schemas.enums import MessageRole
-from letta.schemas.letta_message import AssistantMessage, LettaMessage, MessageType
+from letta.schemas.letta_message import AssistantMessage, LettaMessage, MessageType, UserMessage
 from letta.schemas.letta_message_content import Base64Image, ImageContent, ImageSourceType, TextContent
 from letta.schemas.message import Message, MessageCreate
 
@@ -207,3 +207,32 @@ def consolidate_streaming_messages(messages: List[LettaMessage]) -> List[LettaMe
     flush_assistant_chunks()
 
     return consolidated
+
+
+def input_messages_to_webhook_format(input_messages: List[MessageCreate]) -> List[dict]:
+    """Convert input MessageCreate objects to webhook-friendly UserMessage dicts."""
+    result = []
+    for msg in input_messages:
+        if msg.role != MessageRole.user:
+            continue
+
+        if isinstance(msg.content, str):
+            content = msg.content
+        elif isinstance(msg.content, list):
+            text_parts = []
+            for item in msg.content:
+                if isinstance(item, TextContent):
+                    text_parts.append(item.text)
+            content = "".join(text_parts)
+        else:
+            content = ""
+
+        if content:
+            user_msg = UserMessage(
+                id=f"msg-{uuid.uuid4()}",
+                date=get_utc_time(),
+                content=content,
+                name=msg.name,
+            )
+            result.append(user_msg.model_dump(mode="json"))
+    return result
