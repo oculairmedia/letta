@@ -61,7 +61,12 @@ async def _publish_tool_webhook(
 
     try:
         event_type_enum = WebhookEventType(event_type)
-        webhook_manager = WebhookManager(actor=actor, persist_deliveries=False)
+        webhook_manager = WebhookManager(
+            actor=actor,
+            persist_deliveries=False,
+            allowed_hosts=webhook_settings.allowed_hosts,
+            blocked_hosts=webhook_settings.blocked_hosts,
+        )
         await webhook_manager.publish_tool_event(
             tool_id=tool.id,
             event_type=event_type_enum,
