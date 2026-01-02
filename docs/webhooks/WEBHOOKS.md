@@ -18,13 +18,24 @@ Webhooks provide real-time event notifications from Letta agents. Instead of pol
 ## Overview
 
 Webhooks emit events for key agent lifecycle actions:
-- Agent execution steps (started, completed, failed)
-- Tool operations (attached, detached, executed)
+- Agent execution (run completed)
+- Tool lifecycle (created, updated, deleted)
+- Agent tool operations (attached, detached)
 - Memory updates
 - Job and run completion
 
+### Webhook Scopes
+
+Letta supports two levels of webhooks:
+
+| Scope | Configuration | Use Case |
+|-------|---------------|----------|
+| **Global** | Environment variables | Platform-level events (tool CRUD) |
+| **Per-Agent** | Agent fields via API | Agent-specific events (runs, tool attach/detach) |
+
 ### Features
 
+- **Global webhooks** - Platform-wide events delivered to a central endpoint
 - **Per-agent configuration** - Each agent can have its own webhook URL and event subscriptions
 - **Event filtering** - Subscribe to specific event types or all events
 - **HMAC signatures** - Verify webhook authenticity with shared secrets
@@ -100,7 +111,21 @@ else:
 
 ## Event Types
 
-### Agent Execution Events
+### Global Events (Platform-Level)
+
+These events are delivered to the global webhook URL (`LETTA_WEBHOOK_GLOBAL_URL`).
+
+| Event Type | Trigger | Scope | Data Fields |
+|------------|---------|-------|-------------|
+| `tool.created` | Tool created via API | Global | `tool_id`, `tool_name`, `tool_type`, `description`, `json_schema`, `tags` |
+| `tool.updated` | Tool updated via API | Global | `tool_id`, `tool_name`, `tool_type`, `description`, `json_schema`, `tags` |
+| `tool.deleted` | Tool deleted via API | Global | `tool_id`, `tool_name` |
+
+### Per-Agent Events
+
+These events are delivered to the agent's configured webhook URL.
+
+#### Agent Execution Events
 
 | Event Type | Description | Data Fields |
 |------------|-------------|-------------|
@@ -110,16 +135,16 @@ else:
 | `agent.step.completed` | Single agent step finishes | `step_id`, `messages`, `tool_calls`, `usage` |
 | `agent.step.failed` | Single agent step fails | `step_id`, `error` |
 
-### Tool Events
+#### Agent Tool Events
 
 | Event Type | Description | Data Fields |
 |------------|-------------|-------------|
-| `agent.tool.attached` | Tool attached to agent | `tool_id`, `tool_name` |
-| `agent.tool.detached` | Tool detached from agent | `tool_id`, `tool_name` |
+| `agent.tool.attached` | Tool attached to agent | `agent_id`, `tool_id`, `tool_name` |
+| `agent.tool.detached` | Tool detached from agent | `agent_id`, `tool_id`, `tool_name` |
 | `tool.execution.completed` | Tool execution finishes | `tool_id`, `tool_name`, `arguments`, `result` |
 | `tool.execution.failed` | Tool execution fails | `tool_id`, `tool_name`, `arguments`, `error` |
 
-### State Events
+#### State Events
 
 | Event Type | Description | Data Fields |
 |------------|-------------|-------------|
@@ -127,7 +152,7 @@ else:
 | `agent.memory.updated` | Agent memory modified | `block_label`, `old_value`, `new_value` |
 | `agent.message.sent` | Message sent to agent | `message_id`, `role`, `text` |
 
-### Job Events
+#### Job Events
 
 | Event Type | Description | Data Fields |
 |------------|-------------|-------------|
@@ -136,9 +161,162 @@ else:
 
 ---
 
+## Payload Schemas
+
+### Common Event Structure
+
+All webhook events share this structure:
+
+```json
+{
+  "id": "evt-{uuid}",
+  "event_type": "event.type.here",
+  "timestamp": "2026-01-02T20:15:30.123456Z",
+  "agent_id": "agent-{uuid}",
+  "tool_id": "tool-{uuid}",
+  "organization_id": "org-{uuid}",
+  "data": { ... }
+}
+```
+
+**Field Descriptions:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | string | Unique event identifier (format: `evt-{uuid}`) |
+| `event_type` | string | The type of event (see Event Types above) |
+| `timestamp` | string | ISO 8601 timestamp when event was created |
+| `agent_id` | string \| null | Agent ID (null for global events like `tool.*`) |
+| `tool_id` | string \| null | Tool ID for tool-related events |
+| `organization_id` | string | Organization that owns the resource |
+| `data` | object | Event-specific payload data |
+
+### Tool Created/Updated Payload
+
+```json
+{
+  "id": "evt-550e8400-e29b-41d4-a716-446655440000",
+  "event_type": "tool.created",
+  "timestamp": "2026-01-02T20:15:30.123456Z",
+  "agent_id": null,
+  "tool_id": "tool-123e4567-e89b-12d3-a456-426614174000",
+  "organization_id": "org-456",
+  "data": {
+    "tool_id": "tool-123e4567-e89b-12d3-a456-426614174000",
+    "tool_name": "web_search",
+    "tool_type": "custom",
+    "description": "Search the web for information",
+    "json_schema": {
+      "name": "web_search",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "query": {"type": "string", "description": "Search query"}
+        },
+        "required": ["query"]
+      }
+    },
+    "tags": ["search", "web"]
+  }
+}
+```
+
+### Tool Deleted Payload
+
+```json
+{
+  "id": "evt-550e8400-e29b-41d4-a716-446655440001",
+  "event_type": "tool.deleted",
+  "timestamp": "2026-01-02T20:15:30.123456Z",
+  "agent_id": null,
+  "tool_id": "tool-123e4567-e89b-12d3-a456-426614174000",
+  "organization_id": "org-456",
+  "data": {
+    "tool_id": "tool-123e4567-e89b-12d3-a456-426614174000",
+    "tool_name": "web_search"
+  }
+}
+```
+
+### Agent Tool Attached/Detached Payload
+
+```json
+{
+  "id": "evt-550e8400-e29b-41d4-a716-446655440002",
+  "event_type": "agent.tool.attached",
+  "timestamp": "2026-01-02T20:15:30.123456Z",
+  "agent_id": "agent-789",
+  "tool_id": "tool-123e4567-e89b-12d3-a456-426614174000",
+  "organization_id": "org-456",
+  "data": {
+    "agent_id": "agent-789",
+    "tool_id": "tool-123e4567-e89b-12d3-a456-426614174000",
+    "tool_name": "web_search"
+  }
+}
+```
+
+### Agent Run Completed Payload
+
+```json
+{
+  "id": "evt-550e8400-e29b-41d4-a716-446655440003",
+  "event_type": "agent.run.completed",
+  "timestamp": "2026-01-02T20:15:30.123456Z",
+  "agent_id": "agent-789",
+  "tool_id": null,
+  "organization_id": "org-456",
+  "data": {
+    "run_id": "run-abc123",
+    "step_count": 3,
+    "messages": [
+      {
+        "id": "message-001",
+        "role": "assistant",
+        "text": "I found the information you requested...",
+        "tool_calls": null,
+        "created_at": "2026-01-02T20:15:28.000000Z"
+      }
+    ],
+    "usage": {
+      "completion_tokens": 150,
+      "prompt_tokens": 500,
+      "total_tokens": 650
+    }
+  }
+}
+```
+
+---
+
 ## Configuration
 
-### API Endpoints
+### Global Webhooks (Environment Variables)
+
+Configure global webhooks for platform-level events (`tool.created`, `tool.updated`, `tool.deleted`):
+
+```bash
+# Required: URL to receive global webhook events
+export LETTA_WEBHOOK_GLOBAL_URL="https://your-service.com/webhooks/tools"
+
+# Optional: Secret for HMAC-SHA256 signature verification
+export LETTA_WEBHOOK_GLOBAL_SECRET="your-secret-key"
+```
+
+**Docker Compose example:**
+
+```yaml
+services:
+  letta:
+    image: letta/letta:latest
+    environment:
+      - LETTA_WEBHOOK_GLOBAL_URL=https://your-service.com/webhooks/tools
+      - LETTA_WEBHOOK_GLOBAL_SECRET=your-secret-key
+```
+
+Global webhooks are triggered automatically when tools are created, updated, or deleted via the API. No additional configuration is needed once the environment variables are set.
+
+### Per-Agent Webhooks (API Endpoints)
 
 #### Get Webhook Configuration
 
@@ -458,10 +636,16 @@ curl -X POST "http://localhost:8283/v1/agents/agent-123/messages" \
 ```python
 def handle_webhook_event(event):
     handlers = {
+        # Per-agent events
         'agent.run.completed': handle_run_completed,
         'agent.step.completed': handle_step_completed,
         'agent.tool.attached': handle_tool_attached,
+        'agent.tool.detached': handle_tool_detached,
         'agent.memory.updated': handle_memory_updated,
+        # Global events (tool lifecycle)
+        'tool.created': handle_tool_created,
+        'tool.updated': handle_tool_updated,
+        'tool.deleted': handle_tool_deleted,
     }
     
     handler = handlers.get(event['event_type'])
@@ -485,9 +669,90 @@ def handle_tool_attached(event):
     agent_id = event['agent_id']
     print(f"Tool '{tool_name}' attached to agent {agent_id}")
 
+def handle_tool_detached(event):
+    tool_name = event['data']['tool_name']
+    agent_id = event['agent_id']
+    print(f"Tool '{tool_name}' detached from agent {agent_id}")
+
 def handle_memory_updated(event):
     block_label = event['data']['block_label']
     print(f"Memory block '{block_label}' updated")
+
+# Global event handlers (for tool lifecycle)
+def handle_tool_created(event):
+    tool_id = event['tool_id']
+    tool_name = event['data']['tool_name']
+    print(f"Tool created: {tool_name} ({tool_id})")
+    # Sync to vector database, update cache, etc.
+
+def handle_tool_updated(event):
+    tool_id = event['tool_id']
+    tool_name = event['data']['tool_name']
+    print(f"Tool updated: {tool_name} ({tool_id})")
+    # Re-index in vector database, invalidate cache, etc.
+
+def handle_tool_deleted(event):
+    tool_id = event['tool_id']
+    tool_name = event['data']['tool_name']
+    print(f"Tool deleted: {tool_name} ({tool_id})")
+    # Remove from vector database, clean up cache, etc.
+```
+
+### Tool Sync Service Example
+
+A common use case is syncing tools to an external system (e.g., vector database for search). Instead of polling, use webhooks:
+
+```python
+from flask import Flask, request, jsonify
+import httpx
+import weaviate
+
+app = Flask(__name__)
+client = weaviate.Client("http://weaviate:8080")
+
+@app.route('/webhooks/tools', methods=['POST'])
+def handle_tool_webhook():
+    event = request.json
+    event_type = event['event_type']
+    tool_id = event['tool_id']
+    
+    if event_type == 'tool.created':
+        # Add tool to vector database
+        tool_data = event['data']
+        client.data_object.create(
+            class_name="Tool",
+            data_object={
+                "tool_id": tool_id,
+                "name": tool_data['tool_name'],
+                "description": tool_data['description'],
+                "schema": str(tool_data['json_schema']),
+            }
+        )
+        print(f"Added tool {tool_id} to Weaviate")
+    
+    elif event_type == 'tool.updated':
+        # Update tool in vector database
+        tool_data = event['data']
+        client.data_object.update(
+            class_name="Tool",
+            uuid=tool_id,
+            data_object={
+                "name": tool_data['tool_name'],
+                "description": tool_data['description'],
+                "schema": str(tool_data['json_schema']),
+            }
+        )
+        print(f"Updated tool {tool_id} in Weaviate")
+    
+    elif event_type == 'tool.deleted':
+        # Remove tool from vector database
+        client.data_object.delete(class_name="Tool", uuid=tool_id)
+        print(f"Deleted tool {tool_id} from Weaviate")
+    
+    return jsonify({'received': True}), 200
+
+if __name__ == '__main__':
+    app.run(port=5000)
 ```
 
 ---
@@ -573,19 +838,29 @@ Look for log lines containing:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `LETTA_WEBHOOK_STRICT_VALIDATION` | `false` | Enforce HTTPS-only URLs and stricter validation |
-| `LETTA_WEBHOOK_TIMEOUT_SECONDS` | `10` | HTTP request timeout for webhook delivery |
+| `LETTA_WEBHOOK_GLOBAL_URL` | `null` | URL for global webhook events (tool.created, etc.) |
+| `LETTA_WEBHOOK_GLOBAL_SECRET` | `null` | Secret for global webhook HMAC signatures |
+| `LETTA_WEBHOOK_TIMEOUT_SECONDS` | `30` | HTTP request timeout for webhook delivery |
 | `LETTA_WEBHOOK_MAX_RETRIES` | `3` | Maximum delivery retry attempts |
-| `LETTA_WEBHOOK_PERSIST_DELIVERIES` | `true` | Save delivery attempts to database |
+| `LETTA_WEBHOOK_REQUIRE_HTTPS` | `false` | Enforce HTTPS-only URLs |
+| `LETTA_WEBHOOK_BLOCKED_HOSTS` | `localhost,127.0.0.1,...` | Hosts blocked from receiving webhooks |
+| `LETTA_WEBHOOK_ALLOWED_HOSTS` | `null` | If set, only these hosts can receive webhooks |
 
 ### Webhook Settings (letta/settings.py)
 
 ```python
 class WebhookSettings(BaseSettings):
-    webhook_timeout_seconds: int = 10
-    webhook_max_retries: int = 3
-    webhook_strict_validation: bool = False
-    webhook_persist_deliveries: bool = True
+    model_config = SettingsConfigDict(env_prefix="letta_webhook_", extra="ignore")
+
+    timeout_seconds: int = 30
+    max_retries: int = 3
+    require_https: bool = False
+    blocked_hosts: list[str] = ["localhost", "127.0.0.1", "0.0.0.0", "::1", ...]
+    allowed_hosts: list[str] | None = None
+    
+    # Global webhooks (platform-level events)
+    global_url: str | None = None
+    global_secret: str | None = None
 ```
 
 ---
@@ -634,22 +909,32 @@ def handle_webhook():
 
 ## Limitations & Future Work
 
+### Current Implementation Status
+
+| Event Category | Status | Notes |
+|----------------|--------|-------|
+| `agent.run.completed` | ✅ Implemented | Emitted after agent run finishes |
+| `tool.created/updated/deleted` | ✅ Implemented | Global events via `LETTA_WEBHOOK_GLOBAL_URL` |
+| `agent.tool.attached/detached` | ✅ Implemented | Per-agent events |
+| `agent.step.*` | 🔲 Planned | Step-level events not yet emitted |
+| `agent.memory.updated` | 🔲 Planned | Memory change events not yet emitted |
+| `tool.execution.*` | 🔲 Planned | Tool execution events not yet emitted |
+
 ### Current Limitations
 
-1. **Limited event coverage:** Currently only `agent.run.completed` is emitted during agent execution. Other event types are defined but not yet integrated.
+1. **No delivery history API:** Delivery attempts are persisted but not yet exposed via API endpoints.
 
-2. **No delivery history API:** Delivery attempts are persisted but not yet exposed via API endpoints.
+2. **No test endpoint:** No way to trigger a test webhook delivery to verify configuration.
 
-3. **No test endpoint:** No way to trigger a test webhook delivery to verify configuration.
-
-4. **No per-org webhooks:** Webhooks are per-agent only, not organization-wide.
+3. **Step-level events not implemented:** `agent.step.completed` and `agent.step.failed` are defined but not yet emitted.
 
 ### Planned Features
 
-- Additional event type emissions throughout the codebase
+- Step-level event emissions (`agent.step.completed`, `agent.step.failed`)
+- Memory update events (`agent.memory.updated`)
+- Tool execution events (`tool.execution.completed`, `tool.execution.failed`)
 - API endpoints for querying webhook delivery history
 - Test webhook endpoint for configuration verification
-- Organization-level webhook configuration
 - Webhook delivery dashboard in web UI
 - Support for multiple webhook URLs per agent
 - Custom retry policies per webhook
