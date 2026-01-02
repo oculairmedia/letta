@@ -767,6 +767,10 @@ class AgentManager:
                 "timezone": agent_update.timezone,
                 "max_files_open": agent_update.max_files_open,
                 "per_file_view_window_char_limit": agent_update.per_file_view_window_char_limit,
+                "webhook_url": agent_update.webhook_url,
+                "webhook_secret": agent_update.webhook_secret,
+                "webhook_events": agent_update.webhook_events,
+                "webhook_enabled": agent_update.webhook_enabled,
             }
             for col, val in scalar_updates.items():
                 if val is not None:
