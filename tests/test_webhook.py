@@ -783,3 +783,256 @@ class TestWebhookMessagePayload:
         assert len(serialized["content"]) == 2
         assert serialized["content"][0]["type"] == "text"
         assert serialized["content"][0]["text"] == "Here is my response."
+
+
+class TestToolWebhookEvents:
+    """Tests for tool.created, tool.updated, tool.deleted webhook events (LCORE-12)."""
+
+    def test_tool_event_types_exist(self):
+        """Verify tool webhook event types are defined."""
+        assert WebhookEventType.TOOL_CREATED.value == "tool.created"
+        assert WebhookEventType.TOOL_UPDATED.value == "tool.updated"
+        assert WebhookEventType.TOOL_DELETED.value == "tool.deleted"
+
+    def test_tool_created_event_structure(self):
+        """Verify tool.created webhook event has correct structure."""
+        tool_payload = {
+            "tool_id": "tool-abc123",
+            "tool_name": "my_custom_tool",
+            "tool_type": "custom",
+            "description": "A custom tool for testing",
+            "json_schema": {"name": "my_custom_tool", "parameters": {}},
+            "tags": ["test", "custom"],
+        }
+
+        event = WebhookEvent(
+            id=WebhookEvent.generate_event_id(),
+            event_type=WebhookEventType.TOOL_CREATED,
+            tool_id="tool-abc123",
+            organization_id="org-456",
+            data=tool_payload,
+        )
+
+        assert event.agent_id is None
+        assert event.tool_id == "tool-abc123"
+        assert event.event_type == WebhookEventType.TOOL_CREATED
+
+        event_json = event.model_dump(mode="json")
+        assert event_json["event_type"] == "tool.created"
+        assert event_json["tool_id"] == "tool-abc123"
+        assert event_json["agent_id"] is None
+        assert event_json["data"]["tool_name"] == "my_custom_tool"
+        assert event_json["data"]["tool_type"] == "custom"
+
+    def test_tool_updated_event_structure(self):
+        """Verify tool.updated webhook event has correct structure."""
+        event = WebhookEvent(
+            id=WebhookEvent.generate_event_id(),
+            event_type=WebhookEventType.TOOL_UPDATED,
+            tool_id="tool-xyz789",
+            organization_id="org-456",
+            data={
+                "tool_id": "tool-xyz789",
+                "tool_name": "updated_tool",
+                "tool_type": "custom",
+                "description": "Updated description",
+                "json_schema": {"name": "updated_tool"},
+                "tags": ["updated"],
+            },
+        )
+
+        event_json = event.model_dump(mode="json")
+        assert event_json["event_type"] == "tool.updated"
+        assert event_json["tool_id"] == "tool-xyz789"
+        assert event_json["data"]["tool_name"] == "updated_tool"
+
+    def test_tool_deleted_event_structure(self):
+        """Verify tool.deleted webhook event has correct structure."""
+        event = WebhookEvent(
+            id=WebhookEvent.generate_event_id(),
+            event_type=WebhookEventType.TOOL_DELETED,
+            tool_id="tool-deleted",
+            organization_id="org-456",
+            data={
+                "tool_id": "tool-deleted",
+                "tool_name": "deleted_tool",
+                "tool_type": "custom",
+                "description": None,
+                "json_schema": None,
+                "tags": [],
+            },
+        )
+
+        event_json = event.model_dump(mode="json")
+        assert event_json["event_type"] == "tool.deleted"
+        assert event_json["tool_id"] == "tool-deleted"
+
+    def test_webhook_delivery_with_tool_id(self):
+        """Verify WebhookDelivery works with tool_id instead of agent_id."""
+        delivery = WebhookDelivery(
+            id=WebhookDelivery.generate_id(),
+            event_id="evt-tool-123",
+            tool_id="tool-abc",
+            webhook_url="https://example.com/webhook",
+            event_type=WebhookEventType.TOOL_CREATED,
+        )
+
+        assert delivery.agent_id is None
+        assert delivery.tool_id == "tool-abc"
+        assert delivery.event_type == WebhookEventType.TOOL_CREATED
+
+    @pytest.mark.asyncio
+    async def test_publish_tool_event_without_global_url(self):
+        """Verify publish_tool_event returns None when global_url not configured."""
+        mock_actor = MagicMock()
+        mock_actor.organization_id = "org-test"
+
+        webhook_manager = WebhookManager(actor=mock_actor)
+
+        with patch("letta.services.webhook_manager.webhook_settings") as mock_settings:
+            mock_settings.global_url = None
+
+            result = await webhook_manager.publish_tool_event(
+                tool_id="tool-123",
+                event_type=WebhookEventType.TOOL_CREATED,
+                payload={"tool_name": "test"},
+            )
+
+            assert result is None
+
+    @pytest.mark.asyncio
+    async def test_publish_tool_event_with_global_url(self):
+        """Verify publish_tool_event dispatches when global_url is configured."""
+        mock_actor = MagicMock()
+        mock_actor.organization_id = "org-test"
+
+        webhook_manager = WebhookManager(actor=mock_actor, persist_deliveries=False)
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.text = "OK"
+
+        with patch("letta.services.webhook_manager.webhook_settings") as mock_settings:
+            mock_settings.global_url = "https://example.com/global-webhook"
+            mock_settings.global_secret = "test-secret"
+
+            with patch("letta.services.webhook_manager.AsyncClient") as mock_client:
+                mock_instance = AsyncMock()
+                mock_instance.__aenter__.return_value = mock_instance
+                mock_instance.__aexit__.return_value = None
+                mock_instance.post.return_value = mock_response
+                mock_client.return_value = mock_instance
+
+                result = await webhook_manager.publish_tool_event(
+                    tool_id="tool-456",
+                    event_type=WebhookEventType.TOOL_CREATED,
+                    payload={
+                        "tool_id": "tool-456",
+                        "tool_name": "new_tool",
+                        "tool_type": "custom",
+                    },
+                )
+
+                assert result is not None
+                assert result.status == WebhookDeliveryStatus.DELIVERED
+                assert result.tool_id == "tool-456"
+
+                call_args = mock_instance.post.call_args
+                sent_json = call_args.kwargs.get("json")
+                assert sent_json["event_type"] == "tool.created"
+                assert sent_json["tool_id"] == "tool-456"
+
+
+class TestAgentToolWebhookEvents:
+    """Tests for agent.tool.attached and agent.tool.detached webhook events (LCORE-12)."""
+
+    def test_agent_tool_event_types_exist(self):
+        """Verify agent tool webhook event types are defined."""
+        assert WebhookEventType.AGENT_TOOL_ATTACHED.value == "agent.tool.attached"
+        assert WebhookEventType.AGENT_TOOL_DETACHED.value == "agent.tool.detached"
+
+    def test_agent_tool_attached_event_structure(self):
+        """Verify agent.tool.attached webhook event has correct structure."""
+        event = WebhookEvent(
+            id=WebhookEvent.generate_event_id(),
+            event_type=WebhookEventType.AGENT_TOOL_ATTACHED,
+            agent_id="agent-123",
+            tool_id="tool-456",
+            organization_id="org-789",
+            data={
+                "agent_id": "agent-123",
+                "tool_id": "tool-456",
+                "tool_name": "search_tool",
+            },
+        )
+
+        assert event.agent_id == "agent-123"
+        assert event.tool_id == "tool-456"
+
+        event_json = event.model_dump(mode="json")
+        assert event_json["event_type"] == "agent.tool.attached"
+        assert event_json["agent_id"] == "agent-123"
+        assert event_json["tool_id"] == "tool-456"
+        assert event_json["data"]["tool_name"] == "search_tool"
+
+    def test_agent_tool_detached_event_structure(self):
+        """Verify agent.tool.detached webhook event has correct structure."""
+        event = WebhookEvent(
+            id=WebhookEvent.generate_event_id(),
+            event_type=WebhookEventType.AGENT_TOOL_DETACHED,
+            agent_id="agent-123",
+            tool_id="tool-456",
+            organization_id="org-789",
+            data={
+                "agent_id": "agent-123",
+                "tool_id": "tool-456",
+                "tool_name": "removed_tool",
+            },
+        )
+
+        event_json = event.model_dump(mode="json")
+        assert event_json["event_type"] == "agent.tool.detached"
+        assert event_json["data"]["tool_name"] == "removed_tool"
+
+    def test_agent_tool_event_with_both_ids(self):
+        """Verify webhook event can have both agent_id and tool_id."""
+        event = WebhookEvent(
+            id="evt-both-ids",
+            event_type=WebhookEventType.AGENT_TOOL_ATTACHED,
+            agent_id="agent-abc",
+            tool_id="tool-xyz",
+            organization_id="org-123",
+            data={"agent_id": "agent-abc", "tool_id": "tool-xyz", "tool_name": "dual_tool"},
+        )
+
+        assert event.agent_id == "agent-abc"
+        assert event.tool_id == "tool-xyz"
+
+        delivery = WebhookDelivery(
+            id=WebhookDelivery.generate_id(),
+            event_id=event.id,
+            agent_id=event.agent_id,
+            tool_id=event.tool_id,
+            webhook_url="https://example.com/webhook",
+            event_type=event.event_type,
+        )
+
+        assert delivery.agent_id == "agent-abc"
+        assert delivery.tool_id == "tool-xyz"
+
+    def test_webhook_config_subscribes_to_tool_events(self):
+        """Verify WebhookConfig can subscribe to tool events."""
+        config = WebhookConfig(
+            url="https://example.com/webhook",
+            events=[
+                WebhookEventType.AGENT_TOOL_ATTACHED,
+                WebhookEventType.AGENT_TOOL_DETACHED,
+                WebhookEventType.TOOL_CREATED,
+            ],
+            enabled=True,
+        )
+
+        assert config.is_subscribed_to(WebhookEventType.AGENT_TOOL_ATTACHED)
+        assert config.is_subscribed_to(WebhookEventType.AGENT_TOOL_DETACHED)
+        assert config.is_subscribed_to(WebhookEventType.TOOL_CREATED)
+        assert not config.is_subscribed_to(WebhookEventType.AGENT_RUN_COMPLETED)
