@@ -213,7 +213,8 @@ def input_messages_to_webhook_format(input_messages: List[MessageCreate]) -> Lis
     """Convert input MessageCreate objects to webhook-friendly UserMessage dicts."""
     result = []
     for msg in input_messages:
-        if msg.role != MessageRole.user:
+        # Skip messages without role (e.g., ApprovalCreate)
+        if not hasattr(msg, 'role') or msg.role != MessageRole.user:
             continue
 
         if isinstance(msg.content, str):
