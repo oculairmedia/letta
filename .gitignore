@@ -1,0 +1,7 @@
+.env
+.letta/
+.persist/
+*.pyc
+__pycache__/
+node_modules/
+*.log
