@@ -127,9 +127,7 @@ async def summarize_via_sliding_window(
         # need to keep the last message (might contain an approval request)
         raise ValueError(f"Assistant message index {assistant_message_index} is at the end of the message buffer, skipping summarization")
 
-    # Include the assistant message at the cutoff point so conversations are complete
-    # (otherwise the slice ends with a user question and the LLM answers it instead of summarizing)
-    messages_to_summarize = in_context_messages[1 : assistant_message_index + 1]
+    messages_to_summarize = in_context_messages[1:assistant_message_index]
     logger.info(
         f"Summarizing {len(messages_to_summarize)} messages, from index 1 to {assistant_message_index} (out of {total_message_count})"
     )
@@ -146,7 +144,5 @@ async def summarize_via_sliding_window(
         logger.warning(f"Summary length {len(summary_message_str)} exceeds clip length {summarizer_config.clip_chars}. Truncating.")
         summary_message_str = summary_message_str[: summarizer_config.clip_chars] + "... [summary truncated to fit]"
 
-    # Start remaining messages FROM the assistant message we included in the summary
-    # (to preserve tool call sequences if the assistant message has tool_calls)
     updated_in_context_messages = in_context_messages[assistant_message_index:]
     return summary_message_str, [system_prompt] + updated_in_context_messages
