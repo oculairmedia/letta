@@ -26,8 +26,15 @@ class LettaLLMStreamAdapter(LettaLLMAdapter):
     specific streaming formats.
     """
 
-    def __init__(self, llm_client: LLMClientBase, llm_config: LLMConfig, agent_id: str | None = None, run_id: str | None = None) -> None:
-        super().__init__(llm_client, llm_config, agent_id=agent_id, run_id=run_id)
+    def __init__(
+        self,
+        llm_client: LLMClientBase,
+        llm_config: LLMConfig,
+        agent_id: str | None = None,
+        agent_tags: list[str] | None = None,
+        run_id: str | None = None,
+    ) -> None:
+        super().__init__(llm_client, llm_config, agent_id=agent_id, agent_tags=agent_tags, run_id=run_id)
         self.interface: OpenAIStreamingInterface | AnthropicStreamingInterface | None = None
 
     async def invoke_llm(
@@ -227,6 +234,7 @@ class LettaLLMStreamAdapter(LettaLLMAdapter):
                         response_json=response_json,
                         step_id=step_id,
                         agent_id=self.agent_id,
+                        agent_tags=self.agent_tags,
                         run_id=self.run_id,
                     ),
                 ),

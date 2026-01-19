@@ -155,7 +155,9 @@ class LettaAgentV2(BaseAgentV2):
         response = self._step(
             run_id=None,
             messages=in_context_messages + input_messages_to_persist,
-            llm_adapter=LettaLLMRequestAdapter(llm_client=self.llm_client, llm_config=self.agent_state.llm_config),
+            llm_adapter=LettaLLMRequestAdapter(
+                llm_client=self.llm_client, llm_config=self.agent_state.llm_config, agent_tags=self.agent_state.tags
+            ),
             dry_run=True,
             enforce_run_id_set=False,
         )
@@ -206,7 +208,11 @@ class LettaAgentV2(BaseAgentV2):
                 messages=in_context_messages + self.response_messages,
                 input_messages_to_persist=input_messages_to_persist,
                 llm_adapter=LettaLLMRequestAdapter(
-                    llm_client=self.llm_client, llm_config=self.agent_state.llm_config, agent_id=self.agent_state.id, run_id=run_id
+                    llm_client=self.llm_client,
+                    llm_config=self.agent_state.llm_config,
+                    agent_id=self.agent_state.id,
+                    agent_tags=self.agent_state.tags,
+                    run_id=run_id,
                 ),
                 run_id=run_id,
                 use_assistant_message=use_assistant_message,
@@ -289,6 +295,7 @@ class LettaAgentV2(BaseAgentV2):
                 llm_client=self.llm_client,
                 llm_config=self.agent_state.llm_config,
                 agent_id=self.agent_state.id,
+                agent_tags=self.agent_state.tags,
                 run_id=run_id,
             )
         else:
@@ -296,6 +303,7 @@ class LettaAgentV2(BaseAgentV2):
                 llm_client=self.llm_client,
                 llm_config=self.agent_state.llm_config,
                 agent_id=self.agent_state.id,
+                agent_tags=self.agent_state.tags,
                 run_id=run_id,
             )
 

@@ -172,6 +172,7 @@ class Summarizer:
             actor=self.actor,
             include_ack=True,
             agent_id=self.agent_id,
+            agent_tags=agent_state.tags,
         )
 
         # TODO add counts back
@@ -429,6 +430,7 @@ async def simple_summary(
     prompt: str | None = None,
     telemetry_manager: "TelemetryManager | None" = None,
     agent_id: str | None = None,
+    agent_tags: List[str] | None = None,
     run_id: str | None = None,
 ) -> str:
     """Generate a simple summary from a list of messages.
@@ -450,6 +452,7 @@ async def simple_summary(
     llm_client.set_telemetry_context(
         telemetry_manager=tm,
         agent_id=agent_id,
+        agent_tags=agent_tags,
         run_id=run_id,
         call_type="summarization",
     )

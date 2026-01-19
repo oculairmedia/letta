@@ -91,6 +91,7 @@ class EphemeralSummaryAgent(BaseAgent):
         llm_client.set_telemetry_context(
             telemetry_manager=TelemetryManager(),
             agent_id=self.agent_id,
+            agent_tags=agent_state.tags,
             call_type="summarization",
         )
         response_data = await llm_client.request_async_with_telemetry(request_data, agent_state.llm_config)

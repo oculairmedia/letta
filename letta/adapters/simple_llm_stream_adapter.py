@@ -281,6 +281,7 @@ class SimpleLLMStreamAdapter(LettaLLMStreamAdapter):
                         response_json=response_json,
                         step_id=step_id,
                         agent_id=self.agent_id,
+                        agent_tags=self.agent_tags,
                         run_id=self.run_id,
                     ),
                 ),

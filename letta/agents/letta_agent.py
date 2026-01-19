@@ -416,6 +416,7 @@ class LettaAgent(BaseAgent):
                                 response_json=response_data,
                                 step_id=step_id,
                                 agent_id=self.agent_id,
+                                agent_tags=agent_state.tags,
                                 run_id=self.current_run_id,
                             ),
                         )
@@ -763,6 +764,7 @@ class LettaAgent(BaseAgent):
                                 response_json=response_data,
                                 step_id=step_id,
                                 agent_id=self.agent_id,
+                                agent_tags=agent_state.tags,
                                 run_id=self.current_run_id,
                             ),
                         )
@@ -1230,6 +1232,7 @@ class LettaAgent(BaseAgent):
                                 },
                                 step_id=step_id,
                                 agent_id=self.agent_id,
+                                agent_tags=agent_state.tags,
                                 run_id=self.current_run_id,
                             ),
                         )
@@ -1456,6 +1459,7 @@ class LettaAgent(BaseAgent):
                     llm_client.set_telemetry_context(
                         telemetry_manager=self.telemetry_manager,
                         agent_id=self.agent_id,
+                        agent_tags=agent_state.tags,
                         run_id=self.current_run_id,
                         call_type="agent_step",
                     )
@@ -1524,6 +1528,7 @@ class LettaAgent(BaseAgent):
                 llm_client.set_telemetry_context(
                     telemetry_manager=self.telemetry_manager,
                     agent_id=self.agent_id,
+                    agent_tags=agent_state.tags,
                     run_id=self.current_run_id,
                     call_type="agent_step",
                 )

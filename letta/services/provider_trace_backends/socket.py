@@ -70,8 +70,15 @@ class SocketProviderTraceBackend(ProviderTraceBackendClient):
         response = provider_trace.response_json or {}
         request = provider_trace.request_json or {}
 
-        # Extract error if present
-        error = response.get("error", {}).get("message") if isinstance(response.get("error"), dict) else None
+        # Extract error if present - handles both {"error": "msg"} and {"error": {"message": "msg"}}
+        raw_error = response.get("error")
+        if isinstance(raw_error, dict):
+            error = raw_error.get("message")
+        elif isinstance(raw_error, str):
+            error = raw_error
+        else:
+            error = None
+        error_type = response.get("error_type")
 
         record = {
             "protocol_version": PROTOCOL_VERSION,
@@ -84,6 +91,7 @@ class SocketProviderTraceBackend(ProviderTraceBackendClient):
             "request": request,
             "response": response if not error else None,
             "error": error,
+            "error_type": error_type,
             "timestamp": datetime.now(timezone.utc).isoformat(),
         }
 

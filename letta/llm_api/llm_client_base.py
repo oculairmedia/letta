@@ -39,6 +39,7 @@ class LLMClientBase:
         self.use_tool_naming = use_tool_naming
         self._telemetry_manager: Optional["TelemetryManager"] = None
         self._telemetry_agent_id: Optional[str] = None
+        self._telemetry_agent_tags: Optional[List[str]] = None
         self._telemetry_run_id: Optional[str] = None
         self._telemetry_step_id: Optional[str] = None
         self._telemetry_call_type: Optional[str] = None
@@ -47,6 +48,7 @@ class LLMClientBase:
         self,
         telemetry_manager: Optional["TelemetryManager"] = None,
         agent_id: Optional[str] = None,
+        agent_tags: Optional[List[str]] = None,
         run_id: Optional[str] = None,
         step_id: Optional[str] = None,
         call_type: Optional[str] = None,
@@ -54,6 +56,7 @@ class LLMClientBase:
         """Set telemetry context for provider trace logging."""
         self._telemetry_manager = telemetry_manager
         self._telemetry_agent_id = agent_id
+        self._telemetry_agent_tags = agent_tags
         self._telemetry_run_id = run_id
         self._telemetry_step_id = step_id
         self._telemetry_call_type = call_type
@@ -68,11 +71,13 @@ class LLMClientBase:
         logger = get_logger(__name__)
         response_data = None
         error_msg = None
+        error_type = None
         try:
             response_data = await self.request_async(request_data, llm_config)
             return response_data
         except Exception as e:
             error_msg = str(e)
+            error_type = type(e).__name__
             raise
         finally:
             if self._telemetry_manager and settings.track_provider_trace:
@@ -85,9 +90,10 @@ class LLMClientBase:
                             actor=pydantic_actor,
                             provider_trace=ProviderTrace(
                                 request_json=request_data,
-                                response_json=response_data if response_data else {"error": error_msg},
+                                response_json=response_data if response_data else {"error": error_msg, "error_type": error_type},
                                 step_id=self._telemetry_step_id,
                                 agent_id=self._telemetry_agent_id,
+                                agent_tags=self._telemetry_agent_tags,
                                 run_id=self._telemetry_run_id,
                                 call_type=self._telemetry_call_type,
                             ),
@@ -128,6 +134,7 @@ class LLMClientBase:
                     response_json=response_json,
                     step_id=self._telemetry_step_id,
                     agent_id=self._telemetry_agent_id,
+                    agent_tags=self._telemetry_agent_tags,
                     run_id=self._telemetry_run_id,
                     call_type=self._telemetry_call_type,
                 ),
