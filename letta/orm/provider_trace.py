@@ -28,6 +28,9 @@ class ProviderTrace(SqlalchemyBase, OrganizationMixin):
     agent_tags: Mapped[Optional[list]] = mapped_column(JSON, nullable=True, doc="Tags associated with the agent for filtering")
     call_type: Mapped[Optional[str]] = mapped_column(String, nullable=True, doc="Type of call (agent_step, summarization, etc.)")
     run_id: Mapped[Optional[str]] = mapped_column(String, nullable=True, doc="ID of the run this trace is associated with")
+    source: Mapped[Optional[str]] = mapped_column(
+        String, nullable=True, doc="Source service that generated this trace (memgpt-server, lettuce-py)"
+    )
 
     # Relationships
     organization: Mapped["Organization"] = relationship("Organization", lazy="selectin")

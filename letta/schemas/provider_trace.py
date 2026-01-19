@@ -27,6 +27,7 @@ class ProviderTrace(BaseProviderTrace):
         agent_tags (list[str]): Tags associated with the agent for filtering.
         call_type (str): Type of call (agent_step, summarization, etc.).
         run_id (str): ID of the run this trace is associated with.
+        source (str): Source service that generated this trace (memgpt-server, lettuce-py).
         organization_id (str): The unique identifier of the organization.
         created_at (datetime): The timestamp when the object was created.
     """
@@ -41,5 +42,6 @@ class ProviderTrace(BaseProviderTrace):
     agent_tags: Optional[list[str]] = Field(None, description="Tags associated with the agent for filtering")
     call_type: Optional[str] = Field(None, description="Type of call (agent_step, summarization, etc.)")
     run_id: Optional[str] = Field(None, description="ID of the run this trace is associated with")
+    source: Optional[str] = Field(None, description="Source service that generated this trace (memgpt-server, lettuce-py)")
 
     created_at: datetime = Field(default_factory=get_utc_time, description="The timestamp when the object was created.")

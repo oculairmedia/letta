@@ -499,6 +499,10 @@ class TelemetrySettings(BaseSettings):
         validation_alias=AliasChoices("TELEMETRY_SOCKET", "socket_path"),
         description="Unix socket path for socket backend.",
     )
+    source: str | None = Field(
+        default=None,
+        description="Source identifier for telemetry (memgpt-server, lettuce-py, etc.).",
+    )
 
     @property
     def provider_trace_backends(self) -> list[str]:

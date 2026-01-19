@@ -88,6 +88,7 @@ class SocketProviderTraceBackend(ProviderTraceBackendClient):
             "step_id": provider_trace.step_id,
             "tags": provider_trace.agent_tags or [],
             "type": provider_trace.call_type or "agent_step",
+            "source": provider_trace.source,
             "request": request,
             "response": response if not error else None,
             "error": error,

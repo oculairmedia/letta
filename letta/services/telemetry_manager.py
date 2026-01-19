@@ -1,4 +1,5 @@
 import asyncio
+import os
 
 from letta.helpers.singleton import singleton
 from letta.log import get_logger
@@ -6,6 +7,7 @@ from letta.otel.tracing import trace_method
 from letta.schemas.provider_trace import ProviderTrace
 from letta.schemas.user import User as PydanticUser
 from letta.services.provider_trace_backends import get_provider_trace_backend, get_provider_trace_backends
+from letta.settings import telemetry_settings
 from letta.utils import enforce_types
 
 logger = get_logger(__name__)
@@ -51,6 +53,12 @@ class TelemetryManager:
         actor: PydanticUser,
         provider_trace: ProviderTrace,
     ) -> ProviderTrace:
+        # Set source if not already set (use LETTA_TELEMETRY_SOURCE, fallback to DD_SERVICE)
+        if provider_trace.source is None:
+            source = telemetry_settings.source or os.environ.get("DD_SERVICE")
+            if source:
+                provider_trace = provider_trace.model_copy(update={"source": source})
+
         # Write to all backends concurrently
         tasks = [self._safe_create_async(backend, actor, provider_trace) for backend in self._backends]
         results = await asyncio.gather(*tasks)
@@ -77,6 +85,12 @@ class TelemetryManager:
         provider_trace: ProviderTrace,
     ) -> ProviderTrace | None:
         """Synchronous version - writes to all backends."""
+        # Set source if not already set (use LETTA_TELEMETRY_SOURCE, fallback to DD_SERVICE)
+        if provider_trace.source is None:
+            source = telemetry_settings.source or os.environ.get("DD_SERVICE")
+            if source:
+                provider_trace = provider_trace.model_copy(update={"source": source})
+
         result = None
         for backend in self._backends:
             try:
