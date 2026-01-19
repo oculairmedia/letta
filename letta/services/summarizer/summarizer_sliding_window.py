@@ -146,6 +146,7 @@ async def summarize_via_sliding_window(
         logger.warning(f"Summary length {len(summary_message_str)} exceeds clip length {summarizer_config.clip_chars}. Truncating.")
         summary_message_str = summary_message_str[: summarizer_config.clip_chars] + "... [summary truncated to fit]"
 
-    # Start remaining messages AFTER the assistant message we included in the summary
-    updated_in_context_messages = in_context_messages[assistant_message_index + 1 :]
+    # Start remaining messages FROM the assistant message we included in the summary
+    # (to preserve tool call sequences if the assistant message has tool_calls)
+    updated_in_context_messages = in_context_messages[assistant_message_index:]
     return summary_message_str, [system_prompt] + updated_in_context_messages
