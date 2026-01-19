@@ -296,6 +296,8 @@ class SyncServer(object):
             self._enabled_providers.append(
                 BedrockProvider(
                     name="bedrock",
+                    access_key=model_settings.aws_access_key_id,
+                    api_key=model_settings.aws_secret_access_key,
                     region=model_settings.aws_default_region,
                 )
             )
