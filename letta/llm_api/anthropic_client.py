@@ -447,8 +447,14 @@ class AnthropicClient(LLMClientBase):
         else:
             max_output_tokens = llm_config.max_tokens
 
+        # Strip provider prefix from model name if present (e.g., "anthropic/claude-..." -> "claude-...")
+        # This handles cases where the handle format was incorrectly passed as the model name
+        model_name = llm_config.model
+        if "/" in model_name:
+            model_name = model_name.split("/", 1)[-1]
+
         data = {
-            "model": llm_config.model,
+            "model": model_name,
             "max_tokens": max_output_tokens,
             "temperature": llm_config.temperature,
         }
