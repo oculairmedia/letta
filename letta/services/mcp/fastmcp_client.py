@@ -141,9 +141,10 @@ class AsyncFastMCPSSEClient:
         except Exception as e:
             # ToolError is raised by fastmcp for input validation errors (e.g., missing required properties)
             # McpError is raised for other MCP-related errors
-            # Both are expected user-facing errors from MCP tools, log at warning level
+            # Both are expected user-facing issues from external MCP servers
+            # Log at debug level to avoid triggering production alerts for expected failures
             if e.__class__.__name__ in ("McpError", "ToolError"):
-                logger.warning(f"MCP tool '{tool_name}' execution failed: {str(e)}")
+                logger.debug(f"MCP tool '{tool_name}' execution failed: {str(e)}")
             raise
 
         # Parse content from result
@@ -297,9 +298,10 @@ class AsyncFastMCPStreamableHTTPClient:
         except Exception as e:
             # ToolError is raised by fastmcp for input validation errors (e.g., missing required properties)
             # McpError is raised for other MCP-related errors
-            # Both are expected user-facing errors from MCP tools, log at warning level
+            # Both are expected user-facing issues from external MCP servers
+            # Log at debug level to avoid triggering production alerts for expected failures
             if e.__class__.__name__ in ("McpError", "ToolError"):
-                logger.warning(f"MCP tool '{tool_name}' execution failed: {str(e)}")
+                logger.debug(f"MCP tool '{tool_name}' execution failed: {str(e)}")
             raise
 
         # Parse content from result
