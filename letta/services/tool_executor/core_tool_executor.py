@@ -83,7 +83,7 @@ class LettaCoreToolExecutor(ToolExecutor):
         self,
         agent_state: AgentState,
         actor: User,
-        query: str,
+        query: Optional[str] = None,
         roles: Optional[List[Literal["assistant", "user", "tool"]]] = None,
         limit: Optional[int] = None,
         start_date: Optional[str] = None,

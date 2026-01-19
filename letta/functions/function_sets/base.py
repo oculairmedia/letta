@@ -85,7 +85,7 @@ def send_message(self: "Agent", message: str) -> Optional[str]:
 
 def conversation_search(
     self: "Agent",
-    query: str,
+    query: Optional[str] = None,
     roles: Optional[List[Literal["assistant", "user", "tool"]]] = None,
     limit: Optional[int] = None,
     start_date: Optional[str] = None,
@@ -95,7 +95,7 @@ def conversation_search(
     Search prior conversation history using hybrid search (text + semantic similarity).
 
     Args:
-        query (str): String to search for using both text matching and semantic similarity.
+        query (Optional[str]): String to search for using both text matching and semantic similarity. If not provided, returns messages based on other filters (time range, roles).
         roles (Optional[List[Literal["assistant", "user", "tool"]]]): Optional list of message roles to filter by.
         limit (Optional[int]): Maximum number of results to return. Uses system default if not specified.
         start_date (Optional[str]): Filter results to messages created on or after this date (INCLUSIVE). When using date-only format (e.g., "2024-01-15"), includes messages starting from 00:00:00 of that day. ISO 8601 format: "YYYY-MM-DD" or "YYYY-MM-DDTHH:MM". Examples: "2024-01-15" (from start of Jan 15), "2024-01-15T14:30" (from 2:30 PM on Jan 15).
@@ -122,6 +122,10 @@ def conversation_search(
 
         # Search with limit
         conversation_search(query="debugging", limit=10)
+
+        # Time-range only search (no query)
+        conversation_search(start_date="2024-01-15", end_date="2024-01-20")
+        # Returns all messages from Jan 15 through Jan 20
 
     Returns:
         str: Query result string containing matching messages with timestamps and content.
