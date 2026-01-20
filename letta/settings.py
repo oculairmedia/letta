@@ -189,6 +189,10 @@ class ModelSettings(BaseSettings):
     vllm_api_base: Optional[str] = None
     vllm_handle_base: Optional[str] = None
 
+    # SGLang
+    sglang_api_base: Optional[str] = None
+    sglang_handle_base: Optional[str] = None
+
     # lmstudio
     lmstudio_base_url: Optional[str] = None
 

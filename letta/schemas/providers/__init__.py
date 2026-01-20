@@ -18,6 +18,7 @@ from .openai import OpenAIProvider
 from .openrouter import OpenRouterProvider
 from .together import TogetherProvider
 from .vllm import VLLMProvider
+from .sglang import SGLangProvider
 from .xai import XAIProvider
 from .zai import ZAIProvider
 
@@ -45,6 +46,7 @@ __all__ = [
     "OpenAIProvider",
     "TogetherProvider",
     "VLLMProvider",  # Replaces ChatCompletions and Completions
+    "SGLangProvider",
     "XAIProvider",
     "ZAIProvider",
     "OpenRouterProvider",

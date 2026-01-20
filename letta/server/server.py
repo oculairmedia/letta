@@ -72,6 +72,7 @@ from letta.schemas.providers import (
     OpenAIProvider,
     OpenRouterProvider,
     Provider,
+    SGLangProvider,
     TogetherProvider,
     VLLMProvider,
     XAIProvider,
@@ -283,12 +284,34 @@ class SyncServer(object):
             # NOTE: to use the /chat/completions endpoint, you need to specify extra flags on vLLM startup
             # see: https://docs.vllm.ai/en/stable/features/tool_calling.html
             # e.g. "... --enable-auto-tool-choice --tool-call-parser hermes"
+            # Auto-append /v1 to the base URL
+            vllm_url = (
+                model_settings.vllm_api_base
+                if model_settings.vllm_api_base.endswith("/v1")
+                else model_settings.vllm_api_base + "/v1"
+            )
             self._enabled_providers.append(
                 VLLMProvider(
                     name="vllm",
-                    base_url=model_settings.vllm_api_base,
+                    base_url=vllm_url,
                     default_prompt_formatter=model_settings.default_prompt_formatter,
                     handle_base=model_settings.vllm_handle_base,
+                )
+            )
+
+        if model_settings.sglang_api_base:
+            # Auto-append /v1 to the base URL
+            sglang_url = (
+                model_settings.sglang_api_base
+                if model_settings.sglang_api_base.endswith("/v1")
+                else model_settings.sglang_api_base + "/v1"
+            )
+            self._enabled_providers.append(
+                SGLangProvider(
+                    name="sglang",
+                    base_url=sglang_url,
+                    default_prompt_formatter=model_settings.default_prompt_formatter,
+                    handle_base=model_settings.sglang_handle_base,
                 )
             )
 

@@ -13,6 +13,7 @@ from letta.schemas.providers import (
     GroqProvider,
     OllamaProvider,
     OpenAIProvider,
+    SGLangProvider,
     TogetherProvider,
     VLLMProvider,
     ZAIProvider,
@@ -197,6 +198,18 @@ async def test_vllm():
 
     embedding_models = await provider.list_embedding_models_async()
     assert len(embedding_models) == 0  # embedding models currently not supported by vLLM
+
+
+@pytest.mark.skipif(model_settings.sglang_api_base is None, reason="Only run if SGLANG_API_BASE is set.")
+@pytest.mark.asyncio
+async def test_sglang():
+    provider = SGLangProvider(name="sglang", base_url=model_settings.sglang_api_base)
+    models = await provider.list_llm_models_async()
+    assert len(models) > 0
+    assert models[0].handle == f"{provider.name}/{models[0].model}"
+
+    embedding_models = await provider.list_embedding_models_async()
+    assert len(embedding_models) == 0  # embedding models currently not supported by SGLang
 
 
 # TODO: Add back in, difficulty adding this to CI properly, need boto credentials

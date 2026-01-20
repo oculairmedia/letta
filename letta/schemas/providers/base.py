@@ -194,6 +194,7 @@ class Provider(ProviderBase):
             MistralProvider,
             OllamaProvider,
             OpenAIProvider,
+            SGLangProvider,
             TogetherProvider,
             VLLMProvider,
             XAIProvider,
@@ -224,6 +225,8 @@ class Provider(ProviderBase):
                 return OllamaProvider(**self.model_dump(exclude_none=True))
             case ProviderType.vllm:
                 return VLLMProvider(**self.model_dump(exclude_none=True))  # Removed support for CompletionsProvider
+            case ProviderType.sglang:
+                return SGLangProvider(**self.model_dump(exclude_none=True))
             case ProviderType.mistral:
                 return MistralProvider(**self.model_dump(exclude_none=True))
             case ProviderType.deepseek:
