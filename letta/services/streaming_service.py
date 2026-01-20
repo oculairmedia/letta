@@ -351,11 +351,11 @@ class StreamingService:
                 )
 
                 async for chunk in stream:
-                    # Track terminal events
+                    # Track terminal events (check at line start to avoid false positives in message content)
                     if isinstance(chunk, str):
-                        if "data: [DONE]" in chunk:
+                        if "\ndata: [DONE]" in chunk or chunk.startswith("data: [DONE]"):
                             saw_done = True
-                        if "event: error" in chunk:
+                        if "\nevent: error" in chunk or chunk.startswith("event: error"):
                             saw_error = True
                     yield chunk
 
