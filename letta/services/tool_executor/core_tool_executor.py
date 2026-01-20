@@ -11,6 +11,7 @@ from letta.constants import (
 from letta.helpers.json_helpers import json_dumps
 from letta.helpers.tpuf_client import should_use_tpuf_for_messages
 from letta.log import get_logger
+from letta.orm.errors import NoResultFound
 from letta.schemas.agent import AgentState
 from letta.schemas.block import BlockUpdate
 from letta.schemas.enums import MessageRole, TagMatchMode
@@ -834,6 +835,9 @@ class LettaCoreToolExecutor(ToolExecutor):
 
             return f"Successfully deleted memory block '{label}'"
 
+        except NoResultFound:
+            # Catch the specific error and re-raise with human-readable names
+            raise ValueError(f"Memory block '{label}' is not attached to agent '{agent_state.name}'")
         except Exception as e:
             return f"Error performing delete: {str(e)}"
 
@@ -854,6 +858,9 @@ class LettaCoreToolExecutor(ToolExecutor):
 
             return f"Successfully updated description of memory block '{label}'"
 
+        except NoResultFound:
+            # Catch the specific error and re-raise with human-readable names
+            raise ValueError(f"Memory block '{label}' not found for agent '{agent_state.name}'")
         except Exception as e:
             raise Exception(f"Error performing update_description: {str(e)}")
 
@@ -874,6 +881,9 @@ class LettaCoreToolExecutor(ToolExecutor):
 
             return f"Successfully renamed memory block '{old_label}' to '{new_label}'"
 
+        except NoResultFound:
+            # Catch the specific error and re-raise with human-readable names
+            raise ValueError(f"Memory block '{old_label}' not found for agent '{agent_state.name}'")
         except Exception as e:
             raise Exception(f"Error performing rename: {str(e)}")
 
