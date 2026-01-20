@@ -471,7 +471,9 @@ class LettaAgentV3(LettaAgentV2):
                 context_window=self.agent_state.llm_config.context_window,
             )
 
-    async def _checkpoint_messages(self, run_id: str, step_id: str, new_messages: list[Message], in_context_messages: list[Message]):
+    async def _checkpoint_messages(
+        self, run_id: str, step_id: str, new_messages: list[Message], in_context_messages: list[Message], conversation_id: str | None = None
+    ):
         """
         Checkpoint the current message state - run this only when the current messages are 'safe' - meaning the step has completed successfully.
 
@@ -486,10 +488,11 @@ class LettaAgentV3(LettaAgentV2):
             new_messages: The new messages to persist
             in_context_messages: The current in-context messages
         """
-        # make sure all the new messages have the correct run_id and step_id
+        # make sure all the new messages have the correct run_id, step_id, and conversation_id
         for message in new_messages:
             message.step_id = step_id
             message.run_id = run_id
+            message.conversation_id = conversation_id
 
         # persist the new message objects - ONLY place where messages are persisted
         persisted_messages = await self.message_manager.create_many_messages_async(
@@ -776,7 +779,11 @@ class LettaAgentV3(LettaAgentV2):
 
                             # update the messages
                             await self._checkpoint_messages(
-                                run_id=run_id, step_id=step_id, new_messages=[summary_message], in_context_messages=messages
+                                run_id=run_id,
+                                step_id=step_id,
+                                new_messages=[summary_message],
+                                in_context_messages=messages,
+                                conversation_id=self.conversation_id,
                             )
 
                         else:
@@ -846,6 +853,7 @@ class LettaAgentV3(LettaAgentV2):
                 step_id=step_id,
                 new_messages=input_messages_to_persist + new_messages,
                 in_context_messages=messages,  # update the in-context messages
+                conversation_id=self.conversation_id,
             )
 
             # yield back generated messages
@@ -886,7 +894,11 @@ class LettaAgentV3(LettaAgentV2):
                 for message in Message.to_letta_messages(summary_message):
                     yield message
                 await self._checkpoint_messages(
-                    run_id=run_id, step_id=step_id, new_messages=[summary_message], in_context_messages=messages
+                    run_id=run_id,
+                    step_id=step_id,
+                    new_messages=[summary_message],
+                    in_context_messages=messages,
+                    conversation_id=self.conversation_id,
                 )
 
         except Exception as e:
