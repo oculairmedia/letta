@@ -2321,15 +2321,6 @@ class AgentManager:
                 # Use Turbopuffer for vector search if archive is configured for TPUF
                 if archive.vector_db_provider == VectorDBProvider.TPUF:
                     from letta.helpers.tpuf_client import TurbopufferClient
-                    from letta.llm_api.llm_client import LLMClient
-
-                    # Generate embedding for query
-                    embedding_client = LLMClient.create(
-                        provider_type=embedding_config.embedding_endpoint_type,
-                        actor=actor,
-                    )
-                    embeddings = await embedding_client.request_embeddings([query_text], embedding_config)
-                    query_embedding = embeddings[0]
 
                     # Query Turbopuffer - use hybrid search when text is available
                     tpuf_client = TurbopufferClient()

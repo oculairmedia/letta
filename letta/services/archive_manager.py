@@ -345,13 +345,14 @@ class ArchiveManager:
 
                 tpuf_client = TurbopufferClient()
 
-                # Insert to Turbopuffer with the same ID as SQL
+                # Insert to Turbopuffer with the same ID as SQL, reusing existing embedding
                 await tpuf_client.insert_archival_memories(
                     archive_id=archive.id,
                     text_chunks=[created_passage.text],
                     passage_ids=[created_passage.id],
                     organization_id=actor.organization_id,
                     actor=actor,
+                    embeddings=[created_passage.embedding],
                 )
                 logger.info(f"Uploaded passage {created_passage.id} to Turbopuffer for archive {archive_id}")
             except Exception as e:

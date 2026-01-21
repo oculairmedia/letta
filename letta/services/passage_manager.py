@@ -525,20 +525,21 @@ class PassageManager:
 
                     tpuf_client = TurbopufferClient()
 
-                    # Extract IDs and texts from the created passages
+                    # Extract IDs, texts, and embeddings from the created passages
                     passage_ids = [p.id for p in passages]
                     passage_texts = [p.text for p in passages]
+                    passage_embeddings = [p.embedding for p in passages]
 
-                    # Insert to Turbopuffer with the same IDs as SQL
-                    # TurbopufferClient will generate embeddings internally using default config
+                    # Insert to Turbopuffer with the same IDs as SQL, reusing existing embeddings
                     await tpuf_client.insert_archival_memories(
                         archive_id=archive.id,
                         text_chunks=passage_texts,
-                        passage_ids=passage_ids,  # Use same IDs as SQL
+                        passage_ids=passage_ids,
                         organization_id=actor.organization_id,
                         actor=actor,
                         tags=tags,
                         created_at=passages[0].created_at if passages else None,
+                        embeddings=passage_embeddings,
                     )
                 except Exception as e:
                     logger.error(f"Failed to insert passages to Turbopuffer: {e}")
