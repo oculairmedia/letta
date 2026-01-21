@@ -769,7 +769,10 @@ class LettaAgentV3(LettaAgentV2):
                             # TODO: might want to delay this checkpoint in case of corrupated state
                             try:
                                 summary_message, messages, _ = await self.compact(
-                                    messages, trigger_threshold=self.agent_state.llm_config.context_window
+                                    messages,
+                                    trigger_threshold=self.agent_state.llm_config.context_window,
+                                    run_id=run_id,
+                                    step_id=step_id,
                                 )
                                 self.logger.info("Summarization succeeded, continuing to retry LLM request")
                                 continue
@@ -893,7 +896,12 @@ class LettaAgentV3(LettaAgentV2):
                 self.logger.info(
                     f"Context window exceeded (current: {self.context_token_estimate}, threshold: {self.agent_state.llm_config.context_window}), trying to compact messages"
                 )
-                summary_message, messages, _ = await self.compact(messages, trigger_threshold=self.agent_state.llm_config.context_window)
+                summary_message, messages, _ = await self.compact(
+                    messages,
+                    trigger_threshold=self.agent_state.llm_config.context_window,
+                    run_id=run_id,
+                    step_id=step_id,
+                )
                 # TODO: persist + return the summary message
                 # TODO: convert this to a SummaryMessage
                 self.response_messages.append(summary_message)
@@ -1463,7 +1471,12 @@ class LettaAgentV3(LettaAgentV2):
 
     @trace_method
     async def compact(
-        self, messages, trigger_threshold: Optional[int] = None, compaction_settings: Optional["CompactionSettings"] = None
+        self,
+        messages,
+        trigger_threshold: Optional[int] = None,
+        compaction_settings: Optional["CompactionSettings"] = None,
+        run_id: Optional[str] = None,
+        step_id: Optional[str] = None,
     ) -> tuple[Message, list[Message], str]:
         """Compact the current in-context messages for this agent.
 
@@ -1502,6 +1515,10 @@ class LettaAgentV3(LettaAgentV2):
                 llm_config=summarizer_llm_config,
                 summarizer_config=summarizer_config,
                 in_context_messages=messages,
+                agent_id=self.agent_state.id,
+                agent_tags=self.agent_state.tags,
+                run_id=run_id,
+                step_id=step_id,
             )
         elif summarizer_config.mode == "sliding_window":
             try:
@@ -1510,6 +1527,10 @@ class LettaAgentV3(LettaAgentV2):
                     llm_config=summarizer_llm_config,
                     summarizer_config=summarizer_config,
                     in_context_messages=messages,
+                    agent_id=self.agent_state.id,
+                    agent_tags=self.agent_state.tags,
+                    run_id=run_id,
+                    step_id=step_id,
                 )
             except Exception as e:
                 self.logger.error(f"Sliding window summarization failed with exception: {str(e)}. Falling back to all mode.")
@@ -1518,6 +1539,10 @@ class LettaAgentV3(LettaAgentV2):
                     llm_config=summarizer_llm_config,
                     summarizer_config=summarizer_config,
                     in_context_messages=messages,
+                    agent_id=self.agent_state.id,
+                    agent_tags=self.agent_state.tags,
+                    run_id=run_id,
+                    step_id=step_id,
                 )
                 summarization_mode_used = "all"
         else:
@@ -1551,6 +1576,10 @@ class LettaAgentV3(LettaAgentV2):
                     llm_config=self.agent_state.llm_config,
                     summarizer_config=summarizer_config,
                     in_context_messages=compacted_messages,
+                    agent_id=self.agent_state.id,
+                    agent_tags=self.agent_state.tags,
+                    run_id=run_id,
+                    step_id=step_id,
                 )
                 summarization_mode_used = "all"
 

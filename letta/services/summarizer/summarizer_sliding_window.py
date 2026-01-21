@@ -1,4 +1,4 @@
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 from letta.helpers.message_helper import convert_message_creates_to_messages
 from letta.log import get_logger
@@ -50,7 +50,11 @@ async def summarize_via_sliding_window(
     llm_config: LLMConfig,
     summarizer_config: CompactionSettings,
     in_context_messages: List[Message],
-    # new_messages: List[Message],
+    # Telemetry context
+    agent_id: Optional[str] = None,
+    agent_tags: Optional[List[str]] = None,
+    run_id: Optional[str] = None,
+    step_id: Optional[str] = None,
 ) -> Tuple[str, List[Message]]:
     """
     If the total tokens is greater than the context window limit (or force=True),
@@ -138,6 +142,10 @@ async def summarize_via_sliding_window(
         actor=actor,
         include_ack=bool(summarizer_config.prompt_acknowledgement),
         prompt=summarizer_config.prompt,
+        agent_id=agent_id,
+        agent_tags=agent_tags,
+        run_id=run_id,
+        step_id=step_id,
     )
 
     if summarizer_config.clip_chars is not None and len(summary_message_str) > summarizer_config.clip_chars:
