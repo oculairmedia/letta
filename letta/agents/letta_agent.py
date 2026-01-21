@@ -1034,6 +1034,7 @@ class LettaAgent(BaseAgent):
                         llm_client,
                         tool_rules_solver,
                         run_id=run_id,
+                        step_id=step_id,
                     )
 
                     step_progression = StepProgression.STREAM_RECEIVED
@@ -1470,6 +1471,7 @@ class LettaAgent(BaseAgent):
                         agent_id=self.agent_id,
                         agent_tags=agent_state.tags,
                         run_id=self.current_run_id,
+                        step_id=step_metrics.id,
                         call_type="agent_step",
                     )
                     response = await llm_client.request_async_with_telemetry(request_data, agent_state.llm_config)
@@ -1514,6 +1516,7 @@ class LettaAgent(BaseAgent):
         llm_client: LLMClientBase,
         tool_rules_solver: ToolRulesSolver,
         run_id: str | None = None,
+        step_id: str | None = None,
     ) -> tuple[dict, AsyncStream[ChatCompletionChunk], list[Message], list[Message], list[str], int] | None:
         for attempt in range(self.max_summarization_retries + 1):
             try:
@@ -1541,6 +1544,7 @@ class LettaAgent(BaseAgent):
                     agent_id=self.agent_id,
                     agent_tags=agent_state.tags,
                     run_id=self.current_run_id,
+                    step_id=step_id,
                     call_type="agent_step",
                 )
 

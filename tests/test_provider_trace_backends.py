@@ -171,12 +171,11 @@ class TestSocketProviderTraceBackend:
             assert len(received_data) == 1
             record = json.loads(received_data[0].strip())
             assert record["provider_trace_id"] == sample_provider_trace.id
-            assert record["model"] == "gpt-4o-mini"
-            assert record["provider"] == "openai"
-            assert record["input_tokens"] == 10
-            assert record["output_tokens"] == 5
-            assert record["context"]["step_id"] == "step-test-789"
-            assert record["context"]["run_id"] == "run-test-abc"
+            assert record["step_id"] == "step-test-789"
+            assert record["run_id"] == "run-test-abc"
+            assert record["request"]["model"] == "gpt-4o-mini"
+            assert record["response"]["usage"]["prompt_tokens"] == 10
+            assert record["response"]["usage"]["completion_tokens"] == 5
 
     def test_send_to_nonexistent_socket_does_not_raise(self, sample_provider_trace):
         """Test that sending to nonexistent socket fails silently."""
