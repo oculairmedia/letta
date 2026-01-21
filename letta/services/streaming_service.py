@@ -95,7 +95,9 @@ class StreamingService:
 
         # load agent and check eligibility
         agent = await self.server.agent_manager.get_agent_by_id_async(
-            agent_id, actor, include_relationships=["memory", "multi_agent_group", "sources", "tool_exec_environment_variables", "tools"]
+            agent_id,
+            actor,
+            include_relationships=["memory", "multi_agent_group", "sources", "tool_exec_environment_variables", "tools", "tags"],
         )
 
         # Handle model override if specified in the request

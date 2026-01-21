@@ -168,7 +168,11 @@ class LettaAgentV3(LettaAgentV2):
                 input_messages_to_persist=input_messages_to_persist,
                 # TODO need to support non-streaming adapter too
                 llm_adapter=SimpleLLMRequestAdapter(
-                    llm_client=self.llm_client, llm_config=self.agent_state.llm_config, agent_id=self.agent_state.id, run_id=run_id
+                    llm_client=self.llm_client,
+                    llm_config=self.agent_state.llm_config,
+                    agent_id=self.agent_state.id,
+                    agent_tags=self.agent_state.tags,
+                    run_id=run_id,
                 ),
                 run_id=run_id,
                 # use_assistant_message=use_assistant_message,
@@ -310,6 +314,7 @@ class LettaAgentV3(LettaAgentV2):
                 llm_client=self.llm_client,
                 llm_config=self.agent_state.llm_config,
                 agent_id=self.agent_state.id,
+                agent_tags=self.agent_state.tags,
                 run_id=run_id,
             )
         else:
@@ -317,6 +322,7 @@ class LettaAgentV3(LettaAgentV2):
                 llm_client=self.llm_client,
                 llm_config=self.agent_state.llm_config,
                 agent_id=self.agent_state.id,
+                agent_tags=self.agent_state.tags,
                 run_id=run_id,
             )
 
