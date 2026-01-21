@@ -140,6 +140,14 @@ class ProviderManager:
             # if provider.name == provider.provider_type.value:
             #     raise ValueError("Provider name must be unique and different from provider type")
 
+            # Fill in schema-default base_url if not provided
+            # This ensures providers like ZAI get their default endpoint persisted to DB
+            # rather than relying on cast_to_subtype() at read time
+            if provider.base_url is None:
+                typed_provider = provider.cast_to_subtype()
+                if typed_provider.base_url is not None:
+                    provider.base_url = typed_provider.base_url
+
             # Only assign organization id for non-base providers
             # Base providers should be globally accessible (org_id = None)
             if is_byok:
