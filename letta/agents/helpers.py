@@ -235,7 +235,7 @@ async def _prepare_in_context_messages_no_persist_async(
                 "Please send a regular message to interact with the agent."
             )
         validate_approval_tool_call_ids(current_in_context_messages[-1], input_messages[0])
-        new_in_context_messages = create_approval_response_message_from_input(
+        new_in_context_messages = await create_approval_response_message_from_input(
             agent_state=agent_state, input_message=input_messages[0], run_id=run_id
         )
         if len(input_messages) > 1:

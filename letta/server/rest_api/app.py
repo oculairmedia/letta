@@ -64,6 +64,7 @@ from letta.schemas.letta_message import create_letta_error_message_schema, creat
 from letta.schemas.letta_message_content import (
     create_letta_assistant_message_content_union_schema,
     create_letta_message_content_union_schema,
+    create_letta_tool_return_content_union_schema,
     create_letta_user_message_content_union_schema,
 )
 from letta.server.constants import REST_DEFAULT_PORT
@@ -105,6 +106,7 @@ def generate_openapi_schema(app: FastAPI):
     letta_docs["components"]["schemas"]["LettaMessageUnion"] = create_letta_message_union_schema()
     letta_docs["components"]["schemas"]["LettaMessageContentUnion"] = create_letta_message_content_union_schema()
     letta_docs["components"]["schemas"]["LettaAssistantMessageContentUnion"] = create_letta_assistant_message_content_union_schema()
+    letta_docs["components"]["schemas"]["LettaToolReturnContentUnion"] = create_letta_tool_return_content_union_schema()
     letta_docs["components"]["schemas"]["LettaUserMessageContentUnion"] = create_letta_user_message_content_union_schema()
     letta_docs["components"]["schemas"]["LettaErrorMessage"] = create_letta_error_message_schema()
 

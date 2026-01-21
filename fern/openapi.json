@@ -37275,7 +37275,7 @@
             "anyOf": [
               {
                 "items": {
-                  "$ref": "#/components/schemas/letta__schemas__message__ToolReturn"
+                  "$ref": "#/components/schemas/letta__schemas__message__ToolReturn-Output"
                 },
                 "type": "array"
               },
@@ -37391,7 +37391,7 @@
                       "$ref": "#/components/schemas/ApprovalReturn"
                     },
                     {
-                      "$ref": "#/components/schemas/letta__schemas__message__ToolReturn"
+                      "$ref": "#/components/schemas/letta__schemas__message__ToolReturn-Output"
                     }
                   ]
                 },
@@ -46069,7 +46069,7 @@
             "anyOf": [
               {
                 "items": {
-                  "$ref": "#/components/schemas/letta__schemas__message__ToolReturn"
+                  "$ref": "#/components/schemas/letta__schemas__message__ToolReturn-Input"
                 },
                 "type": "array"
               },
@@ -46131,7 +46131,7 @@
                       "$ref": "#/components/schemas/ApprovalReturn"
                     },
                     {
-                      "$ref": "#/components/schemas/letta__schemas__message__ToolReturn"
+                      "$ref": "#/components/schemas/letta__schemas__message__ToolReturn-Input"
                     }
                   ]
                 },
@@ -46374,8 +46374,19 @@
             "default": "tool"
           },
           "tool_return": {
-            "type": "string",
-            "title": "Tool Return"
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/LettaToolReturnContentUnion"
+                },
+                "type": "array"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Tool Return",
+            "description": "The tool return value - either a string or list of content parts (text/image)"
           },
           "status": {
             "type": "string",
@@ -46783,7 +46794,7 @@
         "title": "UpdateStreamableHTTPMCPServer",
         "description": "Update schema for Streamable HTTP MCP server - all fields optional"
       },
-      "letta__schemas__message__ToolReturn": {
+      "letta__schemas__message__ToolReturn-Input": {
         "properties": {
           "tool_call_id": {
             "anyOf": [
@@ -46837,11 +46848,116 @@
                 "type": "string"
               },
               {
+                "items": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/TextContent"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ImageContent"
+                    }
+                  ],
+                  "discriminator": {
+                    "propertyName": "type",
+                    "mapping": {
+                      "image": "#/components/schemas/ImageContent",
+                      "text": "#/components/schemas/TextContent"
+                    }
+                  }
+                },
+                "type": "array"
+              },
+              {
                 "type": "null"
               }
             ],
             "title": "Func Response",
-            "description": "The function response string"
+            "description": "The function response - either a string or list of content parts (text/image)"
+          }
+        },
+        "type": "object",
+        "required": ["status"],
+        "title": "ToolReturn"
+      },
+      "letta__schemas__message__ToolReturn-Output": {
+        "properties": {
+          "tool_call_id": {
+            "anyOf": [
+              {},
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tool Call Id",
+            "description": "The ID for the tool call"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["success", "error"],
+            "title": "Status",
+            "description": "The status of the tool call"
+          },
+          "stdout": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stdout",
+            "description": "Captured stdout (e.g. prints, logs) from the tool invocation"
+          },
+          "stderr": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stderr",
+            "description": "Captured stderr from the tool invocation"
+          },
+          "func_response": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/TextContent"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ImageContent"
+                    }
+                  ],
+                  "discriminator": {
+                    "propertyName": "type",
+                    "mapping": {
+                      "image": "#/components/schemas/ImageContent",
+                      "text": "#/components/schemas/TextContent"
+                    }
+                  }
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Func Response",
+            "description": "The function response - either a string or list of content parts (text/image)"
           }
         },
         "type": "object",
@@ -47327,6 +47443,23 @@
           "propertyName": "type",
           "mapping": {
             "text": "#/components/schemas/TextContent"
+          }
+        }
+      },
+      "LettaToolReturnContentUnion": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/TextContent"
+          },
+          {
+            "$ref": "#/components/schemas/ImageContent"
+          }
+        ],
+        "discriminator": {
+          "propertyName": "type",
+          "mapping": {
+            "text": "#/components/schemas/TextContent",
+            "image": "#/components/schemas/ImageContent"
           }
         }
       },

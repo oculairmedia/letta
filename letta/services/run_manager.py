@@ -719,7 +719,7 @@ class RunManager:
                 )
 
                 # Use the standard function to create properly formatted approval response messages
-                approval_response_messages = create_approval_response_message_from_input(
+                approval_response_messages = await create_approval_response_message_from_input(
                     agent_state=agent_state,
                     input_message=approval_input,
                     run_id=run_id,
