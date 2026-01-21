@@ -23389,7 +23389,6 @@
                                 "maxItems": 100
                               },
                               "max_messages_per_poll": {
-                                "default": 100,
                                 "type": "number"
                               }
                             },
@@ -23492,7 +23491,6 @@
                                       "maxItems": 100
                                     },
                                     "max_messages_per_poll": {
-                                      "default": 100,
                                       "type": "number"
                                     }
                                   },
@@ -23700,7 +23698,6 @@
                                         "maxItems": 100
                                       },
                                       "max_messages_per_poll": {
-                                        "default": 100,
                                         "type": "number"
                                       }
                                     },
@@ -23903,7 +23900,6 @@
                                       "maxItems": 100
                                     },
                                     "max_messages_per_poll": {
-                                      "default": 100,
                                       "type": "number"
                                     }
                                   },
@@ -24096,7 +24092,6 @@
                                       "maxItems": 100
                                     },
                                     "max_messages_per_poll": {
-                                      "default": 100,
                                       "type": "number"
                                     }
                                   },
@@ -24310,7 +24305,6 @@
                                 "maxItems": 100
                               },
                               "max_messages_per_poll": {
-                                "default": 100,
                                 "type": "number"
                               }
                             },
