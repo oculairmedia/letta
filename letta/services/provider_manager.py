@@ -98,9 +98,30 @@ class ProviderManager:
                     deleted_provider.access_key_enc = access_key_secret.get_encrypted()
 
                 await deleted_provider.update_async(session, actor=actor)
+
+                # Also restore any soft-deleted models associated with this provider
+                # This is needed because the unique constraint on provider_models doesn't include is_deleted,
+                # so soft-deleted models would block creation of new models with the same handle
+                from sqlalchemy import update
+
+                restore_models_stmt = (
+                    update(ProviderModelORM)
+                    .where(
+                        and_(
+                            ProviderModelORM.provider_id == deleted_provider.id,
+                            ProviderModelORM.is_deleted == True,
+                        )
+                    )
+                    .values(is_deleted=False)
+                )
+                result = await session.execute(restore_models_stmt)
+                if result.rowcount > 0:
+                    logger.info(f"Restored {result.rowcount} soft-deleted model(s) for provider '{request.name}'")
+
                 provider_pydantic = deleted_provider.to_pydantic()
 
                 # For BYOK providers, automatically sync available models
+                # This will add any new models and remove any that are no longer available
                 if is_byok:
                     await self._sync_default_models_for_provider(provider_pydantic, actor)
 
@@ -200,6 +221,17 @@ class ProviderManager:
             # Commit the updated provider
             await existing_provider.update_async(session, actor=actor)
             return existing_provider.to_pydantic()
+
+    @enforce_types
+    @raise_on_invalid_id(param_name="provider_id", expected_prefix=PrimitiveType.PROVIDER)
+    async def update_provider_last_synced_async(self, provider_id: str) -> None:
+        """Update the last_synced timestamp for a provider."""
+        from datetime import datetime, timezone
+
+        async with db_registry.async_session() as session:
+            provider = await ProviderModel.read_async(db_session=session, identifier=provider_id, actor=None)
+            provider.last_synced = datetime.now(timezone.utc)
+            await session.commit()
 
     @enforce_types
     @raise_on_invalid_id(param_name="provider_id", expected_prefix=PrimitiveType.PROVIDER)
@@ -476,81 +508,19 @@ class ProviderManager:
 
     async def _sync_default_models_for_provider(self, provider: PydanticProvider, actor: PydanticUser) -> None:
         """Sync models for a newly created BYOK provider by querying the provider's API."""
-        from letta.log import get_logger
-
-        logger = get_logger(__name__)
-
         try:
-            # Get the provider class and create an instance
-            from letta.schemas.enums import ProviderType
-            from letta.schemas.providers.anthropic import AnthropicProvider
-            from letta.schemas.providers.azure import AzureProvider
-            from letta.schemas.providers.bedrock import BedrockProvider
-            from letta.schemas.providers.google_gemini import GoogleAIProvider
-            from letta.schemas.providers.groq import GroqProvider
-            from letta.schemas.providers.ollama import OllamaProvider
-            from letta.schemas.providers.openai import OpenAIProvider
-            from letta.schemas.providers.zai import ZAIProvider
+            # Use cast_to_subtype() which properly handles all provider types and preserves api_key_enc
+            typed_provider = provider.cast_to_subtype()
+            llm_models = await typed_provider.list_llm_models_async()
+            embedding_models = await typed_provider.list_embedding_models_async()
 
-            # ChatGPT OAuth requires cast_to_subtype to preserve api_key_enc and id
-            # (needed for OAuth token refresh and database persistence)
-            if provider.provider_type == ProviderType.chatgpt_oauth:
-                provider_instance = provider.cast_to_subtype()
-            else:
-                provider_type_to_class = {
-                    "openai": OpenAIProvider,
-                    "anthropic": AnthropicProvider,
-                    "groq": GroqProvider,
-                    "google": GoogleAIProvider,
-                    "ollama": OllamaProvider,
-                    "bedrock": BedrockProvider,
-                    "azure": AzureProvider,
-                    "zai": ZAIProvider,
-                }
-
-                provider_type = provider.provider_type.value if hasattr(provider.provider_type, "value") else str(provider.provider_type)
-                provider_class = provider_type_to_class.get(provider_type)
-
-                if not provider_class:
-                    logger.warning(f"No provider class found for type '{provider_type}'")
-                    return
-
-                # Create provider instance with necessary parameters
-                api_key = await provider.api_key_enc.get_plaintext_async() if provider.api_key_enc else None
-                access_key = await provider.access_key_enc.get_plaintext_async() if provider.access_key_enc else None
-                kwargs = {
-                    "name": provider.name,
-                    "api_key": api_key,
-                    "provider_category": provider.provider_category,
-                }
-                if provider.base_url:
-                    kwargs["base_url"] = provider.base_url
-                if access_key:
-                    kwargs["access_key"] = access_key
-                if provider.region:
-                    kwargs["region"] = provider.region
-                if provider.api_version:
-                    kwargs["api_version"] = provider.api_version
-
-                provider_instance = provider_class(**kwargs)
-
-            # Query the provider's API for available models
-            llm_models = await provider_instance.list_llm_models_async()
-            embedding_models = await provider_instance.list_embedding_models_async()
-
-            # Update handles and provider_name for BYOK providers
-            for model in llm_models:
-                model.provider_name = provider.name
-                model.handle = f"{provider.name}/{model.model}"
-                model.provider_category = provider.provider_category
-
-            for model in embedding_models:
-                model.handle = f"{provider.name}/{model.embedding_model}"
-
-            # Use existing sync_provider_models_async to save to database
             await self.sync_provider_models_async(
-                provider=provider, llm_models=llm_models, embedding_models=embedding_models, organization_id=actor.organization_id
+                provider=provider,
+                llm_models=llm_models,
+                embedding_models=embedding_models,
+                organization_id=actor.organization_id,
             )
+            await self.update_provider_last_synced_async(provider.id)
 
         except Exception as e:
             logger.error(f"Failed to sync models for provider '{provider.name}': {e}")

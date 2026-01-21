@@ -32,6 +32,7 @@ class Provider(ProviderBase):
     api_version: str | None = Field(None, description="API version used for requests to the provider.")
     organization_id: str | None = Field(None, description="The organization id of the user")
     updated_at: datetime | None = Field(None, description="The last update timestamp of the provider.")
+    last_synced: datetime | None = Field(None, description="The last time models were synced for this provider.")
 
     # Encrypted fields (stored as Secret objects, serialized to strings for DB)
     # Secret class handles validation and serialization automatically via __get_pydantic_core_schema__

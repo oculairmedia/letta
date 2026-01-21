@@ -14826,6 +14826,53 @@
         }
       }
     },
+    "/v1/providers/{provider_id}/refresh": {
+      "patch": {
+        "tags": ["providers"],
+        "summary": "Refresh Provider Models",
+        "description": "Refresh models for a BYOK provider by querying the provider's API.\nAdds new models and removes ones no longer available.",
+        "operationId": "refresh_provider_models",
+        "parameters": [
+          {
+            "name": "provider_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 45,
+              "maxLength": 45,
+              "pattern": "^provider-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+              "description": "The ID of the provider in the format 'provider-<uuid4>'",
+              "examples": ["provider-123e4567-e89b-42d3-8456-426614174000"],
+              "title": "Provider Id"
+            },
+            "description": "The ID of the provider in the format 'provider-<uuid4>'"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Provider"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/runs/": {
       "get": {
         "tags": ["runs"],
@@ -38972,6 +39019,19 @@
             ],
             "title": "Updated At",
             "description": "The last update timestamp of the provider."
+          },
+          "last_synced": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Synced",
+            "description": "The last time models were synced for this provider."
           },
           "api_key_enc": {
             "anyOf": [

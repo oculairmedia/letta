@@ -466,6 +466,8 @@ class SyncServer(object):
                     embedding_models=embedding_models,
                     organization_id=None,  # Global models
                 )
+                # Update last_synced timestamp
+                await self.provider_manager.update_provider_last_synced_async(persisted_provider.id)
                 logger.info(
                     f"Synced {len(llm_models)} LLM models and {len(embedding_models)} embedding models for provider {persisted_provider.name}"
                 )
@@ -1177,7 +1179,7 @@ class SyncServer(object):
                 llm_config = LLMConfig(
                     model=model.name,
                     model_endpoint_type=model.model_endpoint_type,
-                    model_endpoint=provider.base_url or model.model_endpoint_type,
+                    model_endpoint=provider.base_url,
                     context_window=model.max_context_window or 16384,
                     handle=model.handle,
                     provider_name=provider.name,
@@ -1185,7 +1187,7 @@ class SyncServer(object):
                 )
                 llm_models.append(llm_config)
 
-        # Get BYOK provider models by hitting provider endpoints directly
+        # Get BYOK provider models - sync if not synced yet, then read from DB
         if include_byok:
             byok_providers = await self.provider_manager.list_providers_async(
                 actor=actor,
@@ -1196,9 +1198,37 @@ class SyncServer(object):
 
             for provider in byok_providers:
                 try:
-                    typed_provider = provider.cast_to_subtype()
-                    models = await typed_provider.list_llm_models_async()
-                    llm_models.extend(models)
+                    # Sync models if not synced yet
+                    if provider.last_synced is None:
+                        typed_provider = provider.cast_to_subtype()
+                        models = await typed_provider.list_llm_models_async()
+                        embedding_models = await typed_provider.list_embedding_models_async()
+                        await self.provider_manager.sync_provider_models_async(
+                            provider=provider,
+                            llm_models=models,
+                            embedding_models=embedding_models,
+                            organization_id=provider.organization_id,
+                        )
+                        await self.provider_manager.update_provider_last_synced_async(provider.id)
+
+                    # Read from database
+                    provider_llm_models = await self.provider_manager.list_models_async(
+                        actor=actor,
+                        model_type="llm",
+                        provider_id=provider.id,
+                        enabled=True,
+                    )
+                    for model in provider_llm_models:
+                        llm_config = LLMConfig(
+                            model=model.name,
+                            model_endpoint_type=model.model_endpoint_type,
+                            model_endpoint=provider.base_url,
+                            context_window=model.max_context_window or constants.DEFAULT_CONTEXT_WINDOW,
+                            handle=model.handle,
+                            provider_name=provider.name,
+                            provider_category=ProviderCategory.byok,
+                        )
+                        llm_models.append(llm_config)
                 except Exception as e:
                     logger.warning(f"Failed to fetch models from BYOK provider {provider.name}: {e}")
 
@@ -1240,7 +1270,7 @@ class SyncServer(object):
             )
             embedding_models.append(embedding_config)
 
-        # Get BYOK provider models by hitting provider endpoints directly
+        # Get BYOK provider models - sync if not synced yet, then read from DB
         byok_providers = await self.provider_manager.list_providers_async(
             actor=actor,
             provider_category=[ProviderCategory.byok],
@@ -1248,9 +1278,36 @@ class SyncServer(object):
 
         for provider in byok_providers:
             try:
-                typed_provider = provider.cast_to_subtype()
-                models = await typed_provider.list_embedding_models_async()
-                embedding_models.extend(models)
+                # Sync models if not synced yet
+                if provider.last_synced is None:
+                    typed_provider = provider.cast_to_subtype()
+                    llm_models = await typed_provider.list_llm_models_async()
+                    emb_models = await typed_provider.list_embedding_models_async()
+                    await self.provider_manager.sync_provider_models_async(
+                        provider=provider,
+                        llm_models=llm_models,
+                        embedding_models=emb_models,
+                        organization_id=provider.organization_id,
+                    )
+                    await self.provider_manager.update_provider_last_synced_async(provider.id)
+
+                # Read from database
+                provider_embedding_models = await self.provider_manager.list_models_async(
+                    actor=actor,
+                    model_type="embedding",
+                    provider_id=provider.id,
+                    enabled=True,
+                )
+                for model in provider_embedding_models:
+                    embedding_config = EmbeddingConfig(
+                        embedding_model=model.name,
+                        embedding_endpoint_type=model.model_endpoint_type,
+                        embedding_endpoint=provider.base_url or model.model_endpoint_type,
+                        embedding_dim=model.embedding_dim or 1536,
+                        embedding_chunk_size=constants.DEFAULT_EMBEDDING_CHUNK_SIZE,
+                        handle=model.handle,
+                    )
+                    embedding_models.append(embedding_config)
             except Exception as e:
                 logger.warning(f"Failed to fetch embedding models from BYOK provider {provider.name}: {e}")
 
