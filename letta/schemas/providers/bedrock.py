@@ -99,7 +99,7 @@ class BedrockProvider(Provider):
                 LLMConfig(
                     model=model_name,
                     model_endpoint_type=self.provider_type.value,
-                    model_endpoint=None,
+                    model_endpoint="bedrock",
                     context_window=self.get_model_context_window(inference_profile_id),
                     # Store the full inference profile ID in the handle for API calls
                     handle=self.get_handle(inference_profile_id),
