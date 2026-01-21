@@ -118,6 +118,11 @@ class ProviderManager:
                 if result.rowcount > 0:
                     logger.info(f"Restored {result.rowcount} soft-deleted model(s) for provider '{request.name}'")
 
+                # Commit the provider and model restoration before syncing
+                # This is needed because _sync_default_models_for_provider opens a new session
+                # that can't see uncommitted changes from this session
+                await session.commit()
+
                 provider_pydantic = deleted_provider.to_pydantic()
 
                 # For BYOK providers, automatically sync available models
