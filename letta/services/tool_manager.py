@@ -167,6 +167,19 @@ def modal_tool_wrapper(tool: PydanticTool, actor: PydanticUser, sandbox_env_vars
                 if "agent_state" in tool_func.__code__.co_varnames:
                     kwargs["agent_state"] = reconstructed_agent_state
 
+                try:
+                    from letta.functions.ast_parsers import coerce_dict_args_by_annotations
+
+                    annotations = getattr(tool_func, "__annotations__", {})
+                    kwargs = coerce_dict_args_by_annotations(
+                        kwargs,
+                        annotations,
+                        allow_unsafe_eval=True,
+                        extra_globals=tool_func.__globals__,
+                    )
+                except Exception:
+                    pass
+
                 # Execute the tool function (async or sync)
                 if is_async:
                     result = asyncio.run(tool_func(**kwargs))
