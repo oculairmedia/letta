@@ -65,16 +65,14 @@ async def create_archive(
     if embedding_config is None:
         embedding_handle = archive.embedding
         if embedding_handle is None:
-            if settings.default_embedding_handle is None:
-                raise LettaInvalidArgumentError(
-                    "Must specify either embedding or embedding_config in request", argument_name="default_embedding_handle"
-                )
-            else:
-                embedding_handle = settings.default_embedding_handle
-        embedding_config = await server.get_embedding_config_from_handle_async(
-            handle=embedding_handle,
-            actor=actor,
-        )
+            embedding_handle = settings.default_embedding_handle
+        # Only resolve embedding config if we have an embedding handle
+        if embedding_handle is not None:
+            embedding_config = await server.get_embedding_config_from_handle_async(
+                handle=embedding_handle,
+                actor=actor,
+            )
+        # Otherwise, embedding_config remains None (text search only)
 
     return await server.archive_manager.create_archive_async(
         name=archive.name,

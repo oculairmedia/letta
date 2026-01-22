@@ -26203,7 +26203,14 @@
             "default": "native"
           },
           "embedding_config": {
-            "$ref": "#/components/schemas/EmbeddingConfig",
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EmbeddingConfig"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "description": "Embedding configuration for passages in this archive"
           },
           "metadata": {
@@ -26229,12 +26236,7 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": [
-          "created_at",
-          "name",
-          "organization_id",
-          "embedding_config"
-        ],
+        "required": ["created_at", "name", "organization_id"],
         "title": "Archive",
         "description": "Representation of an archive - a collection of archival passages that can be shared between agents."
       },

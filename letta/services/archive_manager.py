@@ -4,7 +4,6 @@ from typing import Dict, List, Optional
 
 from sqlalchemy import delete, or_, select
 
-from letta.errors import EmbeddingConfigRequiredError
 from letta.helpers.tpuf_client import should_use_tpuf
 from letta.log import get_logger
 from letta.orm import ArchivalPassage, Archive as ArchiveModel, ArchivesAgents
@@ -32,7 +31,7 @@ class ArchiveManager:
     async def create_archive_async(
         self,
         name: str,
-        embedding_config: EmbeddingConfig,
+        embedding_config: Optional[EmbeddingConfig] = None,
         description: Optional[str] = None,
         actor: PydanticUser = None,
     ) -> PydanticArchive:
@@ -312,15 +311,17 @@ class ArchiveManager:
         # Verify the archive exists and user has access
         archive = await self.get_archive_by_id_async(archive_id=archive_id, actor=actor)
 
-        # Generate embeddings for the text
-        embedding_client = LLMClient.create(
-            provider_type=archive.embedding_config.embedding_endpoint_type,
-            actor=actor,
-        )
-        embeddings = await embedding_client.request_embeddings([text], archive.embedding_config)
-        embedding = embeddings[0] if embeddings else None
+        # Generate embeddings for the text if embedding config is available
+        embedding = None
+        if archive.embedding_config is not None:
+            embedding_client = LLMClient.create(
+                provider_type=archive.embedding_config.embedding_endpoint_type,
+                actor=actor,
+            )
+            embeddings = await embedding_client.request_embeddings([text], archive.embedding_config)
+            embedding = embeddings[0] if embeddings else None
 
-        # Create the passage object with embedding
+        # Create the passage object (with or without embedding)
         passage = PydanticPassage(
             text=text,
             archive_id=archive_id,
@@ -434,9 +435,7 @@ class ArchiveManager:
             )
             return archive
 
-        # Create a default archive for this agent
-        if agent_state.embedding_config is None:
-            raise EmbeddingConfigRequiredError(agent_id=agent_state.id, operation="create_default_archive")
+        # Create a default archive for this agent (embedding_config is optional)
         archive_name = f"{agent_state.name}'s Archive"
         archive = await self.create_archive_async(
             name=archive_name,

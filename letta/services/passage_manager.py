@@ -8,7 +8,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import noload
 
 from letta.constants import MAX_EMBEDDING_DIM
-from letta.errors import EmbeddingConfigRequiredError
 from letta.helpers.decorators import async_redis_cache
 from letta.llm_api.llm_client import LLMClient
 from letta.log import get_logger
@@ -474,15 +473,6 @@ class PassageManager:
         Returns:
             List of created passage objects
         """
-        if agent_state.embedding_config is None:
-            raise EmbeddingConfigRequiredError(agent_id=agent_state.id, operation="insert_passage")
-
-        embedding_chunk_size = agent_state.embedding_config.embedding_chunk_size
-        embedding_client = LLMClient.create(
-            provider_type=agent_state.embedding_config.embedding_endpoint_type,
-            actor=actor,
-        )
-
         # Get or create the default archive for the agent
         archive = await self.archive_manager.get_or_create_default_archive_for_agent_async(agent_state=agent_state, actor=actor)
 
@@ -493,8 +483,16 @@ class PassageManager:
             return []
 
         try:
-            # Generate embeddings for all chunks using the new async API
-            embeddings = await embedding_client.request_embeddings(text_chunks, agent_state.embedding_config)
+            # Generate embeddings if embedding config is available
+            if agent_state.embedding_config is not None:
+                embedding_client = LLMClient.create(
+                    provider_type=agent_state.embedding_config.embedding_endpoint_type,
+                    actor=actor,
+                )
+                embeddings = await embedding_client.request_embeddings(text_chunks, agent_state.embedding_config)
+            else:
+                # No embedding config - store passages without embeddings (text search only)
+                embeddings = [None] * len(text_chunks)
 
             passages = []
 

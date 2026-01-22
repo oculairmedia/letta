@@ -19,7 +19,6 @@ from letta.config import LettaConfig
 from letta.constants import LETTA_TOOL_EXECUTION_DIR
 from letta.data_sources.connectors import DataConnector, load_data
 from letta.errors import (
-    EmbeddingConfigRequiredError,
     HandleNotFoundError,
     LettaInvalidArgumentError,
     LettaMCPConnectionError,
@@ -649,9 +648,10 @@ class SyncServer(object):
             actor=actor,
         )
 
-    async def create_sleeptime_agent_async(self, main_agent: AgentState, actor: User) -> AgentState:
+    async def create_sleeptime_agent_async(self, main_agent: AgentState, actor: User) -> Optional[AgentState]:
         if main_agent.embedding_config is None:
-            raise EmbeddingConfigRequiredError(agent_id=main_agent.id, operation="create_sleeptime_agent")
+            logger.warning(f"Skipping sleeptime agent creation for agent {main_agent.id}: no embedding config provided")
+            return None
         request = CreateAgent(
             name=main_agent.name + "-sleeptime",
             agent_type=AgentType.sleeptime_agent,
@@ -683,9 +683,10 @@ class SyncServer(object):
         )
         return await self.agent_manager.get_agent_by_id_async(agent_id=main_agent.id, actor=actor)
 
-    async def create_voice_sleeptime_agent_async(self, main_agent: AgentState, actor: User) -> AgentState:
+    async def create_voice_sleeptime_agent_async(self, main_agent: AgentState, actor: User) -> Optional[AgentState]:
         if main_agent.embedding_config is None:
-            raise EmbeddingConfigRequiredError(agent_id=main_agent.id, operation="create_voice_sleeptime_agent")
+            logger.warning(f"Skipping voice sleeptime agent creation for agent {main_agent.id}: no embedding config provided")
+            return None
         # TODO: Inject system
         request = CreateAgent(
             name=main_agent.name + "-sleeptime",
@@ -1062,9 +1063,10 @@ class SyncServer(object):
 
     async def create_document_sleeptime_agent_async(
         self, main_agent: AgentState, source: Source, actor: User, clear_history: bool = False
-    ) -> AgentState:
+    ) -> Optional[AgentState]:
         if main_agent.embedding_config is None:
-            raise EmbeddingConfigRequiredError(agent_id=main_agent.id, operation="create_document_sleeptime_agent")
+            logger.warning(f"Skipping document sleeptime agent creation for agent {main_agent.id}: no embedding config provided")
+            return None
         try:
             block = await self.agent_manager.get_block_with_label_async(agent_id=main_agent.id, block_label=source.name, actor=actor)
         except:
