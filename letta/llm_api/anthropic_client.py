@@ -777,6 +777,18 @@ class AnthropicClient(LLMClientBase):
                                 if not block.get("text", "").strip():
                                     block["text"] = "."
 
+                # Strip trailing whitespace from final assistant message
+                # Anthropic API rejects messages where "final assistant content cannot end with trailing whitespace"
+                if is_final_assistant:
+                    if isinstance(content, str):
+                        msg["content"] = content.rstrip()
+                    elif isinstance(content, list) and len(content) > 0:
+                        # Find and strip trailing whitespace from the last text block
+                        for block in reversed(content):
+                            if isinstance(block, dict) and block.get("type") == "text":
+                                block["text"] = block.get("text", "").rstrip()
+                                break
+
         try:
             count_params = {
                 "model": model or "claude-3-7-sonnet-20250219",
