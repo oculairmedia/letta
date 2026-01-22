@@ -553,6 +553,67 @@
         }
       }
     },
+    "/v1/archives/{archive_id}/passages/batch": {
+      "post": {
+        "tags": ["archives"],
+        "summary": "Create Passages In Archive",
+        "description": "Create multiple passages in an archive.\n\nThis adds passages to the archive and creates embeddings for vector storage.",
+        "operationId": "create_passages_in_archive",
+        "parameters": [
+          {
+            "name": "archive_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 44,
+              "maxLength": 44,
+              "pattern": "^archive-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+              "description": "The ID of the archive in the format 'archive-<uuid4>'",
+              "examples": ["archive-123e4567-e89b-42d3-8456-426614174000"],
+              "title": "Archive Id"
+            },
+            "description": "The ID of the archive in the format 'archive-<uuid4>'"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PassageBatchCreateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Passage"
+                  },
+                  "title": "Response Create Passages In Archive"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/archives/{archive_id}/passages/{passage_id}": {
       "delete": {
         "tags": ["archives"],
@@ -38651,8 +38712,15 @@
             "description": "The id of the user that made this object."
           },
           "created_at": {
-            "type": "string",
-            "format": "date-time",
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Created At",
             "description": "The creation date of the passage."
           },
@@ -38798,6 +38866,22 @@
         "title": "Passage",
         "description": "Representation of a passage, which is stored in archival memory."
       },
+      "PassageBatchCreateRequest": {
+        "properties": {
+          "passages": {
+            "items": {
+              "$ref": "#/components/schemas/PassageCreateRequest"
+            },
+            "type": "array",
+            "title": "Passages",
+            "description": "Passages to create in the archive"
+          }
+        },
+        "type": "object",
+        "required": ["passages"],
+        "title": "PassageBatchCreateRequest",
+        "description": "Request model for creating multiple passages in an archive."
+      },
       "PassageCreateRequest": {
         "properties": {
           "text": {
@@ -38832,6 +38916,18 @@
             ],
             "title": "Tags",
             "description": "Optional tags for categorizing the passage"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At",
+            "description": "Optional creation datetime for the passage (ISO 8601 format)"
           }
         },
         "type": "object",
@@ -38842,7 +38938,14 @@
       "PassageSearchRequest": {
         "properties": {
           "query": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Query",
             "description": "Text query for semantic search"
           },
@@ -38928,7 +39031,6 @@
           }
         },
         "type": "object",
-        "required": ["query"],
         "title": "PassageSearchRequest",
         "description": "Request model for searching passages across archives."
       },

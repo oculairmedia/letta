@@ -194,6 +194,93 @@ class PassageManager:
 
     @enforce_types
     @trace_method
+    async def create_agent_passages_async(self, pydantic_passages: List[PydanticPassage], actor: PydanticUser) -> List[PydanticPassage]:
+        """Create multiple agent passages in a single database transaction.
+
+        Args:
+            pydantic_passages: List of passages to create
+            actor: User performing the operation
+
+        Returns:
+            List of created passages
+        """
+        if not pydantic_passages:
+            return []
+
+        import numpy as np
+
+        from letta.helpers.tpuf_client import should_use_tpuf
+
+        use_tpuf = should_use_tpuf()
+        passage_objects: List[ArchivalPassage] = []
+        all_tags_data: List[tuple] = []  # (passage_index, tags) for creating tags after passages are created
+
+        for idx, pydantic_passage in enumerate(pydantic_passages):
+            if not pydantic_passage.archive_id:
+                raise ValueError("Agent passage must have archive_id")
+            if pydantic_passage.source_id:
+                raise ValueError("Agent passage cannot have source_id")
+
+            data = pydantic_passage.model_dump(to_orm=True)
+
+            # Deduplicate tags if provided (for dual storage consistency)
+            tags = data.get("tags")
+            if tags:
+                tags = list(set(tags))
+                all_tags_data.append((idx, tags))
+
+            # Pad embeddings to MAX_EMBEDDING_DIM for pgvector (only when using Postgres as vector DB)
+            embedding = data["embedding"]
+            if embedding and not use_tpuf:
+                np_embedding = np.array(embedding)
+                if np_embedding.shape[0] != MAX_EMBEDDING_DIM:
+                    embedding = np.pad(np_embedding, (0, MAX_EMBEDDING_DIM - np_embedding.shape[0]), mode="constant").tolist()
+
+            # Sanitize text to remove null bytes which PostgreSQL rejects
+            text = data["text"]
+            if text and "\x00" in text:
+                text = text.replace("\x00", "")
+                logger.warning(f"Removed null bytes from passage text (length: {len(data['text'])} -> {len(text)})")
+
+            common_fields = {
+                "id": data.get("id"),
+                "text": text,
+                "embedding": embedding,
+                "embedding_config": data["embedding_config"],
+                "organization_id": data["organization_id"],
+                "metadata_": data.get("metadata_", {}),
+                "tags": tags,
+                "is_deleted": data.get("is_deleted", False),
+                "created_at": data.get("created_at", datetime.now(timezone.utc)),
+            }
+            agent_fields = {"archive_id": data["archive_id"]}
+            passage = ArchivalPassage(**common_fields, **agent_fields)
+            passage_objects.append(passage)
+
+        async with db_registry.async_session() as session:
+            # Batch create all passages in a single transaction
+            created_passages = await ArchivalPassage.batch_create_async(
+                items=passage_objects,
+                db_session=session,
+                actor=actor,
+            )
+
+            # Create tags for passages that have them
+            for idx, tags in all_tags_data:
+                created_passage = created_passages[idx]
+                await self._create_tags_for_passage(
+                    session=session,
+                    passage_id=created_passage.id,
+                    archive_id=created_passage.archive_id,
+                    organization_id=created_passage.organization_id,
+                    tags=tags,
+                    actor=actor,
+                )
+
+            return [p.to_pydantic() for p in created_passages]
+
+    @enforce_types
+    @trace_method
     async def create_source_passage_async(
         self, pydantic_passage: PydanticPassage, file_metadata: PydanticFileMetadata, actor: PydanticUser
     ) -> PydanticPassage:

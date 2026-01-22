@@ -288,6 +288,7 @@ class ArchiveManager:
         text: str,
         metadata: Optional[Dict] = None,
         tags: Optional[List[str]] = None,
+        created_at: Optional[str] = None,
         actor: PydanticUser = None,
     ) -> PydanticPassage:
         """Create a passage in an archive.
@@ -297,6 +298,7 @@ class ArchiveManager:
             text: The text content of the passage
             metadata: Optional metadata for the passage
             tags: Optional tags for categorizing the passage
+            created_at: Optional creation datetime in ISO 8601 format
             actor: User performing the operation
 
         Returns:
@@ -321,7 +323,12 @@ class ArchiveManager:
             embeddings = await embedding_client.request_embeddings([text], archive.embedding_config)
             embedding = embeddings[0] if embeddings else None
 
-        # Create the passage object (with or without embedding)
+        # Parse created_at from ISO string if provided
+        parsed_created_at = None
+        if created_at:
+            parsed_created_at = datetime.fromisoformat(created_at)
+
+        # Create the passage object with embedding
         passage = PydanticPassage(
             text=text,
             archive_id=archive_id,
@@ -330,6 +337,7 @@ class ArchiveManager:
             tags=tags,
             embedding_config=archive.embedding_config,
             embedding=embedding,
+            created_at=parsed_created_at,
         )
 
         # Use PassageManager to create the passage
@@ -363,6 +371,92 @@ class ArchiveManager:
 
         logger.info(f"Created passage {created_passage.id} in archive {archive_id}")
         return created_passage
+
+    @enforce_types
+    @raise_on_invalid_id(param_name="archive_id", expected_prefix=PrimitiveType.ARCHIVE)
+    @trace_method
+    async def create_passages_in_archive_async(
+        self,
+        archive_id: str,
+        passages: List[Dict],
+        actor: PydanticUser = None,
+    ) -> List[PydanticPassage]:
+        """Create multiple passages in an archive.
+
+        Args:
+            archive_id: ID of the archive to add the passages to
+            passages: Passage create payloads
+            actor: User performing the operation
+
+        Returns:
+            The created passages
+
+        Raises:
+            NoResultFound: If archive not found
+        """
+        if not passages:
+            return []
+
+        from letta.llm_api.llm_client import LLMClient
+        from letta.services.passage_manager import PassageManager
+
+        archive = await self.get_archive_by_id_async(archive_id=archive_id, actor=actor)
+
+        texts = [passage["text"] for passage in passages]
+        embedding_client = LLMClient.create(
+            provider_type=archive.embedding_config.embedding_endpoint_type,
+            actor=actor,
+        )
+        embeddings = await embedding_client.request_embeddings(texts, archive.embedding_config)
+
+        if len(embeddings) != len(passages):
+            raise ValueError("Embedding response count does not match passages count")
+
+        # Build PydanticPassage objects for batch creation
+        pydantic_passages: List[PydanticPassage] = []
+        for passage_payload, embedding in zip(passages, embeddings):
+            # Parse created_at from ISO string if provided
+            created_at = passage_payload.get("created_at")
+            if created_at and isinstance(created_at, str):
+                created_at = datetime.fromisoformat(created_at)
+
+            passage = PydanticPassage(
+                text=passage_payload["text"],
+                archive_id=archive_id,
+                organization_id=actor.organization_id,
+                metadata=passage_payload.get("metadata") or {},
+                tags=passage_payload.get("tags"),
+                embedding_config=archive.embedding_config,
+                embedding=embedding,
+                created_at=created_at,
+            )
+            pydantic_passages.append(passage)
+
+        # Use batch create for efficient single-transaction insert
+        passage_manager = PassageManager()
+        created_passages = await passage_manager.create_agent_passages_async(
+            pydantic_passages=pydantic_passages,
+            actor=actor,
+        )
+
+        if archive.vector_db_provider == VectorDBProvider.TPUF:
+            try:
+                from letta.helpers.tpuf_client import TurbopufferClient
+
+                tpuf_client = TurbopufferClient()
+                await tpuf_client.insert_archival_memories(
+                    archive_id=archive.id,
+                    text_chunks=[passage.text for passage in created_passages],
+                    passage_ids=[passage.id for passage in created_passages],
+                    organization_id=actor.organization_id,
+                    actor=actor,
+                )
+                logger.info(f"Uploaded {len(created_passages)} passages to Turbopuffer for archive {archive_id}")
+            except Exception as e:
+                logger.error(f"Failed to upload passages to Turbopuffer: {e}")
+
+        logger.info(f"Created {len(created_passages)} passages in archive {archive_id}")
+        return created_passages
 
     @enforce_types
     @raise_on_invalid_id(param_name="archive_id", expected_prefix=PrimitiveType.ARCHIVE)
