@@ -955,8 +955,8 @@ class ProviderManager:
         # Determine the model endpoint - use provider's base_url if set,
         # otherwise use provider-specific defaults
 
-        if provider.base_url:
-            model_endpoint = provider.base_url
+        if typed_provider.base_url:
+            model_endpoint = typed_provider.base_url
         elif provider.provider_type == ProviderType.chatgpt_oauth:
             # ChatGPT OAuth uses the ChatGPT backend API, not a generic endpoint pattern
             from letta.schemas.providers.chatgpt_oauth import CHATGPT_CODEX_ENDPOINT
