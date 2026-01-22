@@ -16,6 +16,7 @@ from letta.schemas.letta_message_content import LettaMessageContentUnion
 from letta.schemas.provider_trace import ProviderTrace
 from letta.schemas.usage import LettaUsageStatistics
 from letta.schemas.user import User
+from letta.server.rest_api.streaming_response import get_cancellation_event_for_run
 from letta.settings import settings
 from letta.utils import safe_create_task
 
@@ -70,6 +71,9 @@ class SimpleLLMStreamAdapter(LettaLLMStreamAdapter):
         # Store request data
         self.request_data = request_data
 
+        # Get cancellation event for this run to enable graceful cancellation (before branching)
+        cancellation_event = get_cancellation_event_for_run(self.run_id) if self.run_id else None
+
         # Instantiate streaming interface
         if self.llm_config.model_endpoint_type in [ProviderType.anthropic, ProviderType.bedrock]:
             # NOTE: different
@@ -102,6 +106,7 @@ class SimpleLLMStreamAdapter(LettaLLMStreamAdapter):
                     requires_approval_tools=requires_approval_tools,
                     run_id=self.run_id,
                     step_id=step_id,
+                    cancellation_event=cancellation_event,
                 )
             else:
                 self.interface = SimpleOpenAIStreamingInterface(
@@ -112,12 +117,14 @@ class SimpleLLMStreamAdapter(LettaLLMStreamAdapter):
                     model=self.llm_config.model,
                     run_id=self.run_id,
                     step_id=step_id,
+                    cancellation_event=cancellation_event,
                 )
         elif self.llm_config.model_endpoint_type in [ProviderType.google_ai, ProviderType.google_vertex]:
             self.interface = SimpleGeminiStreamingInterface(
                 requires_approval_tools=requires_approval_tools,
                 run_id=self.run_id,
                 step_id=step_id,
+                cancellation_event=cancellation_event,
             )
         else:
             raise ValueError(f"Streaming not supported for provider {self.llm_config.model_endpoint_type}")

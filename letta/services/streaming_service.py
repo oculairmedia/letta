@@ -38,9 +38,11 @@ from letta.schemas.usage import LettaUsageStatistics
 from letta.schemas.user import User
 from letta.server.rest_api.redis_stream_manager import create_background_stream_processor, redis_sse_stream_generator
 from letta.server.rest_api.streaming_response import (
+    RunCancelledException,
     StreamingResponseWithStatusCode,
     add_keepalive_to_stream,
     cancellation_aware_stream_wrapper,
+    get_cancellation_event_for_run,
 )
 from letta.server.rest_api.utils import capture_sentry_exception
 from letta.services.run_manager import RunManager
@@ -168,6 +170,7 @@ class StreamingService:
                             run_manager=self.runs_manager,
                             run_id=run.id,
                             actor=actor,
+                            cancellation_event=get_cancellation_event_for_run(run.id),
                         )
 
                     safe_create_task(
@@ -195,6 +198,7 @@ class StreamingService:
                         run_manager=self.runs_manager,
                         run_id=run.id,
                         actor=actor,
+                        cancellation_event=get_cancellation_event_for_run(run.id),
                     )
 
                 # conditionally wrap with keepalive based on request parameter
@@ -451,6 +455,14 @@ class StreamingService:
                 yield f"event: error\ndata: {error_message.model_dump_json()}\n\n"
                 # Send [DONE] marker to properly close the stream
                 yield "data: [DONE]\n\n"
+            except RunCancelledException as e:
+                # Run was explicitly cancelled - this is not an error
+                # The cancellation has already been handled by cancellation_aware_stream_wrapper
+                logger.info(f"Run {run_id} was cancelled, exiting stream gracefully")
+                # Send [DONE] to properly close the stream
+                yield "data: [DONE]\n\n"
+                # Don't update run status in finally - cancellation is already recorded
+                run_status = None  # Signal to finally block to skip update
             except Exception as e:
                 run_status = RunStatus.failed
                 stop_reason = LettaStopReason(stop_reason=StopReasonType.error)

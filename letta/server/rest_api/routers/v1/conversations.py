@@ -289,11 +289,14 @@ async def retrieve_conversation_stream(
     )
 
     if settings.enable_cancellation_aware_streaming:
+        from letta.server.rest_api.streaming_response import cancellation_aware_stream_wrapper, get_cancellation_event_for_run
+
         stream = cancellation_aware_stream_wrapper(
             stream_generator=stream,
             run_manager=server.run_manager,
             run_id=run.id,
             actor=actor,
+            cancellation_event=get_cancellation_event_for_run(run.id),
         )
 
     if request and request.include_pings and settings.enable_keepalive:
