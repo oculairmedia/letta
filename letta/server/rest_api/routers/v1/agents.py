@@ -1859,15 +1859,24 @@ async def _process_message_background(
 
         runs_manager = RunManager()
         from letta.schemas.enums import RunStatus
+        from letta.schemas.letta_stop_reason import StopReasonType
 
-        if result.stop_reason.stop_reason == "cancelled":
+        # Handle cases where stop_reason might be None (defensive)
+        if result.stop_reason and result.stop_reason.stop_reason == "cancelled":
             run_status = RunStatus.cancelled
-        else:
+            stop_reason = result.stop_reason.stop_reason
+        elif result.stop_reason:
             run_status = RunStatus.completed
+            stop_reason = result.stop_reason.stop_reason
+        else:
+            # Fallback: no stop_reason set (shouldn't happen but defensive)
+            logger.error(f"Run {run_id} completed without stop_reason in result, defaulting to end_turn")
+            run_status = RunStatus.completed
+            stop_reason = StopReasonType.end_turn
 
         await runs_manager.update_run_by_id_async(
             run_id=run_id,
-            update=RunUpdate(status=run_status, stop_reason=result.stop_reason.stop_reason),
+            update=RunUpdate(status=run_status, stop_reason=stop_reason),
             actor=actor,
         )
 
@@ -1875,20 +1884,22 @@ async def _process_message_background(
         # Update run status to failed with specific error info
         runs_manager = RunManager()
         from letta.schemas.enums import RunStatus
+        from letta.schemas.letta_stop_reason import StopReasonType
 
         await runs_manager.update_run_by_id_async(
             run_id=run_id,
-            update=RunUpdate(status=RunStatus.failed, metadata={"error": str(e)}),
+            update=RunUpdate(status=RunStatus.failed, stop_reason=StopReasonType.error, metadata={"error": str(e)}),
             actor=actor,
         )
     except Exception as e:
         # Update run status to failed
         runs_manager = RunManager()
         from letta.schemas.enums import RunStatus
+        from letta.schemas.letta_stop_reason import StopReasonType
 
         await runs_manager.update_run_by_id_async(
             run_id=run_id,
-            update=RunUpdate(status=RunStatus.failed, metadata={"error": str(e)}),
+            update=RunUpdate(status=RunStatus.failed, stop_reason=StopReasonType.error, metadata={"error": str(e)}),
             actor=actor,
         )
     finally:
@@ -2028,10 +2039,11 @@ async def send_message_async(
             async def update_failed_run():
                 runs_manager = RunManager()
                 from letta.schemas.enums import RunStatus
+                from letta.schemas.letta_stop_reason import StopReasonType
 
                 await runs_manager.update_run_by_id_async(
                     run_id=run.id,
-                    update=RunUpdate(status=RunStatus.failed, metadata={"error": error_str}),
+                    update=RunUpdate(status=RunStatus.failed, stop_reason=StopReasonType.error, metadata={"error": error_str}),
                     actor=actor,
                 )
 
