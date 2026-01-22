@@ -1174,10 +1174,18 @@ class SyncServer(object):
                 if provider_type and provider.provider_type != provider_type:
                     continue
 
+                # For bedrock, use schema default for base_url since DB may have NULL
+                # TODO: can maybe do this for all models but want to isolate change so we don't break any other providers
+                if provider.provider_type == ProviderType.bedrock:
+                    typed_provider = provider.cast_to_subtype()
+                    model_endpoint = typed_provider.base_url
+                else:
+                    model_endpoint = provider.base_url
+
                 llm_config = LLMConfig(
                     model=model.name,
                     model_endpoint_type=model.model_endpoint_type,
-                    model_endpoint=provider.base_url,
+                    model_endpoint=model_endpoint,
                     context_window=model.max_context_window or 16384,
                     handle=model.handle,
                     provider_name=provider.name,
