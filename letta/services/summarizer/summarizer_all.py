@@ -68,6 +68,10 @@ async def summarize_all(
         agent_tags=agent_tags,
         run_id=run_id,
         step_id=step_id,
+        compaction_settings={
+            "mode": "summarize_all",
+            "clip_chars": summarizer_config.clip_chars,
+        },
     )
     logger.info(f"Summarized {len(messages_to_summarize)} messages")
 

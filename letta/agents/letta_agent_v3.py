@@ -173,6 +173,8 @@ class LettaAgentV3(LettaAgentV2):
                     agent_id=self.agent_state.id,
                     agent_tags=self.agent_state.tags,
                     run_id=run_id,
+                    org_id=self.actor.organization_id,
+                    user_id=self.actor.id,
                 ),
                 run_id=run_id,
                 # use_assistant_message=use_assistant_message,
@@ -316,6 +318,8 @@ class LettaAgentV3(LettaAgentV2):
                 agent_id=self.agent_state.id,
                 agent_tags=self.agent_state.tags,
                 run_id=run_id,
+                org_id=self.actor.organization_id,
+                user_id=self.actor.id,
             )
         else:
             llm_adapter = SimpleLLMRequestAdapter(
@@ -324,6 +328,8 @@ class LettaAgentV3(LettaAgentV2):
                 agent_id=self.agent_state.id,
                 agent_tags=self.agent_state.tags,
                 run_id=run_id,
+                org_id=self.actor.organization_id,
+                user_id=self.actor.id,
             )
 
         try:

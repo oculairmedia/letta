@@ -156,7 +156,11 @@ class LettaAgentV2(BaseAgentV2):
             run_id=None,
             messages=in_context_messages + input_messages_to_persist,
             llm_adapter=LettaLLMRequestAdapter(
-                llm_client=self.llm_client, llm_config=self.agent_state.llm_config, agent_tags=self.agent_state.tags
+                llm_client=self.llm_client,
+                llm_config=self.agent_state.llm_config,
+                agent_tags=self.agent_state.tags,
+                org_id=self.actor.organization_id,
+                user_id=self.actor.id,
             ),
             dry_run=True,
             enforce_run_id_set=False,
@@ -213,6 +217,8 @@ class LettaAgentV2(BaseAgentV2):
                     agent_id=self.agent_state.id,
                     agent_tags=self.agent_state.tags,
                     run_id=run_id,
+                    org_id=self.actor.organization_id,
+                    user_id=self.actor.id,
                 ),
                 run_id=run_id,
                 use_assistant_message=use_assistant_message,
@@ -298,6 +304,8 @@ class LettaAgentV2(BaseAgentV2):
                 agent_id=self.agent_state.id,
                 agent_tags=self.agent_state.tags,
                 run_id=run_id,
+                org_id=self.actor.organization_id,
+                user_id=self.actor.id,
             )
         else:
             llm_adapter = LettaLLMRequestAdapter(
@@ -306,6 +314,8 @@ class LettaAgentV2(BaseAgentV2):
                 agent_id=self.agent_state.id,
                 agent_tags=self.agent_state.tags,
                 run_id=run_id,
+                org_id=self.actor.organization_id,
+                user_id=self.actor.id,
             )
 
         try:

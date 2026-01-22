@@ -420,6 +420,9 @@ class LettaAgent(BaseAgent):
                                 agent_id=self.agent_id,
                                 agent_tags=agent_state.tags,
                                 run_id=self.current_run_id,
+                                org_id=self.actor.organization_id,
+                                user_id=self.actor.id,
+                                llm_config=self.agent_state.llm_config.model_dump() if self.agent_state.llm_config else None,
                             ),
                         )
                         step_progression = StepProgression.LOGGED_TRACE
@@ -770,6 +773,9 @@ class LettaAgent(BaseAgent):
                                 agent_id=self.agent_id,
                                 agent_tags=agent_state.tags,
                                 run_id=self.current_run_id,
+                                org_id=self.actor.organization_id,
+                                user_id=self.actor.id,
+                                llm_config=self.agent_state.llm_config.model_dump() if self.agent_state.llm_config else None,
                             ),
                         )
                         step_progression = StepProgression.LOGGED_TRACE
@@ -1242,6 +1248,9 @@ class LettaAgent(BaseAgent):
                                 agent_id=self.agent_id,
                                 agent_tags=agent_state.tags,
                                 run_id=self.current_run_id,
+                                org_id=self.actor.organization_id,
+                                user_id=self.actor.id,
+                                llm_config=self.agent_state.llm_config.model_dump() if self.agent_state.llm_config else None,
                             ),
                         )
                         step_progression = StepProgression.LOGGED_TRACE

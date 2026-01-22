@@ -146,6 +146,13 @@ async def summarize_via_sliding_window(
         agent_tags=agent_tags,
         run_id=run_id,
         step_id=step_id,
+        compaction_settings={
+            "mode": "sliding_window",
+            "messages_summarized": len(messages_to_summarize),
+            "messages_kept": total_message_count - assistant_message_index,
+            "sliding_window_percentage": summarizer_config.sliding_window_percentage,
+            "clip_chars": summarizer_config.clip_chars,
+        },
     )
 
     if summarizer_config.clip_chars is not None and len(summary_message_str) > summarizer_config.clip_chars:
