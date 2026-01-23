@@ -128,21 +128,21 @@ class LettaStreamingRequest(LettaRequest):
 class ConversationMessageRequest(LettaRequest):
     """Request for sending messages to a conversation. Streams by default."""
 
-    stream: bool = Field(
+    streaming: bool = Field(
         default=True,
         description="If True (default), returns a streaming response (Server-Sent Events). If False, returns a complete JSON response.",
     )
     stream_tokens: bool = Field(
         default=False,
-        description="Flag to determine if individual tokens should be streamed, rather than streaming per step (only used when stream=true).",
+        description="Flag to determine if individual tokens should be streamed, rather than streaming per step (only used when streaming=true).",
     )
     include_pings: bool = Field(
         default=True,
-        description="Whether to include periodic keepalive ping messages in the stream to prevent connection timeouts (only used when stream=true).",
+        description="Whether to include periodic keepalive ping messages in the stream to prevent connection timeouts (only used when streaming=true).",
     )
     background: bool = Field(
         default=False,
-        description="Whether to process the request in the background (only used when stream=true).",
+        description="Whether to process the request in the background (only used when streaming=true).",
     )
 
 

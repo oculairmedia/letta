@@ -30043,28 +30043,28 @@
             "title": "Override Model",
             "description": "Model handle to use for this request instead of the agent's default model. This allows sending a message to a different model without changing the agent's configuration."
           },
-          "stream": {
+          "streaming": {
             "type": "boolean",
-            "title": "Stream",
+            "title": "Streaming",
             "description": "If True (default), returns a streaming response (Server-Sent Events). If False, returns a complete JSON response.",
             "default": true
           },
           "stream_tokens": {
             "type": "boolean",
             "title": "Stream Tokens",
-            "description": "Flag to determine if individual tokens should be streamed, rather than streaming per step (only used when stream=true).",
+            "description": "Flag to determine if individual tokens should be streamed, rather than streaming per step (only used when streaming=true).",
             "default": false
           },
           "include_pings": {
             "type": "boolean",
             "title": "Include Pings",
-            "description": "Whether to include periodic keepalive ping messages in the stream to prevent connection timeouts (only used when stream=true).",
+            "description": "Whether to include periodic keepalive ping messages in the stream to prevent connection timeouts (only used when streaming=true).",
             "default": true
           },
           "background": {
             "type": "boolean",
             "title": "Background",
-            "description": "Whether to process the request in the background (only used when stream=true).",
+            "description": "Whether to process the request in the background (only used when streaming=true).",
             "default": false
           }
         },

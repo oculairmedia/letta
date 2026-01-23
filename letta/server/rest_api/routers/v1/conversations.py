@@ -161,8 +161,8 @@ async def list_conversation_messages(
         200: {
             "description": "Successful response",
             "content": {
-                "text/event-stream": {"description": "Server-Sent Events stream (default, when stream=true)"},
-                "application/json": {"description": "JSON response (when stream=false)"},
+                "text/event-stream": {"description": "Server-Sent Events stream (default, when streaming=true)"},
+                "application/json": {"description": "JSON response (when streaming=false)"},
             },
         }
     },
@@ -177,8 +177,8 @@ async def send_conversation_message(
     Send a message to a conversation and get a response.
 
     This endpoint sends a message to an existing conversation.
-    By default (stream=true), returns a streaming response (Server-Sent Events).
-    Set stream=false to get a complete JSON response.
+    By default (streaming=true), returns a streaming response (Server-Sent Events).
+    Set streaming=false to get a complete JSON response.
     """
     actor = await server.user_manager.get_actor_or_default_async(actor_id=headers.actor_id)
 
@@ -191,7 +191,7 @@ async def send_conversation_message(
     )
 
     # Streaming mode (default)
-    if request.stream:
+    if request.streaming:
         # Convert to LettaStreamingRequest for StreamingService compatibility
         streaming_request = LettaStreamingRequest(
             messages=request.messages,
