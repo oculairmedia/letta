@@ -8798,7 +8798,7 @@
       "post": {
         "tags": ["conversations"],
         "summary": "Send Conversation Message",
-        "description": "Send a message to a conversation and get a response.\n\nThis endpoint sends a message to an existing conversation.\nBy default (stream=true), returns a streaming response (Server-Sent Events).\nSet stream=false to get a complete JSON response.",
+        "description": "Send a message to a conversation and get a response.\n\nThis endpoint sends a message to an existing conversation.\nBy default (streaming=true), returns a streaming response (Server-Sent Events).\nSet streaming=false to get a complete JSON response.",
         "operationId": "send_conversation_message",
         "parameters": [
           {
@@ -8835,10 +8835,10 @@
                 "schema": {
                   "$ref": "#/components/schemas/LettaStreamingResponse"
                 },
-                "description": "JSON response (when stream=false)"
+                "description": "JSON response (when streaming=false)"
               },
               "text/event-stream": {
-                "description": "Server-Sent Events stream (default, when stream=true)"
+                "description": "Server-Sent Events stream (default, when streaming=true)"
               }
             }
           },
