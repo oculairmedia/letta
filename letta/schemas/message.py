@@ -1471,7 +1471,10 @@ class Message(BaseMessage):
             message_dicts.append(user_dict)
 
         elif self.role == "assistant" or self.role == "approval":
-            assert self.tool_calls is not None or (self.content is not None and len(self.content) > 0)
+            # Validate that message has content OpenAI Responses API can process
+            if self.tool_calls is None and (self.content is None or len(self.content) == 0):
+                # Skip this message (similar to Anthropic handling at line 1308)
+                return message_dicts
 
             # A few things may be in here, firstly reasoning content, secondly assistant messages, thirdly tool calls
             # TODO check if OpenAI Responses is capable of R->A->T like Anthropic?
@@ -1787,8 +1790,11 @@ class Message(BaseMessage):
                 }
 
         elif self.role == "assistant" or self.role == "approval":
-            # assert self.tool_calls is not None or text_content is not None, vars(self)
-            assert self.tool_calls is not None or len(self.content) > 0
+            # Validate that message has content Anthropic API can process
+            if self.tool_calls is None and (self.content is None or len(self.content) == 0):
+                # Skip this message (consistent with OpenAI dict handling)
+                return None
+
             anthropic_message = {
                 "role": "assistant",
             }
@@ -2044,7 +2050,16 @@ class Message(BaseMessage):
             }
 
         elif self.role == "assistant" or self.role == "approval":
-            assert self.tool_calls is not None or text_content is not None or len(self.content) > 1
+            # Validate that message has content Google API can process
+            if self.tool_calls is None and text_content is None and len(self.content) <= 1:
+                # Message has no tool calls, no extractable text, and not multi-part
+                logger.warning(
+                    f"Assistant/approval message {self.id} has no content Google API can convert: "
+                    f"tool_calls={self.tool_calls}, text_content={text_content}, content={self.content}"
+                )
+                # Return None to skip this message (similar to approval messages without tool_calls at line 1998)
+                return None
+
             google_ai_message = {
                 "role": "model",  # NOTE: different
             }
