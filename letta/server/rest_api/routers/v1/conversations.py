@@ -5,6 +5,7 @@ from fastapi import APIRouter, Body, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
 from starlette.responses import StreamingResponse
 
+from letta.agents.agent_loop import AgentLoop
 from letta.agents.letta_agent_v3 import LettaAgentV3
 from letta.data_sources.redis_client import NoopAsyncRedisClient, get_redis_client
 from letta.errors import LettaExpiredError, LettaInvalidArgumentError, NoActiveRunsToCancelError
@@ -13,7 +14,7 @@ from letta.log import get_logger
 from letta.schemas.conversation import Conversation, CreateConversation, UpdateConversation
 from letta.schemas.enums import RunStatus
 from letta.schemas.letta_message import LettaMessageUnion
-from letta.schemas.letta_request import LettaStreamingRequest, RetrieveStreamRequest
+from letta.schemas.letta_request import ConversationMessageRequest, LettaStreamingRequest, RetrieveStreamRequest
 from letta.schemas.letta_response import LettaResponse, LettaStreamingResponse
 from letta.server.rest_api.dependencies import HeaderParams, get_headers, get_letta_server
 from letta.server.rest_api.redis_stream_manager import redis_sse_stream_generator
@@ -160,45 +161,85 @@ async def list_conversation_messages(
         200: {
             "description": "Successful response",
             "content": {
-                "text/event-stream": {"description": "Server-Sent Events stream"},
+                "text/event-stream": {"description": "Server-Sent Events stream (default, when stream=true)"},
+                "application/json": {"description": "JSON response (when stream=false)"},
             },
         }
     },
 )
 async def send_conversation_message(
     conversation_id: ConversationId,
-    request: LettaStreamingRequest = Body(...),
+    request: ConversationMessageRequest = Body(...),
     server: SyncServer = Depends(get_letta_server),
     headers: HeaderParams = Depends(get_headers),
 ) -> StreamingResponse | LettaResponse:
     """
-    Send a message to a conversation and get a streaming response.
+    Send a message to a conversation and get a response.
 
-    This endpoint sends a message to an existing conversation and streams
-    the agent's response back.
+    This endpoint sends a message to an existing conversation.
+    By default (stream=true), returns a streaming response (Server-Sent Events).
+    Set stream=false to get a complete JSON response.
     """
     actor = await server.user_manager.get_actor_or_default_async(actor_id=headers.actor_id)
 
-    # Get the conversation to find the agent_id
+    if not request.messages or len(request.messages) == 0:
+        raise HTTPException(status_code=422, detail="Messages must not be empty")
+
     conversation = await conversation_manager.get_conversation_by_id(
         conversation_id=conversation_id,
         actor=actor,
     )
 
-    # Force streaming mode for this endpoint
-    request.streaming = True
+    # Streaming mode (default)
+    if request.stream:
+        # Convert to LettaStreamingRequest for StreamingService compatibility
+        streaming_request = LettaStreamingRequest(
+            messages=request.messages,
+            streaming=True,
+            stream_tokens=request.stream_tokens,
+            include_pings=request.include_pings,
+            background=request.background,
+            max_steps=request.max_steps,
+            use_assistant_message=request.use_assistant_message,
+            assistant_message_tool_name=request.assistant_message_tool_name,
+            assistant_message_tool_kwarg=request.assistant_message_tool_kwarg,
+            include_return_message_types=request.include_return_message_types,
+            override_model=request.override_model,
+            client_tools=request.client_tools,
+        )
+        streaming_service = StreamingService(server)
+        run, result = await streaming_service.create_agent_stream(
+            agent_id=conversation.agent_id,
+            actor=actor,
+            request=streaming_request,
+            run_type="send_conversation_message",
+            conversation_id=conversation_id,
+        )
+        return result
 
-    # Use streaming service
-    streaming_service = StreamingService(server)
-    run, result = await streaming_service.create_agent_stream(
-        agent_id=conversation.agent_id,
-        actor=actor,
-        request=request,
-        run_type="send_conversation_message",
-        conversation_id=conversation_id,
+    # Non-streaming mode
+    agent = await server.agent_manager.get_agent_by_id_async(
+        conversation.agent_id,
+        actor,
+        include_relationships=["memory", "multi_agent_group", "sources", "tool_exec_environment_variables", "tools", "tags"],
     )
 
-    return result
+    if request.override_model:
+        override_llm_config = await server.get_llm_config_from_handle_async(
+            actor=actor,
+            handle=request.override_model,
+        )
+        agent = agent.model_copy(update={"llm_config": override_llm_config})
+
+    agent_loop = AgentLoop.load(agent_state=agent, actor=actor)
+    return await agent_loop.step(
+        request.messages,
+        max_steps=request.max_steps,
+        use_assistant_message=request.use_assistant_message,
+        include_return_message_types=request.include_return_message_types,
+        client_tools=request.client_tools,
+        conversation_id=conversation_id,
+    )
 
 
 @router.post(

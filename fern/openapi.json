@@ -8798,7 +8798,7 @@
       "post": {
         "tags": ["conversations"],
         "summary": "Send Conversation Message",
-        "description": "Send a message to a conversation and get a streaming response.\n\nThis endpoint sends a message to an existing conversation and streams\nthe agent's response back.",
+        "description": "Send a message to a conversation and get a response.\n\nThis endpoint sends a message to an existing conversation.\nBy default (stream=true), returns a streaming response (Server-Sent Events).\nSet stream=false to get a complete JSON response.",
         "operationId": "send_conversation_message",
         "parameters": [
           {
@@ -8822,7 +8822,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/LettaStreamingRequest"
+                "$ref": "#/components/schemas/ConversationMessageRequest"
               }
             }
           }
@@ -8834,10 +8834,11 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/LettaStreamingResponse"
-                }
+                },
+                "description": "JSON response (when stream=false)"
               },
               "text/event-stream": {
-                "description": "Server-Sent Events stream"
+                "description": "Server-Sent Events stream (default, when stream=true)"
               }
             }
           },
@@ -29848,6 +29849,191 @@
         "required": ["id", "agent_id"],
         "title": "Conversation",
         "description": "Represents a conversation on an agent for concurrent messaging."
+      },
+      "ConversationMessageRequest": {
+        "properties": {
+          "messages": {
+            "anyOf": [
+              {
+                "items": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/MessageCreate"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ApprovalCreate"
+                    }
+                  ]
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Messages",
+            "description": "The messages to be sent to the agent."
+          },
+          "input": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "items": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/TextContent"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ImageContent"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ToolCallContent"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ToolReturnContent"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ReasoningContent"
+                    },
+                    {
+                      "$ref": "#/components/schemas/RedactedReasoningContent"
+                    },
+                    {
+                      "$ref": "#/components/schemas/OmittedReasoningContent"
+                    },
+                    {
+                      "$ref": "#/components/schemas/SummarizedReasoningContent"
+                    }
+                  ],
+                  "discriminator": {
+                    "propertyName": "type",
+                    "mapping": {
+                      "image": "#/components/schemas/ImageContent",
+                      "omitted_reasoning": "#/components/schemas/OmittedReasoningContent",
+                      "reasoning": "#/components/schemas/ReasoningContent",
+                      "redacted_reasoning": "#/components/schemas/RedactedReasoningContent",
+                      "summarized_reasoning": "#/components/schemas/SummarizedReasoningContent",
+                      "text": "#/components/schemas/TextContent",
+                      "tool_call": "#/components/schemas/ToolCallContent",
+                      "tool_return": "#/components/schemas/ToolReturnContent"
+                    }
+                  }
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Input",
+            "description": "Syntactic sugar for a single user message. Equivalent to messages=[{'role': 'user', 'content': input}]."
+          },
+          "max_steps": {
+            "type": "integer",
+            "title": "Max Steps",
+            "description": "Maximum number of steps the agent should take to process the request.",
+            "default": 50
+          },
+          "use_assistant_message": {
+            "type": "boolean",
+            "title": "Use Assistant Message",
+            "description": "Whether the server should parse specific tool call arguments (default `send_message`) as `AssistantMessage` objects. Still supported for legacy agent types, but deprecated for letta_v1_agent onward.",
+            "default": true,
+            "deprecated": true
+          },
+          "assistant_message_tool_name": {
+            "type": "string",
+            "title": "Assistant Message Tool Name",
+            "description": "The name of the designated message tool. Still supported for legacy agent types, but deprecated for letta_v1_agent onward.",
+            "default": "send_message",
+            "deprecated": true
+          },
+          "assistant_message_tool_kwarg": {
+            "type": "string",
+            "title": "Assistant Message Tool Kwarg",
+            "description": "The name of the message argument in the designated message tool. Still supported for legacy agent types, but deprecated for letta_v1_agent onward.",
+            "default": "message",
+            "deprecated": true
+          },
+          "include_return_message_types": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/MessageType"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Include Return Message Types",
+            "description": "Only return specified message types in the response. If `None` (default) returns all messages."
+          },
+          "enable_thinking": {
+            "type": "string",
+            "title": "Enable Thinking",
+            "description": "If set to True, enables reasoning before responses or tool calls from the agent.",
+            "default": true,
+            "deprecated": true
+          },
+          "client_tools": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/ClientToolSchema"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Tools",
+            "description": "Client-side tools that the agent can call. When the agent calls a client-side tool, execution pauses and returns control to the client to execute the tool and provide the result via a ToolReturn."
+          },
+          "override_model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Override Model",
+            "description": "Model handle to use for this request instead of the agent's default model. This allows sending a message to a different model without changing the agent's configuration."
+          },
+          "stream": {
+            "type": "boolean",
+            "title": "Stream",
+            "description": "If True (default), returns a streaming response (Server-Sent Events). If False, returns a complete JSON response.",
+            "default": true
+          },
+          "stream_tokens": {
+            "type": "boolean",
+            "title": "Stream Tokens",
+            "description": "Flag to determine if individual tokens should be streamed, rather than streaming per step (only used when stream=true).",
+            "default": false
+          },
+          "include_pings": {
+            "type": "boolean",
+            "title": "Include Pings",
+            "description": "Whether to include periodic keepalive ping messages in the stream to prevent connection timeouts (only used when stream=true).",
+            "default": true
+          },
+          "background": {
+            "type": "boolean",
+            "title": "Background",
+            "description": "Whether to process the request in the background (only used when stream=true).",
+            "default": false
+          }
+        },
+        "type": "object",
+        "title": "ConversationMessageRequest",
+        "description": "Request for sending messages to a conversation. Streams by default."
       },
       "CoreMemoryBlockSchema": {
         "properties": {
