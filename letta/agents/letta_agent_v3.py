@@ -1513,7 +1513,7 @@ class LettaAgentV3(LettaAgentV2):
             summarizer_config = CompactionSettings(model=handle)
 
         # Build the LLMConfig used for summarization
-        summarizer_llm_config = self._build_summarizer_llm_config(
+        summarizer_llm_config = await self._build_summarizer_llm_config(
             agent_llm_config=self.agent_state.llm_config,
             summarizer_config=summarizer_config,
         )
@@ -1641,8 +1641,8 @@ class LettaAgentV3(LettaAgentV2):
 
         return summary_message_obj, final_messages, summary
 
-    @staticmethod
-    def _build_summarizer_llm_config(
+    async def _build_summarizer_llm_config(
+        self,
         agent_llm_config: LLMConfig,
         summarizer_config: CompactionSettings,
     ) -> LLMConfig:
@@ -1668,12 +1668,41 @@ class LettaAgentV3(LettaAgentV2):
                 model_name = summarizer_config.model
 
             # Start from the agent's config and override model + provider_name + handle
-            # Note: model_endpoint_type is NOT overridden - the parsed provider_name
-            # is a custom label (e.g. "claude-pro-max"), not the endpoint type (e.g. "anthropic")
-            base = agent_llm_config.model_copy()
-            base.provider_name = provider_name
-            base.model = model_name
-            base.handle = summarizer_config.model
+            # Check if the summarizer's provider matches the agent's provider
+            # If they match, we can safely use the agent's config as a base
+            # If they don't match, we need to load the default config for the new provider
+            from letta.schemas.enums import ProviderType
+
+            provider_matches = False
+            try:
+                # Check if provider_name is a valid ProviderType that matches agent's endpoint type
+                provider_type = ProviderType(provider_name)
+                provider_matches = provider_type.value == agent_llm_config.model_endpoint_type
+            except ValueError:
+                # provider_name is a custom label - check if it matches agent's provider_name
+                provider_matches = provider_name == agent_llm_config.provider_name
+
+            if provider_matches:
+                # Same provider - use agent's config as base and override model/handle
+                base = agent_llm_config.model_copy()
+                base.model = model_name
+                base.handle = summarizer_config.model
+            else:
+                # Different provider - load default config for this handle
+                from letta.services.provider_manager import ProviderManager
+
+                provider_manager = ProviderManager()
+                try:
+                    base = await provider_manager.get_llm_config_from_handle(
+                        handle=summarizer_config.model,
+                        actor=self.actor,
+                    )
+                except Exception as e:
+                    self.logger.warning(
+                        f"Failed to load LLM config for summarizer handle '{summarizer_config.model}': {e}. "
+                        f"Falling back to agent's LLM config."
+                    )
+                    return agent_llm_config
 
             # If explicit model_settings are provided for the summarizer, apply
             # them just like server.create_agent_async does for agents.
