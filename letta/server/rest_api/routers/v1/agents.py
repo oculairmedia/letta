@@ -308,6 +308,7 @@ async def _import_agent(
     strip_messages: bool = False,
     env_vars: Optional[dict[str, Any]] = None,
     override_embedding_handle: Optional[str] = None,
+    override_model_handle: Optional[str] = None,
 ) -> List[str]:
     """
     Import an agent using the new AgentFileSchema format.
@@ -319,6 +320,11 @@ async def _import_agent(
     else:
         embedding_config_override = None
 
+    if override_model_handle:
+        llm_config_override = await server.get_llm_config_from_handle_async(actor=actor, handle=override_model_handle)
+    else:
+        llm_config_override = None
+
     import_result = await server.agent_serialization_manager.import_file(
         schema=agent_schema,
         actor=actor,
@@ -327,6 +333,7 @@ async def _import_agent(
         override_existing_tools=override_existing_tools,
         env_vars=env_vars,
         override_embedding_config=embedding_config_override,
+        override_llm_config=llm_config_override,
         project_id=project_id,
     )
 
@@ -362,6 +369,10 @@ async def import_agent(
         None,
         description="Embedding handle to override with.",
     ),
+    model: Optional[str] = Form(
+        None,
+        description="Model handle to override the agent's default model. This allows the imported agent to use a different model while keeping other defaults (e.g., context size) from the original configuration.",
+    ),
     # Deprecated fields (maintain backward compatibility)
     append_copy_suffix: bool = Form(
         True,
@@ -376,6 +387,11 @@ async def import_agent(
     override_embedding_handle: Optional[str] = Form(
         None,
         description="Override import with specific embedding handle. Use 'embedding' instead.",
+        deprecated=True,
+    ),
+    override_model_handle: Optional[str] = Form(
+        None,
+        description="Model handle to override the agent's default model. Use 'model' instead.",
         deprecated=True,
     ),
     project_id: str | None = Form(
@@ -408,6 +424,7 @@ async def import_agent(
     # Handle backward compatibility: prefer new field names over deprecated ones
     final_name = name or override_name
     final_embedding_handle = embedding or override_embedding_handle or x_override_embedding_model
+    final_model_handle = model or override_model_handle
 
     # Parse secrets (new) or env_vars_json (deprecated)
     env_vars = None
@@ -440,6 +457,7 @@ async def import_agent(
             strip_messages=strip_messages,
             env_vars=env_vars,
             override_embedding_handle=final_embedding_handle,
+            override_model_handle=final_model_handle,
         )
     else:
         # This is a legacy AgentSchema

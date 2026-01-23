@@ -27960,6 +27960,18 @@
             "title": "Embedding",
             "description": "Embedding handle to override with."
           },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model",
+            "description": "Model handle to override the agent's default model. This allows the imported agent to use a different model while keeping other defaults (e.g., context size) from the original configuration."
+          },
           "append_copy_suffix": {
             "type": "boolean",
             "title": "Append Copy Suffix",
@@ -27991,6 +28003,19 @@
             ],
             "title": "Override Embedding Handle",
             "description": "Override import with specific embedding handle. Use 'embedding' instead.",
+            "deprecated": true
+          },
+          "override_model_handle": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Override Model Handle",
+            "description": "Model handle to override the agent's default model. Use 'model' instead.",
             "deprecated": true
           },
           "project_id": {
