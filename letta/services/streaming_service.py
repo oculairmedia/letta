@@ -466,14 +466,16 @@ class StreamingService:
             except Exception as e:
                 run_status = RunStatus.failed
                 stop_reason = LettaStopReason(stop_reason=StopReasonType.error)
+                # Use repr() if str() is empty (happens with Exception() with no args)
+                error_detail = str(e) or repr(e)
                 error_message = LettaErrorMessage(
                     run_id=run_id,
                     error_type="internal_error",
                     message="An unknown error occurred with the LLM streaming request.",
-                    detail=str(e),
+                    detail=error_detail,
                 )
                 error_data = {"error": error_message.model_dump()}
-                logger.error(f"Run {run_id} stopped with unknown error: {e}, error_data: {error_message.model_dump()}")
+                logger.error(f"Run {run_id} stopped with unknown error: {error_detail}, error_data: {error_message.model_dump()}")
                 yield f"data: {stop_reason.model_dump_json()}\n\n"
                 yield f"event: error\ndata: {error_message.model_dump_json()}\n\n"
                 # Send [DONE] marker to properly close the stream

@@ -402,7 +402,9 @@ class LettaAgentV3(LettaAgentV2):
                 self.stop_reason = LettaStopReason(stop_reason=StopReasonType.end_turn.value)
 
         except Exception as e:
-            self.logger.warning(f"Error during agent stream: {e}", exc_info=True)
+            # Use repr() if str() is empty (happens with Exception() with no args)
+            error_detail = str(e) or repr(e)
+            self.logger.warning(f"Error during agent stream: {error_detail}", exc_info=True)
 
             # Set stop_reason if not already set
             if self.stop_reason is None:
@@ -423,7 +425,7 @@ class LettaAgentV3(LettaAgentV2):
                     run_id=run_id,
                     error_type="internal_error",
                     message="An error occurred during agent execution.",
-                    detail=str(e),
+                    detail=error_detail,
                 )
                 yield f"event: error\ndata: {error_message.model_dump_json()}\n\n"
 
@@ -923,8 +925,10 @@ class LettaAgentV3(LettaAgentV2):
 
         except Exception as e:
             # NOTE: message persistence does not happen in the case of an exception (rollback to previous state)
-            self.logger.warning(f"Error during step processing: {e}")
-            self.job_update_metadata = {"error": str(e)}
+            # Use repr() if str() is empty (happens with Exception() with no args)
+            error_detail = str(e) or repr(e)
+            self.logger.warning(f"Error during step processing: {error_detail}")
+            self.job_update_metadata = {"error": error_detail}
 
             # This indicates we failed after we decided to stop stepping, which indicates a bug with our flow.
             if not self.stop_reason:
