@@ -26630,6 +26630,18 @@
             "title": "Agent Id",
             "description": "The unique identifier of the agent that owns the message."
           },
+          "conversation_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Conversation Id",
+            "description": "The unique identifier of the conversation that the message belongs to."
+          },
           "created_at": {
             "type": "string",
             "format": "date-time",
@@ -40045,6 +40057,18 @@
             "title": "Agent Id",
             "description": "The unique identifier of the agent that owns the message."
           },
+          "conversation_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Conversation Id",
+            "description": "The unique identifier of the conversation that the message belongs to."
+          },
           "created_at": {
             "type": "string",
             "format": "date-time",
@@ -42591,6 +42615,18 @@
             ],
             "title": "Agent Id",
             "description": "The unique identifier of the agent that owns the message."
+          },
+          "conversation_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Conversation Id",
+            "description": "The unique identifier of the conversation that the message belongs to."
           },
           "created_at": {
             "type": "string",
@@ -45294,6 +45330,18 @@
             ],
             "title": "Agent Id",
             "description": "The unique identifier of the agent that owns the message."
+          },
+          "conversation_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Conversation Id",
+            "description": "The unique identifier of the conversation that the message belongs to."
           },
           "created_at": {
             "type": "string",

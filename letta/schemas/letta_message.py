@@ -569,6 +569,10 @@ class SystemMessageListResult(UpdateSystemMessage):
         default=None,
         description="The unique identifier of the agent that owns the message.",
     )
+    conversation_id: str | None = Field(
+        default=None,
+        description="The unique identifier of the conversation that the message belongs to.",
+    )
 
     created_at: datetime = Field(..., description="The time the message was created in ISO format.")
 
@@ -586,6 +590,10 @@ class UserMessageListResult(UpdateUserMessage):
     agent_id: str | None = Field(
         default=None,
         description="The unique identifier of the agent that owns the message.",
+    )
+    conversation_id: str | None = Field(
+        default=None,
+        description="The unique identifier of the conversation that the message belongs to.",
     )
 
     created_at: datetime = Field(..., description="The time the message was created in ISO format.")
@@ -605,6 +613,10 @@ class ReasoningMessageListResult(UpdateReasoningMessage):
         default=None,
         description="The unique identifier of the agent that owns the message.",
     )
+    conversation_id: str | None = Field(
+        default=None,
+        description="The unique identifier of the conversation that the message belongs to.",
+    )
 
     created_at: datetime = Field(..., description="The time the message was created in ISO format.")
 
@@ -622,6 +634,10 @@ class AssistantMessageListResult(UpdateAssistantMessage):
     agent_id: str | None = Field(
         default=None,
         description="The unique identifier of the agent that owns the message.",
+    )
+    conversation_id: str | None = Field(
+        default=None,
+        description="The unique identifier of the conversation that the message belongs to.",
     )
 
     created_at: datetime = Field(..., description="The time the message was created in ISO format.")

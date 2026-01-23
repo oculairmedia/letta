@@ -395,6 +395,7 @@ class Message(BaseMessage):
                             message_type=lm.message_type,
                             content=lm.content,
                             agent_id=message.agent_id,
+                            conversation_id=message.conversation_id,
                             created_at=message.created_at,
                         )
                     )
@@ -405,6 +406,7 @@ class Message(BaseMessage):
                             message_type=lm.message_type,
                             content=lm.content,
                             agent_id=message.agent_id,
+                            conversation_id=message.conversation_id,
                             created_at=message.created_at,
                         )
                     )
@@ -415,6 +417,7 @@ class Message(BaseMessage):
                             message_type=lm.message_type,
                             reasoning=lm.reasoning,
                             agent_id=message.agent_id,
+                            conversation_id=message.conversation_id,
                             created_at=message.created_at,
                         )
                     )
@@ -425,6 +428,7 @@ class Message(BaseMessage):
                             message_type=lm.message_type,
                             content=lm.content,
                             agent_id=message.agent_id,
+                            conversation_id=message.conversation_id,
                             created_at=message.created_at,
                         )
                     )
