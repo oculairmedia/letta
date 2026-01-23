@@ -670,7 +670,15 @@ class LettaAgentV3(LettaAgentV2):
                     return
 
                 step_id = approval_request.step_id
-                step_metrics = await self.step_manager.get_step_metrics_async(step_id=step_id, actor=self.actor)
+                if step_id is None:
+                    # Old approval messages may not have step_id set - generate a new one
+                    self.logger.warning(f"Approval request message {approval_request.id} has no step_id, generating new step_id")
+                    step_id = generate_step_id()
+                    step_progression, logged_step, step_metrics, agent_step_span = await self._step_checkpoint_start(
+                        step_id=step_id, run_id=run_id
+                    )
+                else:
+                    step_metrics = await self.step_manager.get_step_metrics_async(step_id=step_id, actor=self.actor)
             else:
                 # Check for job cancellation at the start of each step
                 if run_id and await self._check_run_cancellation(run_id):
