@@ -11,6 +11,7 @@ from letta.schemas.providers import (
     GoogleAIProvider,
     GoogleVertexProvider,
     GroqProvider,
+    MiniMaxProvider,
     OllamaProvider,
     OpenAIProvider,
     SGLangProvider,
@@ -129,6 +130,32 @@ async def test_groq():
     models = await provider.list_llm_models_async()
     assert len(models) > 0
     assert models[0].handle == f"{provider.name}/{models[0].model}"
+
+
+@pytest.mark.asyncio
+async def test_minimax():
+    """Test MiniMax provider - uses hardcoded model list, no API key required."""
+    provider = MiniMaxProvider(name="minimax")
+    models = await provider.list_llm_models_async()
+
+    # Should have exactly 3 models: M2.1, M2.1-lightning, M2
+    assert len(models) == 3
+
+    # Verify model properties
+    model_names = {m.model for m in models}
+    assert "MiniMax-M2.1" in model_names
+    assert "MiniMax-M2.1-lightning" in model_names
+    assert "MiniMax-M2" in model_names
+
+    # Verify handle format
+    for model in models:
+        assert model.handle == f"{provider.name}/{model.model}"
+        # All MiniMax models have 200K context window
+        assert model.context_window == 200000
+        # All MiniMax models have 128K max output
+        assert model.max_tokens == 128000
+        # All use minimax endpoint type
+        assert model.model_endpoint_type == "minimax"
 
 
 @pytest.mark.skipif(model_settings.azure_api_key is None, reason="Only run if AZURE_API_KEY is set.")

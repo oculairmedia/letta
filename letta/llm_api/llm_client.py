@@ -93,6 +93,13 @@ class LLMClient:
                     put_inner_thoughts_first=put_inner_thoughts_first,
                     actor=actor,
                 )
+            case ProviderType.minimax:
+                from letta.llm_api.minimax_client import MiniMaxClient
+
+                return MiniMaxClient(
+                    put_inner_thoughts_first=put_inner_thoughts_first,
+                    actor=actor,
+                )
             case ProviderType.deepseek:
                 from letta.llm_api.deepseek_client import DeepseekClient
 

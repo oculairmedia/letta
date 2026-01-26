@@ -43,6 +43,7 @@ class LLMConfig(BaseModel):
         "koboldcpp",
         "vllm",
         "hugging-face",
+        "minimax",
         "mistral",
         "together",  # completions endpoint
         "bedrock",

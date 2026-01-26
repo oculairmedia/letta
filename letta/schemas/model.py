@@ -42,6 +42,7 @@ class Model(LLMConfig, ModelBase):
         "koboldcpp",
         "vllm",
         "hugging-face",
+        "minimax",
         "mistral",
         "together",
         "bedrock",
