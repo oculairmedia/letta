@@ -146,6 +146,26 @@ class SimpleAnthropicStreamingInterface:
             return tool_calls[0]
         return None
 
+    def get_usage_statistics(self) -> "LettaUsageStatistics":
+        """Extract usage statistics from accumulated streaming data.
+
+        Returns:
+            LettaUsageStatistics with token counts from the stream.
+        """
+        from letta.schemas.usage import LettaUsageStatistics
+
+        # Anthropic: input_tokens is NON-cached only, must add cache tokens for total
+        actual_input_tokens = (self.input_tokens or 0) + (self.cache_read_tokens or 0) + (self.cache_creation_tokens or 0)
+
+        return LettaUsageStatistics(
+            prompt_tokens=actual_input_tokens,
+            completion_tokens=self.output_tokens or 0,
+            total_tokens=actual_input_tokens + (self.output_tokens or 0),
+            cached_input_tokens=self.cache_read_tokens if self.cache_read_tokens else None,
+            cache_write_tokens=self.cache_creation_tokens if self.cache_creation_tokens else None,
+            reasoning_tokens=None,  # Anthropic doesn't report reasoning tokens separately
+        )
+
     def get_reasoning_content(self) -> list[TextContent | ReasoningContent | RedactedReasoningContent]:
         def _process_group(
             group: list[ReasoningMessage | HiddenReasoningMessage | AssistantMessage],

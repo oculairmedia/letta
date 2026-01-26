@@ -122,6 +122,27 @@ class SimpleGeminiStreamingInterface:
         """Return all finalized tool calls collected during this message (parallel supported)."""
         return list(self.collected_tool_calls)
 
+    def get_usage_statistics(self) -> "LettaUsageStatistics":
+        """Extract usage statistics from accumulated streaming data.
+
+        Returns:
+            LettaUsageStatistics with token counts from the stream.
+
+        Note:
+            Gemini uses `thinking_tokens` instead of `reasoning_tokens` (OpenAI o1/o3).
+        """
+        from letta.schemas.usage import LettaUsageStatistics
+
+        return LettaUsageStatistics(
+            prompt_tokens=self.input_tokens or 0,
+            completion_tokens=self.output_tokens or 0,
+            total_tokens=(self.input_tokens or 0) + (self.output_tokens or 0),
+            # Gemini: input_tokens is already total, cached_tokens is a subset (not additive)
+            cached_input_tokens=self.cached_tokens,
+            cache_write_tokens=None,  # Gemini doesn't report cache write tokens
+            reasoning_tokens=self.thinking_tokens,  # Gemini uses thinking_tokens
+        )
+
     async def process(
         self,
         stream: AsyncIterator[GenerateContentResponse],

@@ -194,6 +194,28 @@ class OpenAIStreamingInterface:
             function=FunctionCall(arguments=self._get_current_function_arguments(), name=function_name),
         )
 
+    def get_usage_statistics(self) -> "LettaUsageStatistics":
+        """Extract usage statistics from accumulated streaming data.
+
+        Returns:
+            LettaUsageStatistics with token counts from the stream.
+        """
+        from letta.schemas.usage import LettaUsageStatistics
+
+        # Use actual tokens if available, otherwise fall back to estimated
+        input_tokens = self.input_tokens if self.input_tokens else self.fallback_input_tokens
+        output_tokens = self.output_tokens if self.output_tokens else self.fallback_output_tokens
+
+        return LettaUsageStatistics(
+            prompt_tokens=input_tokens or 0,
+            completion_tokens=output_tokens or 0,
+            total_tokens=(input_tokens or 0) + (output_tokens or 0),
+            # OpenAI: input_tokens is already total, cached_tokens is a subset (not additive)
+            cached_input_tokens=None,  # This interface doesn't track cache tokens
+            cache_write_tokens=None,
+            reasoning_tokens=None,  # This interface doesn't track reasoning tokens
+        )
+
     async def process(
         self,
         stream: AsyncStream[ChatCompletionChunk],
@@ -672,6 +694,28 @@ class SimpleOpenAIStreamingInterface:
             raise ValueError("No tool calls available")
         return calls[0]
 
+    def get_usage_statistics(self) -> "LettaUsageStatistics":
+        """Extract usage statistics from accumulated streaming data.
+
+        Returns:
+            LettaUsageStatistics with token counts from the stream.
+        """
+        from letta.schemas.usage import LettaUsageStatistics
+
+        # Use actual tokens if available, otherwise fall back to estimated
+        input_tokens = self.input_tokens if self.input_tokens else self.fallback_input_tokens
+        output_tokens = self.output_tokens if self.output_tokens else self.fallback_output_tokens
+
+        return LettaUsageStatistics(
+            prompt_tokens=input_tokens or 0,
+            completion_tokens=output_tokens or 0,
+            total_tokens=(input_tokens or 0) + (output_tokens or 0),
+            # OpenAI: input_tokens is already total, cached_tokens is a subset (not additive)
+            cached_input_tokens=self.cached_tokens,
+            cache_write_tokens=None,  # OpenAI doesn't have cache write tokens
+            reasoning_tokens=self.reasoning_tokens,
+        )
+
     async def process(
         self,
         stream: AsyncStream[ChatCompletionChunk],
@@ -1079,6 +1123,24 @@ class SimpleOpenAIResponsesStreamingInterface:
         if not calls:
             raise ValueError("No tool calls available")
         return calls[0]
+
+    def get_usage_statistics(self) -> "LettaUsageStatistics":
+        """Extract usage statistics from accumulated streaming data.
+
+        Returns:
+            LettaUsageStatistics with token counts from the stream.
+        """
+        from letta.schemas.usage import LettaUsageStatistics
+
+        return LettaUsageStatistics(
+            prompt_tokens=self.input_tokens or 0,
+            completion_tokens=self.output_tokens or 0,
+            total_tokens=(self.input_tokens or 0) + (self.output_tokens or 0),
+            # OpenAI Responses API: input_tokens is already total
+            cached_input_tokens=self.cached_tokens,
+            cache_write_tokens=None,  # OpenAI doesn't have cache write tokens
+            reasoning_tokens=self.reasoning_tokens,
+        )
 
     async def process(
         self,

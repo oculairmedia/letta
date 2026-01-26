@@ -128,6 +128,25 @@ class AnthropicStreamingInterface:
             arguments = str(json.dumps(tool_input, indent=2))
         return ToolCall(id=self.tool_call_id, function=FunctionCall(arguments=arguments, name=self.tool_call_name))
 
+    def get_usage_statistics(self) -> "LettaUsageStatistics":
+        """Extract usage statistics from accumulated streaming data.
+
+        Returns:
+            LettaUsageStatistics with token counts from the stream.
+        """
+        from letta.schemas.usage import LettaUsageStatistics
+
+        # Anthropic: input_tokens is NON-cached only in streaming
+        # This interface doesn't track cache tokens, so we just use the raw values
+        return LettaUsageStatistics(
+            prompt_tokens=self.input_tokens or 0,
+            completion_tokens=self.output_tokens or 0,
+            total_tokens=(self.input_tokens or 0) + (self.output_tokens or 0),
+            cached_input_tokens=None,  # This interface doesn't track cache tokens
+            cache_write_tokens=None,
+            reasoning_tokens=None,
+        )
+
     def _check_inner_thoughts_complete(self, combined_args: str) -> bool:
         """
         Check if inner thoughts are complete in the current tool call arguments
@@ -636,6 +655,25 @@ class SimpleAnthropicStreamingInterface:
         else:
             arguments = str(json.dumps(tool_input, indent=2))
         return ToolCall(id=self.tool_call_id, function=FunctionCall(arguments=arguments, name=self.tool_call_name))
+
+    def get_usage_statistics(self) -> "LettaUsageStatistics":
+        """Extract usage statistics from accumulated streaming data.
+
+        Returns:
+            LettaUsageStatistics with token counts from the stream.
+        """
+        from letta.schemas.usage import LettaUsageStatistics
+
+        # Anthropic: input_tokens is NON-cached only in streaming
+        # This interface doesn't track cache tokens, so we just use the raw values
+        return LettaUsageStatistics(
+            prompt_tokens=self.input_tokens or 0,
+            completion_tokens=self.output_tokens or 0,
+            total_tokens=(self.input_tokens or 0) + (self.output_tokens or 0),
+            cached_input_tokens=None,  # This interface doesn't track cache tokens
+            cache_write_tokens=None,
+            reasoning_tokens=None,
+        )
 
     def get_reasoning_content(self) -> list[TextContent | ReasoningContent | RedactedReasoningContent]:
         def _process_group(

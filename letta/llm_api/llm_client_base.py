@@ -15,6 +15,7 @@ from letta.schemas.llm_config import LLMConfig
 from letta.schemas.message import Message
 from letta.schemas.openai.chat_completion_response import ChatCompletionResponse
 from letta.schemas.provider_trace import ProviderTrace
+from letta.schemas.usage import LettaUsageStatistics
 from letta.services.telemetry_manager import TelemetryManager
 from letta.settings import settings
 
@@ -72,6 +73,10 @@ class LLMClientBase:
         self._telemetry_user_id = user_id
         self._telemetry_compaction_settings = compaction_settings
         self._telemetry_llm_config = llm_config
+
+    def extract_usage_statistics(self, response_data: Optional[dict], llm_config: LLMConfig) -> LettaUsageStatistics:
+        """Provider-specific usage parsing hook (override in subclasses). Returns LettaUsageStatistics."""
+        return LettaUsageStatistics()
 
     async def request_async_with_telemetry(self, request_data: dict, llm_config: LLMConfig) -> dict:
         """Wrapper around request_async that logs telemetry for all requests including errors.

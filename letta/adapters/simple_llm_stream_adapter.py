@@ -14,7 +14,6 @@ from letta.schemas.enums import ProviderType
 from letta.schemas.letta_message import LettaMessage
 from letta.schemas.letta_message_content import LettaMessageContentUnion
 from letta.schemas.provider_trace import ProviderTrace
-from letta.schemas.usage import LettaUsageStatistics
 from letta.schemas.user import User
 from letta.server.rest_api.streaming_response import get_cancellation_event_for_run
 from letta.settings import settings
@@ -164,68 +163,10 @@ class SimpleLLMStreamAdapter(LettaLLMStreamAdapter):
         # Extract all content parts
         self.content: List[LettaMessageContentUnion] = self.interface.get_content()
 
-        # Extract usage statistics
-        # Some providers don't provide usage in streaming, use fallback if needed
-        if hasattr(self.interface, "input_tokens") and hasattr(self.interface, "output_tokens"):
-            # Handle cases where tokens might not be set (e.g., LMStudio)
-            input_tokens = self.interface.input_tokens
-            output_tokens = self.interface.output_tokens
-
-            # Fallback to estimated values if not provided
-            if not input_tokens and hasattr(self.interface, "fallback_input_tokens"):
-                input_tokens = self.interface.fallback_input_tokens
-            if not output_tokens and hasattr(self.interface, "fallback_output_tokens"):
-                output_tokens = self.interface.fallback_output_tokens
-
-            # Extract cache token data (OpenAI/Gemini use cached_tokens)
-            # None means provider didn't report, 0 means provider reported 0
-            cached_input_tokens = None
-            if hasattr(self.interface, "cached_tokens") and self.interface.cached_tokens is not None:
-                cached_input_tokens = self.interface.cached_tokens
-            # Anthropic uses cache_read_tokens for cache hits
-            elif hasattr(self.interface, "cache_read_tokens") and self.interface.cache_read_tokens is not None:
-                cached_input_tokens = self.interface.cache_read_tokens
-
-            # Extract cache write tokens (Anthropic only)
-            # None means provider didn't report, 0 means provider reported 0
-            cache_write_tokens = None
-            if hasattr(self.interface, "cache_creation_tokens") and self.interface.cache_creation_tokens is not None:
-                cache_write_tokens = self.interface.cache_creation_tokens
-
-            # Extract reasoning tokens (OpenAI o1/o3 models use reasoning_tokens, Gemini uses thinking_tokens)
-            # None means provider didn't report, 0 means provider reported 0
-            reasoning_tokens = None
-            if hasattr(self.interface, "reasoning_tokens") and self.interface.reasoning_tokens is not None:
-                reasoning_tokens = self.interface.reasoning_tokens
-            elif hasattr(self.interface, "thinking_tokens") and self.interface.thinking_tokens is not None:
-                reasoning_tokens = self.interface.thinking_tokens
-
-            # Calculate actual total input tokens for context window limit checks (summarization trigger).
-            #
-            # ANTHROPIC: input_tokens is NON-cached only, must add cache tokens
-            #   Total = input_tokens + cache_read_input_tokens + cache_creation_input_tokens
-            #
-            # OPENAI/GEMINI: input_tokens (prompt_tokens/prompt_token_count) is already TOTAL
-            #   cached_tokens is a subset, NOT additive
-            #   Total = input_tokens (don't add cached_tokens or it double-counts!)
-            is_anthropic = hasattr(self.interface, "cache_read_tokens") or hasattr(self.interface, "cache_creation_tokens")
-            if is_anthropic:
-                actual_input_tokens = (input_tokens or 0) + (cached_input_tokens or 0) + (cache_write_tokens or 0)
-            else:
-                actual_input_tokens = input_tokens or 0
-
-            self.usage = LettaUsageStatistics(
-                step_count=1,
-                completion_tokens=output_tokens or 0,
-                prompt_tokens=actual_input_tokens,
-                total_tokens=actual_input_tokens + (output_tokens or 0),
-                cached_input_tokens=cached_input_tokens,
-                cache_write_tokens=cache_write_tokens,
-                reasoning_tokens=reasoning_tokens,
-            )
-        else:
-            # Default usage statistics if not available
-            self.usage = LettaUsageStatistics(step_count=1, completion_tokens=0, prompt_tokens=0, total_tokens=0)
+        # Extract usage statistics from the interface
+        # Each interface implements get_usage_statistics() with provider-specific logic
+        self.usage = self.interface.get_usage_statistics()
+        self.usage.step_count = 1
 
         # Store any additional data from the interface
         self.message_id = self.interface.letta_message_id
