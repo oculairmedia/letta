@@ -73,7 +73,7 @@ class MiniMaxProvider(Provider):
             configs.append(
                 LLMConfig(
                     model=model["name"],
-                    model_endpoint_type="minimax",
+                    model_endpoint_type="anthropic",
                     model_endpoint=self.base_url,
                     context_window=model["context_window"],
                     handle=self.get_handle(model["name"]),

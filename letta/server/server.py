@@ -67,6 +67,7 @@ from letta.schemas.providers import (
     GroqProvider,
     LettaProvider,
     LMStudioOpenAIProvider,
+    MiniMaxProvider,
     OllamaProvider,
     OpenAIProvider,
     OpenRouterProvider,
@@ -340,6 +341,13 @@ class SyncServer(object):
                 XAIProvider(
                     name="xai",
                     api_key_enc=Secret.from_plaintext(model_settings.xai_api_key),
+                )
+            )
+        if model_settings.minimax_api_key:
+            self._enabled_providers.append(
+                MiniMaxProvider(
+                    name="minimax",
+                    api_key_enc=Secret.from_plaintext(model_settings.minimax_api_key),
                 )
             )
         if model_settings.zai_api_key:

@@ -192,6 +192,7 @@ class Provider(ProviderBase):
             GroqProvider,
             LettaProvider,
             LMStudioOpenAIProvider,
+            MiniMaxProvider,
             MistralProvider,
             OllamaProvider,
             OpenAIProvider,
@@ -244,6 +245,8 @@ class Provider(ProviderBase):
                 return LMStudioOpenAIProvider(**self.model_dump(exclude_none=True))
             case ProviderType.bedrock:
                 return BedrockProvider(**self.model_dump(exclude_none=True))
+            case ProviderType.minimax:
+                return MiniMaxProvider(**self.model_dump(exclude_none=True))
             case _:
                 raise ValueError(f"Unknown provider type: {self.provider_type}")
 

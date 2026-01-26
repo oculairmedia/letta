@@ -154,8 +154,8 @@ async def test_minimax():
         assert model.context_window == 200000
         # All MiniMax models have 128K max output
         assert model.max_tokens == 128000
-        # All use minimax endpoint type
-        assert model.model_endpoint_type == "minimax"
+        # MiniMax uses Anthropic-compatible API endpoint
+        assert model.model_endpoint_type == "anthropic"
 
 
 @pytest.mark.skipif(model_settings.azure_api_key is None, reason="Only run if AZURE_API_KEY is set.")
