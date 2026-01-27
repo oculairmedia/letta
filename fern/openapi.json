@@ -8535,14 +8535,17 @@
             "required": true,
             "schema": {
               "type": "string",
-              "minLength": 41,
+              "minLength": 1,
               "maxLength": 41,
-              "pattern": "^conv-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
-              "description": "The ID of the conv in the format 'conv-<uuid4>'",
-              "examples": ["conv-123e4567-e89b-42d3-8456-426614174000"],
+              "pattern": "^(default|conv-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$",
+              "description": "The conversation identifier. Either the special value 'default' or an ID in the format 'conv-<uuid4>'",
+              "examples": [
+                "default",
+                "conv-123e4567-e89b-42d3-8456-426614174000"
+              ],
               "title": "Conversation Id"
             },
-            "description": "The ID of the conv in the format 'conv-<uuid4>'"
+            "description": "The conversation identifier. Either the special value 'default' or an ID in the format 'conv-<uuid4>'"
           }
         ],
         "responses": {
@@ -8580,14 +8583,17 @@
             "required": true,
             "schema": {
               "type": "string",
-              "minLength": 41,
+              "minLength": 1,
               "maxLength": 41,
-              "pattern": "^conv-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
-              "description": "The ID of the conv in the format 'conv-<uuid4>'",
-              "examples": ["conv-123e4567-e89b-42d3-8456-426614174000"],
+              "pattern": "^(default|conv-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$",
+              "description": "The conversation identifier. Either the special value 'default' or an ID in the format 'conv-<uuid4>'",
+              "examples": [
+                "default",
+                "conv-123e4567-e89b-42d3-8456-426614174000"
+              ],
               "title": "Conversation Id"
             },
-            "description": "The ID of the conv in the format 'conv-<uuid4>'"
+            "description": "The conversation identifier. Either the special value 'default' or an ID in the format 'conv-<uuid4>'"
           }
         ],
         "requestBody": {
@@ -8637,14 +8643,17 @@
             "required": true,
             "schema": {
               "type": "string",
-              "minLength": 41,
+              "minLength": 1,
               "maxLength": 41,
-              "pattern": "^conv-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
-              "description": "The ID of the conv in the format 'conv-<uuid4>'",
-              "examples": ["conv-123e4567-e89b-42d3-8456-426614174000"],
+              "pattern": "^(default|conv-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$",
+              "description": "The conversation identifier. Either the special value 'default' or an ID in the format 'conv-<uuid4>'",
+              "examples": [
+                "default",
+                "conv-123e4567-e89b-42d3-8456-426614174000"
+              ],
               "title": "Conversation Id"
             },
-            "description": "The ID of the conv in the format 'conv-<uuid4>'"
+            "description": "The conversation identifier. Either the special value 'default' or an ID in the format 'conv-<uuid4>'"
           },
           {
             "name": "before",
@@ -8803,14 +8812,17 @@
             "required": true,
             "schema": {
               "type": "string",
-              "minLength": 41,
+              "minLength": 1,
               "maxLength": 41,
-              "pattern": "^conv-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
-              "description": "The ID of the conv in the format 'conv-<uuid4>'",
-              "examples": ["conv-123e4567-e89b-42d3-8456-426614174000"],
+              "pattern": "^(default|conv-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$",
+              "description": "The conversation identifier. Either the special value 'default' or an ID in the format 'conv-<uuid4>'",
+              "examples": [
+                "default",
+                "conv-123e4567-e89b-42d3-8456-426614174000"
+              ],
               "title": "Conversation Id"
             },
-            "description": "The ID of the conv in the format 'conv-<uuid4>'"
+            "description": "The conversation identifier. Either the special value 'default' or an ID in the format 'conv-<uuid4>'"
           }
         ],
         "requestBody": {
@@ -8864,14 +8876,17 @@
             "required": true,
             "schema": {
               "type": "string",
-              "minLength": 41,
+              "minLength": 1,
               "maxLength": 41,
-              "pattern": "^conv-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
-              "description": "The ID of the conv in the format 'conv-<uuid4>'",
-              "examples": ["conv-123e4567-e89b-42d3-8456-426614174000"],
+              "pattern": "^(default|conv-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$",
+              "description": "The conversation identifier. Either the special value 'default' or an ID in the format 'conv-<uuid4>'",
+              "examples": [
+                "default",
+                "conv-123e4567-e89b-42d3-8456-426614174000"
+              ],
               "title": "Conversation Id"
             },
-            "description": "The ID of the conv in the format 'conv-<uuid4>'"
+            "description": "The conversation identifier. Either the special value 'default' or an ID in the format 'conv-<uuid4>'"
           }
         ],
         "requestBody": {
@@ -8964,14 +8979,17 @@
             "required": true,
             "schema": {
               "type": "string",
-              "minLength": 41,
+              "minLength": 1,
               "maxLength": 41,
-              "pattern": "^conv-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
-              "description": "The ID of the conv in the format 'conv-<uuid4>'",
-              "examples": ["conv-123e4567-e89b-42d3-8456-426614174000"],
+              "pattern": "^(default|conv-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$",
+              "description": "The conversation identifier. Either the special value 'default' or an ID in the format 'conv-<uuid4>'",
+              "examples": [
+                "default",
+                "conv-123e4567-e89b-42d3-8456-426614174000"
+              ],
               "title": "Conversation Id"
             },
-            "description": "The ID of the conv in the format 'conv-<uuid4>'"
+            "description": "The conversation identifier. Either the special value 'default' or an ID in the format 'conv-<uuid4>'"
           }
         ],
         "responses": {
@@ -9013,14 +9031,17 @@
             "required": true,
             "schema": {
               "type": "string",
-              "minLength": 41,
+              "minLength": 1,
               "maxLength": 41,
-              "pattern": "^conv-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
-              "description": "The ID of the conv in the format 'conv-<uuid4>'",
-              "examples": ["conv-123e4567-e89b-42d3-8456-426614174000"],
+              "pattern": "^(default|conv-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$",
+              "description": "The conversation identifier. Either the special value 'default' or an ID in the format 'conv-<uuid4>'",
+              "examples": [
+                "default",
+                "conv-123e4567-e89b-42d3-8456-426614174000"
+              ],
               "title": "Conversation Id"
             },
-            "description": "The ID of the conv in the format 'conv-<uuid4>'"
+            "description": "The conversation identifier. Either the special value 'default' or an ID in the format 'conv-<uuid4>'"
           }
         ],
         "requestBody": {
