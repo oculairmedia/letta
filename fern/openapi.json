@@ -7007,7 +7007,6 @@
         "summary": "List Passages",
         "description": "Retrieve the memories in an agent's archival memory store (paginated query).",
         "operationId": "list_passages",
-        "deprecated": true,
         "parameters": [
           {
             "name": "agent_id",
@@ -7149,7 +7148,6 @@
         "summary": "Create Passage",
         "description": "Insert a memory into an agent's archival memory store.",
         "operationId": "create_passage",
-        "deprecated": true,
         "parameters": [
           {
             "name": "agent_id",
@@ -7211,7 +7209,6 @@
         "summary": "Search Archival Memory",
         "description": "Search archival memory using semantic (embedding-based) search with optional temporal filtering.\n\nThis endpoint allows manual triggering of archival memory searches, enabling users to query\nan agent's archival memory store directly via the API. The search uses the same functionality\nas the agent's archival_memory_search tool but is accessible for external API usage.",
         "operationId": "search_archival_memory",
-        "deprecated": true,
         "parameters": [
           {
             "name": "agent_id",
@@ -7360,7 +7357,6 @@
         "summary": "Delete Passage",
         "description": "Delete a memory from an agent's archival memory store.",
         "operationId": "delete_passage",
-        "deprecated": true,
         "parameters": [
           {
             "name": "memory_id",

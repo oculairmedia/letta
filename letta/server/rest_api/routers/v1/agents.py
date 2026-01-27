@@ -1276,7 +1276,7 @@ async def detach_identity_from_agent(
     return None
 
 
-@router.get("/{agent_id}/archival-memory", response_model=list[Passage], operation_id="list_passages", deprecated=True)
+@router.get("/{agent_id}/archival-memory", response_model=list[Passage], operation_id="list_passages")
 async def list_passages(
     agent_id: AgentId,
     server: "SyncServer" = Depends(get_letta_server),
@@ -1305,7 +1305,7 @@ async def list_passages(
     )
 
 
-@router.post("/{agent_id}/archival-memory", response_model=list[Passage], operation_id="create_passage", deprecated=True)
+@router.post("/{agent_id}/archival-memory", response_model=list[Passage], operation_id="create_passage")
 async def create_passage(
     agent_id: AgentId,
     request: CreateArchivalMemory = Body(...),
@@ -1326,7 +1326,6 @@ async def create_passage(
     "/{agent_id}/archival-memory/search",
     response_model=ArchivalMemorySearchResponse,
     operation_id="search_archival_memory",
-    deprecated=True,
 )
 async def search_archival_memory(
     agent_id: AgentId,
@@ -1374,7 +1373,7 @@ async def search_archival_memory(
 
 # TODO(ethan): query or path parameter for memory_id?
 # @router.delete("/{agent_id}/archival")
-@router.delete("/{agent_id}/archival-memory/{memory_id}", response_model=None, operation_id="delete_passage", deprecated=True)
+@router.delete("/{agent_id}/archival-memory/{memory_id}", response_model=None, operation_id="delete_passage")
 async def delete_passage(
     memory_id: str,
     agent_id: AgentId,
