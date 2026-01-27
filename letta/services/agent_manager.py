@@ -3046,10 +3046,19 @@ class AgentManager:
             )
 
             # Apply cursor-based pagination
-            if before:
-                query = query.where(BlockModel.id < before)
-            if after:
-                query = query.where(BlockModel.id > after)
+            # Note: cursor direction must account for sort order
+            # - ascending order: "after X" means id > X, "before X" means id < X
+            # - descending order: "after X" means id < X, "before X" means id > X
+            if ascending:
+                if before:
+                    query = query.where(BlockModel.id < before)
+                if after:
+                    query = query.where(BlockModel.id > after)
+            else:
+                if before:
+                    query = query.where(BlockModel.id > before)
+                if after:
+                    query = query.where(BlockModel.id < after)
 
             # Apply sorting - use id instead of created_at for core memory blocks
             if ascending:
