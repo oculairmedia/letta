@@ -182,7 +182,7 @@ async def lifespan(app_: FastAPI):
 
     logger.info(f"[Worker {worker_id}] Starting scheduler with leader election")
     global server
-    await server.init_async()
+    await server.init_async(init_with_default_org_and_user=not settings.no_default_actor)
     try:
         await start_scheduler_with_leader_election(server)
         logger.info(f"[Worker {worker_id}] Scheduler initialization completed")
