@@ -74,7 +74,7 @@ class SimpleLLMStreamAdapter(LettaLLMStreamAdapter):
         cancellation_event = get_cancellation_event_for_run(self.run_id) if self.run_id else None
 
         # Instantiate streaming interface
-        if self.llm_config.model_endpoint_type in [ProviderType.anthropic, ProviderType.bedrock]:
+        if self.llm_config.model_endpoint_type in [ProviderType.anthropic, ProviderType.bedrock, ProviderType.minimax]:
             # NOTE: different
             self.interface = SimpleAnthropicStreamingInterface(
                 requires_approval_tools=requires_approval_tools,

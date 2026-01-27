@@ -1,35 +1,33 @@
-import os
 from typing import List, Optional, Union
 
 import anthropic
 from anthropic import AsyncStream
-from anthropic.types import Message as AnthropicMessage, RawMessageStreamEvent
+from anthropic.types.beta import BetaMessage, BetaRawMessageStreamEvent
 
 from letta.llm_api.anthropic_client import AnthropicClient
 from letta.log import get_logger
 from letta.otel.tracing import trace_method
-from letta.schemas.enums import AgentType
+from letta.schemas.agent import AgentType
 from letta.schemas.llm_config import LLMConfig
 from letta.schemas.message import Message as PydanticMessage
 from letta.settings import model_settings
 
 logger = get_logger(__name__)
 
-# MiniMax Anthropic-compatible API base URL
-MINIMAX_BASE_URL = "https://api.minimax.io/anthropic"
-
 
 class MiniMaxClient(AnthropicClient):
     """
     MiniMax LLM client using Anthropic-compatible API.
 
-    Key differences from AnthropicClient:
-    - Uses standard messages API (client.messages.create), NOT beta API
-    - Thinking blocks are natively supported without beta headers
-    - Temperature must be in range (0.0, 1.0]
-    - Some Anthropic params are ignored: top_k, stop_sequences, service_tier, etc.
+    Uses the beta messages API to ensure compatibility with Anthropic streaming interfaces.
+    Temperature must be in range (0.0, 1.0].
+    Some Anthropic params are ignored: top_k, stop_sequences, service_tier, etc.
 
     Documentation: https://platform.minimax.io/docs/api-reference/text-anthropic-api
+
+    Note: We override client creation to always use llm_config.model_endpoint as base_url
+    (required for BYOK where provider_name is user's custom name, not "minimax").
+    We also override request methods to avoid passing Anthropic-specific beta headers.
     """
 
     @trace_method
@@ -40,16 +38,14 @@ class MiniMaxClient(AnthropicClient):
         api_key, _, _ = self.get_byok_overrides(llm_config)
 
         if not api_key:
-            api_key = model_settings.minimax_api_key or os.environ.get("MINIMAX_API_KEY")
+            api_key = model_settings.minimax_api_key
+
+        # Always use model_endpoint for base_url (works for both base and BYOK providers)
+        base_url = llm_config.model_endpoint
 
         if async_client:
-            if api_key:
-                return anthropic.AsyncAnthropic(api_key=api_key, base_url=MINIMAX_BASE_URL)
-            return anthropic.AsyncAnthropic(base_url=MINIMAX_BASE_URL)
-
-        if api_key:
-            return anthropic.Anthropic(api_key=api_key, base_url=MINIMAX_BASE_URL)
-        return anthropic.Anthropic(base_url=MINIMAX_BASE_URL)
+            return anthropic.AsyncAnthropic(api_key=api_key, base_url=base_url, max_retries=model_settings.anthropic_max_retries)
+        return anthropic.Anthropic(api_key=api_key, base_url=base_url, max_retries=model_settings.anthropic_max_retries)
 
     @trace_method
     async def _get_anthropic_client_async(
@@ -59,29 +55,25 @@ class MiniMaxClient(AnthropicClient):
         api_key, _, _ = await self.get_byok_overrides_async(llm_config)
 
         if not api_key:
-            api_key = model_settings.minimax_api_key or os.environ.get("MINIMAX_API_KEY")
+            api_key = model_settings.minimax_api_key
+
+        # Always use model_endpoint for base_url (works for both base and BYOK providers)
+        base_url = llm_config.model_endpoint
 
         if async_client:
-            if api_key:
-                return anthropic.AsyncAnthropic(api_key=api_key, base_url=MINIMAX_BASE_URL)
-            return anthropic.AsyncAnthropic(base_url=MINIMAX_BASE_URL)
-
-        if api_key:
-            return anthropic.Anthropic(api_key=api_key, base_url=MINIMAX_BASE_URL)
-        return anthropic.Anthropic(base_url=MINIMAX_BASE_URL)
+            return anthropic.AsyncAnthropic(api_key=api_key, base_url=base_url, max_retries=model_settings.anthropic_max_retries)
+        return anthropic.Anthropic(api_key=api_key, base_url=base_url, max_retries=model_settings.anthropic_max_retries)
 
     @trace_method
     def request(self, request_data: dict, llm_config: LLMConfig) -> dict:
         """
         Synchronous request to MiniMax API.
 
-        Uses standard messages API (NOT beta) - MiniMax natively supports thinking blocks.
+        Uses beta messages API for compatibility with Anthropic streaming interfaces.
         """
         client = self._get_anthropic_client(llm_config, async_client=False)
 
-        # MiniMax uses client.messages.create() - NOT client.beta.messages.create()
-        # Thinking blocks are natively supported without beta headers
-        response: AnthropicMessage = client.messages.create(**request_data)
+        response: BetaMessage = client.beta.messages.create(**request_data)
         return response.model_dump()
 
     @trace_method
@@ -89,14 +81,12 @@ class MiniMaxClient(AnthropicClient):
         """
         Asynchronous request to MiniMax API.
 
-        Uses standard messages API (NOT beta) - MiniMax natively supports thinking blocks.
+        Uses beta messages API for compatibility with Anthropic streaming interfaces.
         """
         client = await self._get_anthropic_client_async(llm_config, async_client=True)
 
-        # MiniMax uses client.messages.create() - NOT client.beta.messages.create()
-        # Thinking blocks are natively supported without beta headers
         try:
-            response: AnthropicMessage = await client.messages.create(**request_data)
+            response: BetaMessage = await client.beta.messages.create(**request_data)
             return response.model_dump()
         except ValueError as e:
             # Handle streaming fallback if needed (similar to Anthropic client)
@@ -109,19 +99,17 @@ class MiniMaxClient(AnthropicClient):
             raise
 
     @trace_method
-    async def stream_async(self, request_data: dict, llm_config: LLMConfig) -> AsyncStream[RawMessageStreamEvent]:
+    async def stream_async(self, request_data: dict, llm_config: LLMConfig) -> AsyncStream[BetaRawMessageStreamEvent]:
         """
         Asynchronous streaming request to MiniMax API.
 
-        Uses standard messages API (NOT beta) - MiniMax natively supports thinking blocks.
+        Uses beta messages API for compatibility with Anthropic streaming interfaces.
         """
         client = await self._get_anthropic_client_async(llm_config, async_client=True)
         request_data["stream"] = True
 
-        # MiniMax uses client.messages.create() - NOT client.beta.messages.create()
-        # No beta headers needed - thinking blocks are natively supported
         try:
-            return await client.messages.create(**request_data)
+            return await client.beta.messages.create(**request_data)
         except Exception as e:
             logger.error(f"Error streaming MiniMax request: {e}")
             raise e
@@ -142,7 +130,6 @@ class MiniMaxClient(AnthropicClient):
 
         Inherits most logic from AnthropicClient, with MiniMax-specific adjustments:
         - Temperature must be in range (0.0, 1.0]
-        - Removes extended thinking params (natively supported)
         """
         data = super().build_request_data(
             agent_type,

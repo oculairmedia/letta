@@ -402,6 +402,16 @@ class LLMConfig(BaseModel):
                 temperature=self.temperature,
                 reasoning=ChatGPTOAuthReasoning(reasoning_effort=self.reasoning_effort or "medium"),
             )
+        elif self.model_endpoint_type == "minimax":
+            # MiniMax uses Anthropic-compatible API
+            thinking_type = "enabled" if self.enable_reasoner else "disabled"
+            return AnthropicModelSettings(
+                max_output_tokens=self.max_tokens or 4096,
+                temperature=self.temperature,
+                thinking=AnthropicThinking(type=thinking_type, budget_tokens=self.max_reasoning_tokens or 1024),
+                verbosity=self.verbosity,
+                strict=self.strict,
+            )
         else:
             # If we don't know the model type, use the default Model schema
             return Model(max_output_tokens=self.max_tokens or 4096)

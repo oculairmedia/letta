@@ -356,16 +356,8 @@ class AnthropicClient(LLMClientBase):
     ) -> Union[anthropic.AsyncAnthropic, anthropic.Anthropic]:
         api_key, _, _ = self.get_byok_overrides(llm_config)
 
-        # For MiniMax provider, use minimax_api_key from settings
-        if not api_key and llm_config.provider_name == "minimax":
-            api_key = model_settings.minimax_api_key
-
         # For claude-pro-max provider, use OAuth Bearer token instead of api_key
         is_oauth_provider = llm_config.provider_name == "claude-pro-max"
-
-        # Only use custom base_url for MiniMax (Anthropic-compatible API)
-        # The Anthropic SDK adds /v1/messages internally, so we only override for non-Anthropic providers
-        base_url = llm_config.model_endpoint if llm_config.provider_name == "minimax" else None
 
         if async_client:
             if api_key:
@@ -378,8 +370,8 @@ class AnthropicClient(LLMClientBase):
                             "anthropic-beta": "oauth-2025-04-20",
                         },
                     )
-                return anthropic.AsyncAnthropic(api_key=api_key, base_url=base_url, max_retries=model_settings.anthropic_max_retries)
-            return anthropic.AsyncAnthropic(base_url=base_url, max_retries=model_settings.anthropic_max_retries)
+                return anthropic.AsyncAnthropic(api_key=api_key, max_retries=model_settings.anthropic_max_retries)
+            return anthropic.AsyncAnthropic(max_retries=model_settings.anthropic_max_retries)
 
         if api_key:
             if is_oauth_provider:
@@ -391,8 +383,8 @@ class AnthropicClient(LLMClientBase):
                         "anthropic-beta": "oauth-2025-04-20",
                     },
                 )
-            return anthropic.Anthropic(api_key=api_key, base_url=base_url, max_retries=model_settings.anthropic_max_retries)
-        return anthropic.Anthropic(base_url=base_url, max_retries=model_settings.anthropic_max_retries)
+            return anthropic.Anthropic(api_key=api_key, max_retries=model_settings.anthropic_max_retries)
+        return anthropic.Anthropic(max_retries=model_settings.anthropic_max_retries)
 
     @trace_method
     async def _get_anthropic_client_async(
@@ -400,16 +392,8 @@ class AnthropicClient(LLMClientBase):
     ) -> Union[anthropic.AsyncAnthropic, anthropic.Anthropic]:
         api_key, _, _ = await self.get_byok_overrides_async(llm_config)
 
-        # For MiniMax provider, use minimax_api_key from settings
-        if not api_key and llm_config.provider_name == "minimax":
-            api_key = model_settings.minimax_api_key
-
         # For claude-pro-max provider, use OAuth Bearer token instead of api_key
         is_oauth_provider = llm_config.provider_name == "claude-pro-max"
-
-        # Only use custom base_url for MiniMax (Anthropic-compatible API)
-        # The Anthropic SDK adds /v1/messages internally, so we only override for non-Anthropic providers
-        base_url = llm_config.model_endpoint if llm_config.provider_name == "minimax" else None
 
         if async_client:
             if api_key:
@@ -422,8 +406,8 @@ class AnthropicClient(LLMClientBase):
                             "anthropic-beta": "oauth-2025-04-20",
                         },
                     )
-                return anthropic.AsyncAnthropic(api_key=api_key, base_url=base_url, max_retries=model_settings.anthropic_max_retries)
-            return anthropic.AsyncAnthropic(base_url=base_url, max_retries=model_settings.anthropic_max_retries)
+                return anthropic.AsyncAnthropic(api_key=api_key, max_retries=model_settings.anthropic_max_retries)
+            return anthropic.AsyncAnthropic(max_retries=model_settings.anthropic_max_retries)
 
         if api_key:
             if is_oauth_provider:
@@ -435,8 +419,8 @@ class AnthropicClient(LLMClientBase):
                         "anthropic-beta": "oauth-2025-04-20",
                     },
                 )
-            return anthropic.Anthropic(api_key=api_key, base_url=base_url, max_retries=model_settings.anthropic_max_retries)
-        return anthropic.Anthropic(base_url=base_url, max_retries=model_settings.anthropic_max_retries)
+            return anthropic.Anthropic(api_key=api_key, max_retries=model_settings.anthropic_max_retries)
+        return anthropic.Anthropic(max_retries=model_settings.anthropic_max_retries)
 
     @trace_method
     def build_request_data(

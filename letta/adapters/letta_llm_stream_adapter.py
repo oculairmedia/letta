@@ -62,7 +62,7 @@ class LettaLLMStreamAdapter(LettaLLMAdapter):
         self.request_data = request_data
 
         # Instantiate streaming interface
-        if self.llm_config.model_endpoint_type in [ProviderType.anthropic, ProviderType.bedrock]:
+        if self.llm_config.model_endpoint_type in [ProviderType.anthropic, ProviderType.bedrock, ProviderType.minimax]:
             self.interface = AnthropicStreamingInterface(
                 use_assistant_message=use_assistant_message,
                 put_inner_thoughts_in_kwarg=self.llm_config.put_inner_thoughts_in_kwargs,
