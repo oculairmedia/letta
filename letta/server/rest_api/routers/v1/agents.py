@@ -721,7 +721,7 @@ async def attach_source(
         await server.agent_manager.insert_files_into_context_window(agent_state=agent_state, file_metadata_with_content=files, actor=actor)
 
     if agent_state.enable_sleeptime:
-        source = await server.source_manager.get_source_by_id(source_id=source_id)
+        source = await server.source_manager.get_source_by_id(source_id=source_id, actor=actor)
         safe_create_task(server.sleeptime_document_ingest_async(agent_state, source, actor), label="sleeptime_document_ingest_async")
 
     return agent_state
@@ -748,7 +748,7 @@ async def attach_folder_to_agent(
         await server.agent_manager.insert_files_into_context_window(agent_state=agent_state, file_metadata_with_content=files, actor=actor)
 
     if agent_state.enable_sleeptime:
-        source = await server.source_manager.get_source_by_id(source_id=folder_id)
+        source = await server.source_manager.get_source_by_id(source_id=folder_id, actor=actor)
         safe_create_task(server.sleeptime_document_ingest_async(agent_state, source, actor), label="sleeptime_document_ingest_async")
 
     if is_1_0_sdk_version(headers):
@@ -779,7 +779,7 @@ async def detach_source(
 
     if agent_state.enable_sleeptime:
         try:
-            source = await server.source_manager.get_source_by_id(source_id=source_id)
+            source = await server.source_manager.get_source_by_id(source_id=source_id, actor=actor)
             block = await server.agent_manager.get_block_with_label_async(agent_id=agent_state.id, block_label=source.name, actor=actor)
             await server.block_manager.delete_block_async(block.id, actor)
         except:
@@ -811,7 +811,7 @@ async def detach_folder_from_agent(
 
     if agent_state.enable_sleeptime:
         try:
-            source = await server.source_manager.get_source_by_id(source_id=folder_id)
+            source = await server.source_manager.get_source_by_id(source_id=folder_id, actor=actor)
             block = await server.agent_manager.get_block_with_label_async(agent_id=agent_state.id, block_label=source.name, actor=actor)
             await server.block_manager.delete_block_async(block.id, actor)
         except:

@@ -237,12 +237,16 @@ class ProviderManager:
 
     @enforce_types
     @raise_on_invalid_id(param_name="provider_id", expected_prefix=PrimitiveType.PROVIDER)
-    async def update_provider_last_synced_async(self, provider_id: str) -> None:
-        """Update the last_synced timestamp for a provider."""
+    async def update_provider_last_synced_async(self, provider_id: str, actor: Optional[PydanticUser] = None) -> None:
+        """Update the last_synced timestamp for a provider.
+
+        Note: actor is optional to support system-level operations (e.g., during server initialization
+        for global providers). When actor is provided, org-scoping is enforced.
+        """
         from datetime import datetime, timezone
 
         async with db_registry.async_session() as session:
-            provider = await ProviderModel.read_async(db_session=session, identifier=provider_id, actor=None)
+            provider = await ProviderModel.read_async(db_session=session, identifier=provider_id, actor=actor)
             provider.last_synced = datetime.now(timezone.utc)
             await session.commit()
 
@@ -533,7 +537,7 @@ class ProviderManager:
                 embedding_models=embedding_models,
                 organization_id=actor.organization_id,
             )
-            await self.update_provider_last_synced_async(provider.id)
+            await self.update_provider_last_synced_async(provider.id, actor=actor)
 
         except Exception as e:
             logger.error(f"Failed to sync models for provider '{provider.name}': {e}")

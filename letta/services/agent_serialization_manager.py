@@ -30,10 +30,10 @@ from letta.schemas.agent_file import (
 )
 from letta.schemas.block import Block
 from letta.schemas.embedding_config import EmbeddingConfig
-from letta.schemas.llm_config import LLMConfig
 from letta.schemas.enums import FileProcessingStatus, VectorDBProvider
 from letta.schemas.file import FileMetadata
 from letta.schemas.group import Group, GroupCreate
+from letta.schemas.llm_config import LLMConfig
 from letta.schemas.mcp import MCPServer
 from letta.schemas.message import Message
 from letta.schemas.source import Source

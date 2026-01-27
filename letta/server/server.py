@@ -986,7 +986,7 @@ class SyncServer(object):
         from letta.data_sources.connectors import DirectoryConnector
 
         # TODO: move this into a thread
-        source = await self.source_manager.get_source_by_id(source_id=source_id)
+        source = await self.source_manager.get_source_by_id(source_id=source_id, actor=actor)
         connector = DirectoryConnector(input_files=[file_path])
         num_passages, num_documents = await self.load_data(user_id=source.created_by_id, source_name=source.name, connector=connector)
 
@@ -1225,7 +1225,7 @@ class SyncServer(object):
                             embedding_models=embedding_models,
                             organization_id=provider.organization_id,
                         )
-                        await self.provider_manager.update_provider_last_synced_async(provider.id)
+                        await self.provider_manager.update_provider_last_synced_async(provider.id, actor=actor)
 
                     # Read from database
                     provider_llm_models = await self.provider_manager.list_models_async(
@@ -1307,7 +1307,7 @@ class SyncServer(object):
                         embedding_models=emb_models,
                         organization_id=provider.organization_id,
                     )
-                    await self.provider_manager.update_provider_last_synced_async(provider.id)
+                    await self.provider_manager.update_provider_last_synced_async(provider.id, actor=actor)
 
                 # Read from database
                 provider_embedding_models = await self.provider_manager.list_models_async(

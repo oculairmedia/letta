@@ -2632,7 +2632,7 @@ async def test_byok_provider_last_synced_skips_sync_when_set(default_user, provi
     )
 
     # Set last_synced to indicate models are already synced
-    await provider_manager.update_provider_last_synced_async(byok_provider.id)
+    await provider_manager.update_provider_last_synced_async(byok_provider.id, actor=default_user)
 
     # Create server
     server = SyncServer(init_with_default_org_and_user=False)
@@ -2692,7 +2692,7 @@ async def test_base_provider_updates_last_synced_on_sync(default_user, provider_
         embedding_models=[],
         organization_id=None,
     )
-    await provider_manager.update_provider_last_synced_async(base_provider.id)
+    await provider_manager.update_provider_last_synced_async(base_provider.id, actor=default_user)
 
     # Verify last_synced was updated
     updated_providers = await provider_manager.list_providers_async(name=base_provider.name, actor=default_user)
