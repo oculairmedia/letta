@@ -517,6 +517,7 @@ class StreamingService:
             "deepseek",
             "chatgpt_oauth",
             "minimax",
+            "openrouter",
         ]
 
     def _is_token_streaming_compatible(self, agent: AgentState) -> bool:
@@ -529,6 +530,7 @@ class StreamingService:
             "zai",
             "chatgpt_oauth",
             "minimax",
+            "openrouter",
         ]
         google_letta_v1 = agent.agent_type == AgentType.letta_v1_agent and agent.llm_config.model_endpoint_type in [
             "google_ai",

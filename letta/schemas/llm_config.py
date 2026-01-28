@@ -322,9 +322,10 @@ class LLMConfig(BaseModel):
             GoogleAIModelSettings,
             GoogleVertexModelSettings,
             GroqModelSettings,
-            Model,
+            ModelSettings,
             OpenAIModelSettings,
             OpenAIReasoning,
+            OpenRouterModelSettings,
             TogetherModelSettings,
             XAIModelSettings,
             ZAIModelSettings,
@@ -397,6 +398,11 @@ class LLMConfig(BaseModel):
                 max_output_tokens=self.max_tokens or 4096,
                 temperature=self.temperature,
             )
+        elif self.model_endpoint_type == "openrouter":
+            return OpenRouterModelSettings(
+                max_output_tokens=self.max_tokens or 4096,
+                temperature=self.temperature,
+            )
         elif self.model_endpoint_type == "chatgpt_oauth":
             return ChatGPTOAuthModelSettings(
                 max_output_tokens=self.max_tokens or 4096,
@@ -414,8 +420,8 @@ class LLMConfig(BaseModel):
                 strict=self.strict,
             )
         else:
-            # If we don't know the model type, use the default Model schema
-            return Model(max_output_tokens=self.max_tokens or 4096)
+            # If we don't know the model type, use the base ModelSettings schema
+            return ModelSettings(max_output_tokens=self.max_tokens or 4096)
 
     @classmethod
     def is_openai_reasoning_model(cls, config: "LLMConfig") -> bool:
