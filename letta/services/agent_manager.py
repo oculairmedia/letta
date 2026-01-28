@@ -2042,10 +2042,12 @@ class AgentManager:
                     if other_agent_id != agent_id:
                         try:
                             other_agent = await AgentModel.read_async(db_session=session, identifier=other_agent_id, actor=actor)
-                            if other_agent.agent_type == AgentType.sleeptime_agent and block not in other_agent.core_memory:
-                                other_agent.core_memory.append(block)
-                                # await other_agent.update_async(session, actor=actor, no_commit=True)
-                                await other_agent.update_async(session, actor=actor)
+                            if other_agent.agent_type == AgentType.sleeptime_agent:
+                                # Check if block with same label already exists
+                                existing_block = next((b for b in other_agent.core_memory if b.label == block.label), None)
+                                if not existing_block:
+                                    other_agent.core_memory.append(block)
+                                    await other_agent.update_async(session, actor=actor)
                         except NoResultFound:
                             # Agent might not exist anymore, skip
                             continue
