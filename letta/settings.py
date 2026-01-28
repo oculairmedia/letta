@@ -519,6 +519,10 @@ class TelemetrySettings(BaseSettings):
         default=None,
         description="Source identifier for telemetry (memgpt-server, lettuce-py, etc.).",
     )
+    provider_trace_pg_metadata_only: bool = Field(
+        default=False,
+        description="Write only metadata to Postgres (no request/response JSON). Requires provider_trace_metadata table to exist.",
+    )
 
     @property
     def provider_trace_backends(self) -> list[str]:
