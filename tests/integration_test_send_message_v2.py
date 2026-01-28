@@ -32,12 +32,12 @@ logger = logging.getLogger(__name__)
 
 
 all_configs = [
-    # "openai-gpt-4o-mini.json",
-    # "openai-gpt-4.1.json",
+    "openai-gpt-4o-mini.json",
+    "openai-gpt-4.1.json",
     "openai-gpt-5.json",
     "claude-4-5-sonnet.json",
-    # "gemini-2.5-pro.json",
-    # "zai-glm-4.6.json",
+    "gemini-2.5-pro.json",
+    "zai-glm-4.6.json",
 ]
 
 
