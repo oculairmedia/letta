@@ -246,9 +246,21 @@ async def _prepare_in_context_messages_no_persist_async(
     if input_messages[0].type == "approval":
         # User is trying to send an approval response
         if current_in_context_messages and current_in_context_messages[-1].role != "approval":
-            if current_in_context_messages[-1].role == "tool" and validate_persisted_tool_call_ids(
-                current_in_context_messages[-1], input_messages[0]
-            ):
+            # No pending approval request - check if this is an idempotent retry
+            # Check last few messages for a tool return matching the approval's tool_call_ids
+            # (approved tool return should be recent, but server-side tool calls may come after it)
+            approval_already_processed = False
+            recent_messages = current_in_context_messages[-10:]  # Only check last 10 messages
+            for msg in reversed(recent_messages):
+                if msg.role == "tool" and validate_persisted_tool_call_ids(msg, input_messages[0]):
+                    logger.info(
+                        f"Idempotency check: Found matching tool return in recent history. "
+                        f"tool_returns={msg.tool_returns}, approval_response.approvals={input_messages[0].approvals}"
+                    )
+                    approval_already_processed = True
+                    break
+
+            if approval_already_processed:
                 # Approval already handled, just process follow-up messages if any or manually inject keep-alive message
                 keep_alive_messages = input_messages[1:] or [
                     MessageCreate(
