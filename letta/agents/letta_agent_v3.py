@@ -41,6 +41,7 @@ from letta.schemas.step import StepProgression
 from letta.schemas.step_metrics import StepMetrics
 from letta.schemas.tool_execution_result import ToolExecutionResult
 from letta.schemas.usage import LettaUsageStatistics
+from letta.schemas.user import User
 from letta.server.rest_api.utils import (
     create_approval_request_message_from_llm_response,
     create_letta_messages_from_llm_response,
@@ -71,6 +72,16 @@ class LettaAgentV3(LettaAgentV2):
     * Support tool rules
     * Support Gemini / OpenAI client
     """
+
+    def __init__(
+        self,
+        agent_state: AgentState,
+        actor: User,
+        conversation_id: str | None = None,
+    ):
+        super().__init__(agent_state, actor)
+        # Set conversation_id after parent init (which calls _initialize_state)
+        self.conversation_id = conversation_id
 
     def _initialize_state(self):
         super()._initialize_state()
@@ -485,9 +496,7 @@ class LettaAgentV3(LettaAgentV2):
                 context_window=self.agent_state.llm_config.context_window,
             )
 
-    async def _checkpoint_messages(
-        self, run_id: str, step_id: str, new_messages: list[Message], in_context_messages: list[Message], conversation_id: str | None = None
-    ):
+    async def _checkpoint_messages(self, run_id: str, step_id: str, new_messages: list[Message], in_context_messages: list[Message]):
         """
         Checkpoint the current message state - run this only when the current messages are 'safe' - meaning the step has completed successfully.
 
@@ -506,7 +515,7 @@ class LettaAgentV3(LettaAgentV2):
         for message in new_messages:
             message.step_id = step_id
             message.run_id = run_id
-            message.conversation_id = conversation_id
+            message.conversation_id = self.conversation_id
 
         # persist the new message objects - ONLY place where messages are persisted
         persisted_messages = await self.message_manager.create_many_messages_async(
@@ -808,7 +817,6 @@ class LettaAgentV3(LettaAgentV2):
                                 step_id=step_id,
                                 new_messages=[summary_message],
                                 in_context_messages=messages,
-                                conversation_id=self.conversation_id,
                             )
 
                         else:
@@ -878,7 +886,6 @@ class LettaAgentV3(LettaAgentV2):
                 step_id=step_id,
                 new_messages=input_messages_to_persist + new_messages,
                 in_context_messages=messages,  # update the in-context messages
-                conversation_id=self.conversation_id,
             )
 
             # yield back generated messages
@@ -928,7 +935,6 @@ class LettaAgentV3(LettaAgentV2):
                     step_id=step_id,
                     new_messages=[summary_message],
                     in_context_messages=messages,
-                    conversation_id=self.conversation_id,
                 )
 
         except Exception as e:
