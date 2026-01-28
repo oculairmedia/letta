@@ -724,14 +724,27 @@ class ProviderManager:
                         # Roll back the session to clear the failed transaction
                         await session.rollback()
                 else:
-                    # Check if max_context_window needs to be updated
+                    # Check if max_context_window or model_endpoint_type needs to be updated
                     existing_model = existing[0]
+                    needs_update = False
+
                     if existing_model.max_context_window != llm_config.context_window:
                         logger.info(
                             f"    Updating LLM model {llm_config.handle} max_context_window: "
                             f"{existing_model.max_context_window} -> {llm_config.context_window}"
                         )
                         existing_model.max_context_window = llm_config.context_window
+                        needs_update = True
+
+                    if existing_model.model_endpoint_type != llm_config.model_endpoint_type:
+                        logger.info(
+                            f"    Updating LLM model {llm_config.handle} model_endpoint_type: "
+                            f"{existing_model.model_endpoint_type} -> {llm_config.model_endpoint_type}"
+                        )
+                        existing_model.model_endpoint_type = llm_config.model_endpoint_type
+                        needs_update = True
+
+                    if needs_update:
                         await existing_model.update_async(session)
                     else:
                         logger.info(f"    LLM model {llm_config.handle} already exists (ID: {existing[0].id}), skipping")
@@ -788,7 +801,17 @@ class ProviderManager:
                         # Roll back the session to clear the failed transaction
                         await session.rollback()
                 else:
-                    logger.info(f"    Embedding model {embedding_config.handle} already exists (ID: {existing[0].id}), skipping")
+                    # Check if model_endpoint_type needs to be updated
+                    existing_model = existing[0]
+                    if existing_model.model_endpoint_type != embedding_config.embedding_endpoint_type:
+                        logger.info(
+                            f"    Updating embedding model {embedding_config.handle} model_endpoint_type: "
+                            f"{existing_model.model_endpoint_type} -> {embedding_config.embedding_endpoint_type}"
+                        )
+                        existing_model.model_endpoint_type = embedding_config.embedding_endpoint_type
+                        await existing_model.update_async(session)
+                    else:
+                        logger.info(f"    Embedding model {embedding_config.handle} already exists (ID: {existing[0].id}), skipping")
 
     @enforce_types
     @trace_method
