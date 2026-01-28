@@ -357,7 +357,11 @@ class AgentManager:
             )
             agent_create.llm_config = LLMConfig.apply_reasoning_setting_to_config(
                 agent_create.llm_config,
-                agent_create.reasoning if agent_create.reasoning is not None else default_reasoning,
+                agent_create.reasoning
+                if agent_create.reasoning is not None
+                else (
+                    agent_create.llm_config.enable_reasoner if agent_create.llm_config.enable_reasoner is not None else default_reasoning
+                ),
                 agent_create.agent_type,
             )
         else:
