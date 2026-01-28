@@ -8859,7 +8859,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/LettaStreamingResponse"
+                  "$ref": "#/components/schemas/LettaResponse"
                 },
                 "description": "JSON response (when streaming=false)"
               },

@@ -7,15 +7,18 @@ from starlette.responses import StreamingResponse
 
 from letta.agents.agent_loop import AgentLoop
 from letta.agents.letta_agent_v3 import LettaAgentV3
+from letta.constants import REDIS_RUN_ID_PREFIX
 from letta.data_sources.redis_client import NoopAsyncRedisClient, get_redis_client
 from letta.errors import LettaExpiredError, LettaInvalidArgumentError, NoActiveRunsToCancelError
 from letta.helpers.datetime_helpers import get_utc_time
 from letta.log import get_logger
 from letta.schemas.conversation import Conversation, CreateConversation, UpdateConversation
 from letta.schemas.enums import RunStatus
+from letta.schemas.job import LettaRequestConfig
 from letta.schemas.letta_message import LettaMessageUnion
 from letta.schemas.letta_request import ConversationMessageRequest, LettaStreamingRequest, RetrieveStreamRequest
 from letta.schemas.letta_response import LettaResponse, LettaStreamingResponse
+from letta.schemas.run import Run as PydanticRun
 from letta.server.rest_api.dependencies import HeaderParams, get_headers, get_letta_server
 from letta.server.rest_api.redis_stream_manager import redis_sse_stream_generator
 from letta.server.rest_api.streaming_response import (
@@ -157,7 +160,7 @@ async def list_conversation_messages(
 
 @router.post(
     "/{conversation_id}/messages",
-    response_model=LettaStreamingResponse,
+    response_model=LettaResponse,
     operation_id="send_conversation_message",
     responses={
         200: {
@@ -233,10 +236,31 @@ async def send_conversation_message(
         )
         agent = agent.model_copy(update={"llm_config": override_llm_config})
 
+    # Create a run for execution tracking
+    run = None
+    if settings.track_agent_run:
+        runs_manager = RunManager()
+        run = await runs_manager.create_run(
+            pydantic_run=PydanticRun(
+                agent_id=conversation.agent_id,
+                background=False,
+                metadata={
+                    "run_type": "send_conversation_message",
+                },
+                request_config=LettaRequestConfig.from_letta_request(request),
+            ),
+            actor=actor,
+        )
+
+    # Set run_id in Redis for cancellation support
+    redis_client = await get_redis_client()
+    await redis_client.set(f"{REDIS_RUN_ID_PREFIX}:{conversation.agent_id}", run.id if run else None)
+
     agent_loop = AgentLoop.load(agent_state=agent, actor=actor)
     return await agent_loop.step(
         request.messages,
         max_steps=request.max_steps,
+        run_id=run.id if run else None,
         use_assistant_message=request.use_assistant_message,
         include_return_message_types=request.include_return_message_types,
         client_tools=request.client_tools,
