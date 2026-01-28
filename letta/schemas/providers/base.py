@@ -196,6 +196,7 @@ class Provider(ProviderBase):
             MistralProvider,
             OllamaProvider,
             OpenAIProvider,
+            OpenRouterProvider,
             SGLangProvider,
             TogetherProvider,
             VLLMProvider,
@@ -247,6 +248,8 @@ class Provider(ProviderBase):
                 return BedrockProvider(**self.model_dump(exclude_none=True))
             case ProviderType.minimax:
                 return MiniMaxProvider(**self.model_dump(exclude_none=True))
+            case ProviderType.openrouter:
+                return OpenRouterProvider(**self.model_dump(exclude_none=True))
             case _:
                 raise ValueError(f"Unknown provider type: {self.provider_type}")
 

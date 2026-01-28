@@ -84,6 +84,7 @@ class SimpleLLMStreamAdapter(LettaLLMStreamAdapter):
         elif self.llm_config.model_endpoint_type in [
             ProviderType.openai,
             ProviderType.deepseek,
+            ProviderType.openrouter,
             ProviderType.zai,
             ProviderType.chatgpt_oauth,
         ]:

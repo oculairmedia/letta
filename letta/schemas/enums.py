@@ -70,6 +70,7 @@ class ProviderType(str, Enum):
     together = "together"
     vllm = "vllm"
     sglang = "sglang"
+    openrouter = "openrouter"
     xai = "xai"
     zai = "zai"
 

@@ -49,6 +49,7 @@ class Model(LLMConfig, ModelBase):
         "deepseek",
         "xai",
         "zai",
+        "openrouter",
         "chatgpt_oauth",
     ] = Field(..., description="Deprecated: Use 'provider_type' field instead. The endpoint type for the model.", deprecated=True)
     context_window: int = Field(

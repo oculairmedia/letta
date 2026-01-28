@@ -64,12 +64,15 @@ class OpenAIProvider(Provider):
     async def _get_models_async(self) -> list[dict]:
         from letta.llm_api.openai import openai_get_model_list_async
 
-        # Some hardcoded support for OpenRouter (so that we only get models with tool calling support)...
-        # See: https://openrouter.ai/docs/requests
-        extra_params = {"supported_parameters": "tools"} if "openrouter.ai" in self.base_url else None
-
-        # Similar to Nebius
-        extra_params = {"verbose": True} if "nebius.com" in self.base_url else None
+        # Provider-specific extra parameters for model listing
+        extra_params = None
+        if "openrouter.ai" in self.base_url:
+            # OpenRouter: filter for models with tool calling support
+            # See: https://openrouter.ai/docs/requests
+            extra_params = {"supported_parameters": "tools"}
+        elif "nebius.com" in self.base_url:
+            # Nebius: use verbose mode for better model info
+            extra_params = {"verbose": True}
 
         # Decrypt API key before using
         api_key = await self.api_key_enc.get_plaintext_async() if self.api_key_enc else None

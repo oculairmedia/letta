@@ -36204,6 +36204,7 @@
               "deepseek",
               "xai",
               "zai",
+              "openrouter",
               "chatgpt_oauth"
             ],
             "title": "Model Endpoint Type",
@@ -38696,6 +38697,7 @@
               "deepseek",
               "xai",
               "zai",
+              "openrouter",
               "chatgpt_oauth"
             ],
             "title": "Model Endpoint Type",
@@ -40313,6 +40315,7 @@
           "together",
           "vllm",
           "sglang",
+          "openrouter",
           "xai",
           "zai"
         ],
