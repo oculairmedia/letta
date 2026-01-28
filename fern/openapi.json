@@ -31842,8 +31842,12 @@
           },
           "manager_agent_id": {
             "type": "string",
+            "maxLength": 42,
+            "minLength": 42,
+            "pattern": "^agent-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
             "title": "Manager Agent Id",
-            "description": ""
+            "description": "",
+            "examples": ["agent-123e4567-e89b-42d3-8456-426614174000"]
           },
           "termination_token": {
             "anyOf": [
@@ -31887,7 +31891,12 @@
           "manager_agent_id": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "maxLength": 42,
+                "minLength": 42,
+                "pattern": "^agent-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                "description": "The ID of the agent in the format 'agent-<uuid4>'",
+                "examples": ["agent-123e4567-e89b-42d3-8456-426614174000"]
               },
               {
                 "type": "null"
@@ -33825,7 +33834,12 @@
         "properties": {
           "agent_ids": {
             "items": {
-              "type": "string"
+              "type": "string",
+              "maxLength": 42,
+              "minLength": 42,
+              "pattern": "^agent-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+              "description": "The ID of the agent in the format 'agent-<uuid4>'",
+              "examples": ["agent-123e4567-e89b-42d3-8456-426614174000"]
             },
             "type": "array",
             "title": "Agent Ids",
@@ -33884,7 +33898,12 @@
           },
           "shared_block_ids": {
             "items": {
-              "type": "string"
+              "type": "string",
+              "maxLength": 42,
+              "minLength": 42,
+              "pattern": "^block-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+              "description": "The ID of the block in the format 'block-<uuid4>'",
+              "examples": ["block-123e4567-e89b-42d3-8456-426614174000"]
             },
             "type": "array",
             "title": "Shared Block Ids",
@@ -33913,7 +33932,12 @@
         "properties": {
           "agent_ids": {
             "items": {
-              "type": "string"
+              "type": "string",
+              "maxLength": 42,
+              "minLength": 42,
+              "pattern": "^agent-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+              "description": "The ID of the agent in the format 'agent-<uuid4>'",
+              "examples": ["agent-123e4567-e89b-42d3-8456-426614174000"]
             },
             "type": "array",
             "title": "Agent Ids",
@@ -33972,7 +33996,12 @@
           },
           "shared_block_ids": {
             "items": {
-              "type": "string"
+              "type": "string",
+              "maxLength": 42,
+              "minLength": 42,
+              "pattern": "^block-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+              "description": "The ID of the block in the format 'block-<uuid4>'",
+              "examples": ["block-123e4567-e89b-42d3-8456-426614174000"]
             },
             "type": "array",
             "title": "Shared Block Ids",
@@ -34009,7 +34038,12 @@
             "anyOf": [
               {
                 "items": {
-                  "type": "string"
+                  "type": "string",
+                  "maxLength": 42,
+                  "minLength": 42,
+                  "pattern": "^agent-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                  "description": "The ID of the agent in the format 'agent-<uuid4>'",
+                  "examples": ["agent-123e4567-e89b-42d3-8456-426614174000"]
                 },
                 "type": "array"
               },
@@ -34086,7 +34120,12 @@
             "anyOf": [
               {
                 "items": {
-                  "type": "string"
+                  "type": "string",
+                  "maxLength": 42,
+                  "minLength": 42,
+                  "pattern": "^block-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                  "description": "The ID of the block in the format 'block-<uuid4>'",
+                  "examples": ["block-123e4567-e89b-42d3-8456-426614174000"]
                 },
                 "type": "array"
               },
@@ -35621,7 +35660,12 @@
         "properties": {
           "agent_ids": {
             "items": {
-              "type": "string"
+              "type": "string",
+              "maxLength": 42,
+              "minLength": 42,
+              "pattern": "^agent-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+              "description": "The ID of the agent in the format 'agent-<uuid4>'",
+              "examples": ["agent-123e4567-e89b-42d3-8456-426614174000"]
             },
             "type": "array",
             "title": "Agent Ids",
@@ -35680,7 +35724,12 @@
           },
           "shared_block_ids": {
             "items": {
-              "type": "string"
+              "type": "string",
+              "maxLength": 42,
+              "minLength": 42,
+              "pattern": "^block-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+              "description": "The ID of the block in the format 'block-<uuid4>'",
+              "examples": ["block-123e4567-e89b-42d3-8456-426614174000"]
             },
             "type": "array",
             "title": "Shared Block Ids",
@@ -41440,8 +41489,12 @@
           },
           "manager_agent_id": {
             "type": "string",
+            "maxLength": 42,
+            "minLength": 42,
+            "pattern": "^agent-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
             "title": "Manager Agent Id",
-            "description": ""
+            "description": "",
+            "examples": ["agent-123e4567-e89b-42d3-8456-426614174000"]
           },
           "sleeptime_agent_frequency": {
             "anyOf": [
@@ -41472,7 +41525,12 @@
           "manager_agent_id": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "maxLength": 42,
+                "minLength": 42,
+                "pattern": "^agent-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                "description": "The ID of the agent in the format 'agent-<uuid4>'",
+                "examples": ["agent-123e4567-e89b-42d3-8456-426614174000"]
               },
               {
                 "type": "null"
@@ -42776,8 +42834,12 @@
           },
           "manager_agent_id": {
             "type": "string",
+            "maxLength": 42,
+            "minLength": 42,
+            "pattern": "^agent-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
             "title": "Manager Agent Id",
-            "description": ""
+            "description": "",
+            "examples": ["agent-123e4567-e89b-42d3-8456-426614174000"]
           }
         },
         "type": "object",
@@ -42796,7 +42858,12 @@
           "manager_agent_id": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "maxLength": 42,
+                "minLength": 42,
+                "pattern": "^agent-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                "description": "The ID of the agent in the format 'agent-<uuid4>'",
+                "examples": ["agent-123e4567-e89b-42d3-8456-426614174000"]
               },
               {
                 "type": "null"
@@ -45756,8 +45823,12 @@
           },
           "manager_agent_id": {
             "type": "string",
+            "maxLength": 42,
+            "minLength": 42,
+            "pattern": "^agent-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
             "title": "Manager Agent Id",
-            "description": ""
+            "description": "",
+            "examples": ["agent-123e4567-e89b-42d3-8456-426614174000"]
           },
           "max_message_buffer_length": {
             "anyOf": [
@@ -45800,7 +45871,12 @@
           "manager_agent_id": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "maxLength": 42,
+                "minLength": 42,
+                "pattern": "^agent-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                "description": "The ID of the agent in the format 'agent-<uuid4>'",
+                "examples": ["agent-123e4567-e89b-42d3-8456-426614174000"]
               },
               {
                 "type": "null"
