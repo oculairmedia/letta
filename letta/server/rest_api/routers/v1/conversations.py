@@ -61,6 +61,7 @@ async def list_conversations(
     agent_id: str = Query(..., description="The agent ID to list conversations for"),
     limit: int = Query(50, description="Maximum number of conversations to return"),
     after: Optional[str] = Query(None, description="Cursor for pagination (conversation ID)"),
+    summary_search: Optional[str] = Query(None, description="Search for text within conversation summaries"),
     server: SyncServer = Depends(get_letta_server),
     headers: HeaderParams = Depends(get_headers),
 ):
@@ -71,6 +72,7 @@ async def list_conversations(
         actor=actor,
         limit=limit,
         after=after,
+        summary_search=summary_search,
     )
 
 

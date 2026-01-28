@@ -8492,6 +8492,24 @@
               "title": "After"
             },
             "description": "Cursor for pagination (conversation ID)"
+          },
+          {
+            "name": "summary_search",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Search for text within conversation summaries",
+              "title": "Summary Search"
+            },
+            "description": "Search for text within conversation summaries"
           }
         ],
         "responses": {
@@ -23430,7 +23448,12 @@
                   },
                   "integration_type": {
                     "type": "string",
-                    "enum": ["slack", "custom_webhook"]
+                    "enum": [
+                      "slack",
+                      "discord",
+                      "microsoftTeams",
+                      "custom_webhook"
+                    ]
                   },
                   "producer_config": {
                     "discriminator": {
@@ -23544,7 +23567,12 @@
                         },
                         "integration_type": {
                           "type": "string",
-                          "enum": ["slack", "custom_webhook"]
+                          "enum": [
+                            "slack",
+                            "discord",
+                            "microsoftTeams",
+                            "custom_webhook"
+                          ]
                         },
                         "feed_id": {
                           "type": "string"
@@ -23644,6 +23672,12 @@
                         },
                         "error_count": {
                           "type": "number"
+                        },
+                        "project_name": {
+                          "type": "string"
+                        },
+                        "project_slug": {
+                          "type": "string"
                         }
                       },
                       "required": [
@@ -23714,6 +23748,13 @@
             }
           },
           {
+            "name": "integration_id",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
             "name": "offset",
             "in": "query",
             "schema": {
@@ -23767,7 +23808,12 @@
                           },
                           "integration_type": {
                             "type": "string",
-                            "enum": ["slack", "custom_webhook"]
+                            "enum": [
+                              "slack",
+                              "discord",
+                              "microsoftTeams",
+                              "custom_webhook"
+                            ]
                           },
                           "feed_id": {
                             "type": "string"
@@ -23867,6 +23913,12 @@
                           },
                           "error_count": {
                             "type": "number"
+                          },
+                          "project_name": {
+                            "type": "string"
+                          },
+                          "project_slug": {
+                            "type": "string"
                           }
                         },
                         "required": [
@@ -23913,6 +23965,13 @@
           },
           {
             "name": "integration_type",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "integration_id",
             "in": "query",
             "schema": {
               "type": "string"
@@ -23985,7 +24044,12 @@
                         },
                         "integration_type": {
                           "type": "string",
-                          "enum": ["slack", "custom_webhook"]
+                          "enum": [
+                            "slack",
+                            "discord",
+                            "microsoftTeams",
+                            "custom_webhook"
+                          ]
                         },
                         "feed_id": {
                           "type": "string"
@@ -24085,6 +24149,12 @@
                         },
                         "error_count": {
                           "type": "number"
+                        },
+                        "project_name": {
+                          "type": "string"
+                        },
+                        "project_slug": {
+                          "type": "string"
                         }
                       },
                       "required": [
@@ -24193,7 +24263,12 @@
                         },
                         "integration_type": {
                           "type": "string",
-                          "enum": ["slack", "custom_webhook"]
+                          "enum": [
+                            "slack",
+                            "discord",
+                            "microsoftTeams",
+                            "custom_webhook"
+                          ]
                         },
                         "feed_id": {
                           "type": "string"
@@ -24293,6 +24368,12 @@
                         },
                         "error_count": {
                           "type": "number"
+                        },
+                        "project_name": {
+                          "type": "string"
+                        },
+                        "project_slug": {
+                          "type": "string"
                         }
                       },
                       "required": [
@@ -24523,7 +24604,12 @@
                         },
                         "integration_type": {
                           "type": "string",
-                          "enum": ["slack", "custom_webhook"]
+                          "enum": [
+                            "slack",
+                            "discord",
+                            "microsoftTeams",
+                            "custom_webhook"
+                          ]
                         },
                         "feed_id": {
                           "type": "string"
@@ -24623,6 +24709,12 @@
                         },
                         "error_count": {
                           "type": "number"
+                        },
+                        "project_name": {
+                          "type": "string"
+                        },
+                        "project_slug": {
+                          "type": "string"
                         }
                       },
                       "required": [
@@ -24706,7 +24798,12 @@
                 "properties": {
                   "integration_type": {
                     "type": "string",
-                    "enum": ["slack", "custom_webhook"]
+                    "enum": [
+                      "slack",
+                      "discord",
+                      "microsoftTeams",
+                      "custom_webhook"
+                    ]
                   },
                   "integration_id": {
                     "type": "string"
