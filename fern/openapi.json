@@ -36695,8 +36695,12 @@
           },
           "agent_id": {
             "type": "string",
+            "maxLength": 42,
+            "minLength": 42,
+            "pattern": "^agent-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
             "title": "Agent Id",
-            "description": "The ID of the agent to send this batch request for"
+            "description": "The ID of the agent to send this batch request for",
+            "examples": ["agent-123e4567-e89b-42d3-8456-426614174000"]
           }
         },
         "type": "object",

@@ -7,6 +7,7 @@ from letta.constants import DEFAULT_MAX_STEPS, DEFAULT_MESSAGE_TOOL, DEFAULT_MES
 from letta.schemas.letta_message import MessageType
 from letta.schemas.letta_message_content import LettaMessageContentUnion
 from letta.schemas.message import MessageCreate, MessageCreateUnion, MessageRole
+from letta.validators import AgentId
 
 
 class ClientToolSchema(BaseModel):
@@ -151,7 +152,7 @@ class LettaAsyncRequest(LettaRequest):
 
 
 class LettaBatchRequest(LettaRequest):
-    agent_id: str = Field(..., description="The ID of the agent to send this batch request for")
+    agent_id: AgentId = Field(..., description="The ID of the agent to send this batch request for")
 
 
 class CreateBatch(BaseModel):
