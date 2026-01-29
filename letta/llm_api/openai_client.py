@@ -170,6 +170,7 @@ def supports_content_none(llm_config: LLMConfig) -> bool:
 class OpenAIClient(LLMClientBase):
     def _prepare_client_kwargs(self, llm_config: LLMConfig) -> dict:
         api_key, _, _ = self.get_byok_overrides(llm_config)
+        has_byok_key = api_key is not None  # Track if we got a BYOK key
 
         # Default to global OpenAI key when no BYOK override
         if not api_key:
@@ -183,7 +184,7 @@ class OpenAIClient(LLMClientBase):
         )
         if is_openrouter:
             # Only use prod OpenRouter key if no BYOK key was provided
-            if not api_key:
+            if not has_byok_key:
                 or_key = model_settings.openrouter_api_key or os.environ.get("OPENROUTER_API_KEY")
                 if or_key:
                     kwargs["api_key"] = or_key
@@ -210,6 +211,7 @@ class OpenAIClient(LLMClientBase):
 
     async def _prepare_client_kwargs_async(self, llm_config: LLMConfig) -> dict:
         api_key, _, _ = await self.get_byok_overrides_async(llm_config)
+        has_byok_key = api_key is not None  # Track if we got a BYOK key
 
         if not api_key:
             api_key = model_settings.openai_api_key or os.environ.get("OPENAI_API_KEY")
@@ -220,7 +222,7 @@ class OpenAIClient(LLMClientBase):
         )
         if is_openrouter:
             # Only use prod OpenRouter key if no BYOK key was provided
-            if not api_key:
+            if not has_byok_key:
                 or_key = model_settings.openrouter_api_key or os.environ.get("OPENROUTER_API_KEY")
                 if or_key:
                     kwargs["api_key"] = or_key
