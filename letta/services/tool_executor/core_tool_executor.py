@@ -896,7 +896,7 @@ class LettaCoreToolExecutor(ToolExecutor):
         """Create a memory block by setting its value to an empty string."""
         from letta.schemas.block import Block
 
-        label = path.removeprefix("/memories/").removeprefix("/").replace("/", "_")
+        label = path.removeprefix("/memories/").removeprefix("/")
 
         # Create a new block and persist it to the database
         new_block = Block(label=label, value=file_text if file_text else "", description=description)
@@ -916,7 +916,7 @@ class LettaCoreToolExecutor(ToolExecutor):
 
     async def memory_str_replace(self, agent_state: AgentState, actor: User, path: str, old_str: str, new_str: str) -> str:
         """Replace text in a memory block."""
-        label = path.removeprefix("/memories/").removeprefix("/").replace("/", "_")
+        label = path.removeprefix("/memories/").removeprefix("/")
 
         memory_block = agent_state.memory.get_block(label)
         if memory_block is None:
