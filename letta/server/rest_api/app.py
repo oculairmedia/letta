@@ -166,10 +166,18 @@ async def lifespan(app_: FastAPI):
     except Exception as e:
         logger.warning(f"[Worker {worker_id}] Failed to download NLTK data: {e}")
 
-    # logger.info(f"[Worker {worker_id}] Starting lifespan initialization")
-    # logger.info(f"[Worker {worker_id}] Initializing database connections")
-    # db_registry.initialize_async()
-    # logger.info(f"[Worker {worker_id}] Database connections initialized")
+    # Log effective database timeout settings for debugging
+    try:
+        from sqlalchemy import text
+
+        from letta.server.db import db_registry
+
+        async with db_registry.async_session() as session:
+            result = await session.execute(text("SHOW statement_timeout"))
+            statement_timeout = result.scalar()
+            logger.warning(f"[Worker {worker_id}] PostgreSQL statement_timeout: {statement_timeout}")
+    except Exception as e:
+        logger.warning(f"[Worker {worker_id}] Failed to query statement_timeout: {e}")
 
     if should_use_pinecone():
         if settings.upsert_pinecone_indices:
