@@ -1486,6 +1486,10 @@ async def send_message(
     Process a user message and return the agent's response.
     This endpoint accepts a message from a user and processes it through the agent.
 
+    **Note:** Sending multiple concurrent requests to the same agent can lead to undefined behavior.
+    Each agent processes messages sequentially, and concurrent requests may interleave in unexpected ways.
+    Wait for each request to complete before sending the next one. Use separate agents or conversations for parallel processing.
+
     The response format is controlled by the `streaming` field in the request body:
     - If `streaming=false` (default): Returns a complete LettaResponse with all messages
     - If `streaming=true`: Returns a Server-Sent Events (SSE) stream
@@ -1674,6 +1678,10 @@ async def send_message_streaming(
     Process a user message and return the agent's response.
 
     Deprecated: Use the `POST /{agent_id}/messages` endpoint with `streaming=true` in the request body instead.
+
+    **Note:** Sending multiple concurrent requests to the same agent can lead to undefined behavior.
+    Each agent processes messages sequentially, and concurrent requests may interleave in unexpected ways.
+    Wait for each request to complete before sending the next one. Use separate agents or conversations for parallel processing.
 
     This endpoint accepts a message from a user and processes it through the agent.
     It will stream the steps of the response always, and stream the tokens if 'stream_tokens' is set to True.
@@ -1972,6 +1980,10 @@ async def send_message_async(
     The actual processing happens in the background, and the status can be checked using the run ID.
 
     This is "asynchronous" in the sense that it's a background run and explicitly must be fetched by the run ID.
+
+    **Note:** Sending multiple concurrent requests to the same agent can lead to undefined behavior.
+    Each agent processes messages sequentially, and concurrent requests may interleave in unexpected ways.
+    Wait for each request to complete before sending the next one. Use separate agents or conversations for parallel processing.
     """
     MetricRegistry().user_message_counter.add(1, get_ctx_attributes())
     actor = await server.user_manager.get_actor_or_default_async(actor_id=headers.actor_id)
