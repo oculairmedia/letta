@@ -182,9 +182,11 @@ class OpenAIClient(LLMClientBase):
             llm_config.provider_name == "openrouter"
         )
         if is_openrouter:
-            or_key = model_settings.openrouter_api_key or os.environ.get("OPENROUTER_API_KEY")
-            if or_key:
-                kwargs["api_key"] = or_key
+            # Only use prod OpenRouter key if no BYOK key was provided
+            if not api_key:
+                or_key = model_settings.openrouter_api_key or os.environ.get("OPENROUTER_API_KEY")
+                if or_key:
+                    kwargs["api_key"] = or_key
             # Attach optional headers if provided
             headers = {}
             if model_settings.openrouter_referer:
@@ -217,9 +219,11 @@ class OpenAIClient(LLMClientBase):
             llm_config.provider_name == "openrouter"
         )
         if is_openrouter:
-            or_key = model_settings.openrouter_api_key or os.environ.get("OPENROUTER_API_KEY")
-            if or_key:
-                kwargs["api_key"] = or_key
+            # Only use prod OpenRouter key if no BYOK key was provided
+            if not api_key:
+                or_key = model_settings.openrouter_api_key or os.environ.get("OPENROUTER_API_KEY")
+                if or_key:
+                    kwargs["api_key"] = or_key
             headers = {}
             if model_settings.openrouter_referer:
                 headers["HTTP-Referer"] = model_settings.openrouter_referer
