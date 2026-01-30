@@ -4,7 +4,12 @@ from typing import Dict, List, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from letta.constants import CORE_MEMORY_LINE_NUMBER_WARNING, DEFAULT_EMBEDDING_CHUNK_SIZE
+from letta.constants import (
+    CORE_MEMORY_LINE_NUMBER_WARNING,
+    DEFAULT_EMBEDDING_CHUNK_SIZE,
+    MAX_FILES_OPEN_LIMIT,
+    MAX_PER_FILE_VIEW_WINDOW_CHAR_LIMIT,
+)
 from letta.errors import AgentExportProcessingError, LettaInvalidArgumentError
 from letta.schemas.block import Block, CreateBlock
 from letta.schemas.embedding_config import EmbeddingConfig
@@ -394,6 +399,28 @@ class CreateAgent(BaseModel, validate_assignment=True):  #
 
         return embedding
 
+    @field_validator("max_files_open")
+    @classmethod
+    def validate_max_files_open(cls, value: Optional[int]) -> Optional[int]:
+        """Validate max_files_open is within acceptable range."""
+        if value is not None and value > MAX_FILES_OPEN_LIMIT:
+            raise LettaInvalidArgumentError(
+                f"max_files_open cannot exceed {MAX_FILES_OPEN_LIMIT}. Got: {value}",
+                argument_name="max_files_open",
+            )
+        return value
+
+    @field_validator("per_file_view_window_char_limit")
+    @classmethod
+    def validate_per_file_view_window_char_limit(cls, value: Optional[int]) -> Optional[int]:
+        """Validate per_file_view_window_char_limit is within int32 range for database compatibility."""
+        if value is not None and value > MAX_PER_FILE_VIEW_WINDOW_CHAR_LIMIT:
+            raise LettaInvalidArgumentError(
+                f"per_file_view_window_char_limit cannot exceed {MAX_PER_FILE_VIEW_WINDOW_CHAR_LIMIT}. Got: {value}",
+                argument_name="per_file_view_window_char_limit",
+            )
+        return value
+
     @model_validator(mode="after")
     def validate_sleeptime_for_agent_type(self) -> "CreateAgent":
         """Validate that enable_sleeptime is True when agent_type is a specific value"""
@@ -496,6 +523,28 @@ class UpdateAgent(BaseModel):
     )
 
     model_config = ConfigDict(extra="ignore")  # Ignores extra fields
+
+    @field_validator("max_files_open")
+    @classmethod
+    def validate_max_files_open(cls, value: Optional[int]) -> Optional[int]:
+        """Validate max_files_open is within acceptable range."""
+        if value is not None and value > MAX_FILES_OPEN_LIMIT:
+            raise LettaInvalidArgumentError(
+                f"max_files_open cannot exceed {MAX_FILES_OPEN_LIMIT}. Got: {value}",
+                argument_name="max_files_open",
+            )
+        return value
+
+    @field_validator("per_file_view_window_char_limit")
+    @classmethod
+    def validate_per_file_view_window_char_limit(cls, value: Optional[int]) -> Optional[int]:
+        """Validate per_file_view_window_char_limit is within int32 range for database compatibility."""
+        if value is not None and value > MAX_PER_FILE_VIEW_WINDOW_CHAR_LIMIT:
+            raise LettaInvalidArgumentError(
+                f"per_file_view_window_char_limit cannot exceed {MAX_PER_FILE_VIEW_WINDOW_CHAR_LIMIT}. Got: {value}",
+                argument_name="per_file_view_window_char_limit",
+            )
+        return value
 
 
 class AgentStepResponse(BaseModel):

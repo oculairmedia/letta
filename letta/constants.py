@@ -461,6 +461,10 @@ CONVERSATION_LOCK_TTL_SECONDS = 300  # 5 minutes
 # File based controls
 DEFAULT_MAX_FILES_OPEN = 5
 DEFAULT_CORE_MEMORY_SOURCE_CHAR_LIMIT: int = 50000
+# Max values for file controls (int32 limit to match database INTEGER type)
+MAX_INT32: int = 2147483647
+MAX_PER_FILE_VIEW_WINDOW_CHAR_LIMIT: int = MAX_INT32
+MAX_FILES_OPEN_LIMIT: int = 1000  # Practical limit - no agent needs 1000+ files open
 
 GET_PROVIDERS_TIMEOUT_SECONDS = 10
 
