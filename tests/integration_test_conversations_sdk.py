@@ -617,6 +617,45 @@ class TestConversationCompact:
         )
         assert len(compacted_messages) < initial_count
 
+    def test_compact_conversation_creates_summary_role_message(self, client: Letta, agent, server_url: str):
+        """Test that compaction creates a summary message with role='summary'."""
+        # Create a conversation
+        conversation = client.conversations.create(agent_id=agent.id)
+
+        # Send multiple messages to create a history worth summarizing
+        for i in range(5):
+            list(
+                client.conversations.messages.create(
+                    conversation_id=conversation.id,
+                    messages=[{"role": "user", "content": f"Message {i}: Tell me about topic {i}."}],
+                )
+            )
+
+        # Call compact endpoint with 'all' mode to ensure a single summary
+        response = requests.post(
+            f"{server_url}/v1/conversations/{conversation.id}/compact",
+            json={
+                "compaction_settings": {
+                    "mode": "all",
+                }
+            },
+        )
+        assert response.status_code == 200, f"Expected 200, got {response.status_code}: {response.text}"
+
+        # Get compacted messages
+        compacted_messages = client.conversations.messages.list(
+            conversation_id=conversation.id,
+            order="asc",
+        )
+
+        # After 'all' mode compaction, we expect: system message + summary message
+        # The summary message should have role='summary'
+        summary_messages = [msg for msg in compacted_messages if msg.role == "summary"]
+        assert len(summary_messages) == 1, (
+            f"Expected exactly 1 summary message after compaction, found {len(summary_messages)}. "
+            f"Message roles: {[msg.role for msg in compacted_messages]}"
+        )
+
     def test_compact_conversation_with_settings(self, client: Letta, agent, server_url: str):
         """Test conversation compaction with custom compaction settings."""
         # Create a conversation with multiple messages

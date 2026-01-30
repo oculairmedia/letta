@@ -515,6 +515,7 @@ async def compact_conversation(
     summary_message, messages, summary = await agent_loop.compact(
         messages=in_context_messages,
         compaction_settings=compaction_settings,
+        use_summary_role=True,
     )
     num_messages_after = len(messages)
 

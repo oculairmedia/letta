@@ -847,6 +847,68 @@ async def test_compact_returns_valid_summary_message_and_event_message(server: S
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "llm_config",
+    TESTED_LLM_CONFIGS,
+    ids=[c.model for c in TESTED_LLM_CONFIGS],
+)
+async def test_compact_with_use_summary_role_creates_summary_message_role(server: SyncServer, actor, llm_config: LLMConfig):
+    """
+    Test that compact() with use_summary_role=True creates a message with role=MessageRole.summary.
+
+    This validates that manual compaction endpoints (which pass use_summary_role=True)
+    will store summary messages with the dedicated 'summary' role instead of the legacy 'user' role.
+    """
+    # Create a conversation with enough messages to summarize
+    messages = [
+        PydanticMessage(
+            role=MessageRole.system,
+            content=[TextContent(type="text", text="You are a helpful assistant.")],
+        )
+    ]
+    for i in range(10):
+        messages.append(
+            PydanticMessage(
+                role=MessageRole.user,
+                content=[TextContent(type="text", text=f"User message {i}: Test message {i}.")],
+            )
+        )
+        messages.append(
+            PydanticMessage(
+                role=MessageRole.assistant,
+                content=[TextContent(type="text", text=f"Assistant response {i}: Acknowledged message {i}.")],
+            )
+        )
+
+    agent_state, in_context_messages = await create_agent_with_messages(server, actor, llm_config, messages)
+
+    handle = llm_config.handle or f"{llm_config.model_endpoint_type}/{llm_config.model}"
+    agent_state.compaction_settings = CompactionSettings(model=handle, mode="all")
+
+    agent_loop = LettaAgentV3(agent_state=agent_state, actor=actor)
+
+    # Call compact with use_summary_role=True (as the REST endpoints now do)
+    summary_message_obj, compacted_messages, summary_text = await agent_loop.compact(
+        messages=in_context_messages,
+        use_summary_role=True,
+    )
+
+    # Verify the summary message has role=summary (not user)
+    assert summary_message_obj.role == MessageRole.summary, (
+        f"Expected summary message to have role=summary when use_summary_role=True, got {summary_message_obj.role}"
+    )
+
+    # Verify the compacted messages list structure
+    assert len(compacted_messages) == 2, f"Expected 2 messages (system + summary), got {len(compacted_messages)}"
+    assert compacted_messages[0].role == MessageRole.system
+    assert compacted_messages[1].role == MessageRole.summary
+
+    # Verify summary text is non-empty
+    assert isinstance(summary_text, str)
+    assert len(summary_text) > 0
+
+
+@pytest.mark.asyncio
 async def test_v3_compact_uses_compaction_settings_model_and_model_settings(server: SyncServer, actor):
     """Integration test: LettaAgentV3.compact uses the LLMConfig implied by CompactionSettings.
 
