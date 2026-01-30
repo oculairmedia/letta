@@ -29839,6 +29839,63 @@
         "title": "CompactionSettings",
         "description": "Configuration for conversation compaction / summarization.\n\n``model`` is the only required user-facing field – it specifies the summarizer\nmodel handle (e.g. ``\"openai/gpt-4o-mini\"``). Per-model settings (temperature,\nmax tokens, etc.) are derived from the default configuration for that handle."
       },
+      "CompactionStats": {
+        "properties": {
+          "trigger": {
+            "type": "string",
+            "title": "Trigger",
+            "description": "What triggered the compaction (e.g., 'context_window_exceeded', 'post_step_context_check')"
+          },
+          "context_tokens_before": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Context Tokens Before",
+            "description": "Token count before compaction (from LLM usage stats, includes full context sent to LLM)"
+          },
+          "context_tokens_after": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Context Tokens After",
+            "description": "Token count after compaction (message tokens only, does not include tool definitions)"
+          },
+          "context_window": {
+            "type": "integer",
+            "title": "Context Window",
+            "description": "The model's context window size"
+          },
+          "messages_count_before": {
+            "type": "integer",
+            "title": "Messages Count Before",
+            "description": "Number of messages before compaction"
+          },
+          "messages_count_after": {
+            "type": "integer",
+            "title": "Messages Count After",
+            "description": "Number of messages after compaction"
+          }
+        },
+        "type": "object",
+        "required": [
+          "trigger",
+          "context_window",
+          "messages_count_before",
+          "messages_count_after"
+        ],
+        "title": "CompactionStats",
+        "description": "Statistics about a memory compaction operation."
+      },
       "ComparisonOperator": {
         "type": "string",
         "enum": ["eq", "gte", "lte"],
@@ -43072,6 +43129,16 @@
           "summary": {
             "type": "string",
             "title": "Summary"
+          },
+          "compaction_stats": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CompactionStats"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",

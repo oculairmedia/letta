@@ -30,6 +30,7 @@ from letta.schemas.letta_message import (
     ApprovalReturn,
     AssistantMessage,
     AssistantMessageListResult,
+    CompactionStats,
     HiddenReasoningMessage,
     LettaMessage,
     LettaMessageReturnUnion,
@@ -46,6 +47,7 @@ from letta.schemas.letta_message import (
     ToolReturnMessage,
     UserMessage,
     UserMessageListResult,
+    extract_compaction_stats_from_packed_json,
 )
 from letta.schemas.letta_message_content import (
     ImageContent,
@@ -1062,8 +1064,11 @@ class Message(BaseMessage):
             raise ValueError(f"Invalid summary message (no text object on message): {self.content}")
 
         # Unpack the summary from the packed JSON format
-        # The packed format is: {"type": "system_alert", "message": "...", "time": "..."}
+        # The packed format is: {"type": "system_alert", "message": "...", "time": "...", "compaction_stats": {...}}
         summary = unpack_message(text_content)
+
+        # Extract compaction_stats from the packed JSON using shared helper
+        compaction_stats = extract_compaction_stats_from_packed_json(text_content)
 
         if as_user_message:
             # Return as UserMessage for backward compatibility
@@ -1086,6 +1091,7 @@ class Message(BaseMessage):
                 otid=self.otid,
                 step_id=self.step_id,
                 run_id=self.run_id,
+                compaction_stats=compaction_stats,
             )
 
     @staticmethod

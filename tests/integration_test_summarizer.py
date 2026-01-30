@@ -1716,3 +1716,320 @@ async def test_summarize_all(server: SyncServer, actor, llm_config: LLMConfig):
     print(f"Successfully summarized {len(messages)} messages using 'all' mode")
     print(f"Summary: {summary[:200]}..." if len(summary) > 200 else f"Summary: {summary}")
     print(f"Using {llm_config.model_endpoint_type} for model {llm_config.model}")
+
+
+# =============================================================================
+# CompactionStats tests
+# =============================================================================
+
+
+def test_compaction_stats_embedding_in_packed_json():
+    """Test that compaction_stats are correctly embedded in the packed JSON by package_summarize_message_no_counts."""
+    from letta.system import package_summarize_message_no_counts
+
+    stats = {
+        "trigger": "post_step_context_check",
+        "context_tokens_before": 50000,
+        "context_tokens_after": 15000,
+        "context_window": 128000,
+        "messages_count_before": 45,
+        "messages_count_after": 12,
+    }
+
+    packed = package_summarize_message_no_counts(
+        summary="Test summary content",
+        timezone="UTC",
+        compaction_stats=stats,
+    )
+
+    # Parse the packed JSON
+    packed_json = json.loads(packed)
+
+    # Verify structure
+    assert "type" in packed_json
+    assert packed_json["type"] == "system_alert"
+    assert "message" in packed_json
+    assert "Test summary content" in packed_json["message"]
+    assert "compaction_stats" in packed_json
+
+    # Verify stats content
+    embedded_stats = packed_json["compaction_stats"]
+    assert embedded_stats["trigger"] == "post_step_context_check"
+    assert embedded_stats["context_tokens_before"] == 50000
+    assert embedded_stats["context_tokens_after"] == 15000
+    assert embedded_stats["context_window"] == 128000
+    assert embedded_stats["messages_count_before"] == 45
+    assert embedded_stats["messages_count_after"] == 12
+
+
+def test_compaction_stats_embedding_without_stats():
+    """Test that packed JSON works correctly when no stats are provided."""
+    from letta.system import package_summarize_message_no_counts
+
+    packed = package_summarize_message_no_counts(
+        summary="Test summary content",
+        timezone="UTC",
+        compaction_stats=None,
+    )
+
+    packed_json = json.loads(packed)
+
+    assert "type" in packed_json
+    assert "message" in packed_json
+    assert "compaction_stats" not in packed_json
+
+
+def test_extract_compaction_stats_from_packed_json():
+    """Test extracting CompactionStats from a packed JSON string."""
+    from letta.schemas.letta_message import CompactionStats, extract_compaction_stats_from_packed_json
+
+    packed_json = json.dumps(
+        {
+            "type": "system_alert",
+            "message": "Test summary",
+            "time": "2024-01-15T10:00:00",
+            "compaction_stats": {
+                "trigger": "context_window_exceeded",
+                "context_tokens_before": 100000,
+                "context_tokens_after": 30000,
+                "context_window": 128000,
+                "messages_count_before": 50,
+                "messages_count_after": 15,
+            },
+        }
+    )
+
+    stats = extract_compaction_stats_from_packed_json(packed_json)
+
+    assert stats is not None
+    assert isinstance(stats, CompactionStats)
+    assert stats.trigger == "context_window_exceeded"
+    assert stats.context_tokens_before == 100000
+    assert stats.context_tokens_after == 30000
+    assert stats.context_window == 128000
+    assert stats.messages_count_before == 50
+    assert stats.messages_count_after == 15
+
+
+def test_extract_compaction_stats_from_packed_json_without_stats():
+    """Test that extraction returns None when no stats are present (backward compatibility)."""
+    from letta.schemas.letta_message import extract_compaction_stats_from_packed_json
+
+    # Old format without compaction_stats
+    packed_json = json.dumps(
+        {
+            "type": "system_alert",
+            "message": "Test summary",
+            "time": "2024-01-15T10:00:00",
+        }
+    )
+
+    stats = extract_compaction_stats_from_packed_json(packed_json)
+
+    assert stats is None
+
+
+def test_extract_compaction_stats_from_packed_json_invalid_json():
+    """Test that extraction handles invalid JSON gracefully."""
+    from letta.schemas.letta_message import extract_compaction_stats_from_packed_json
+
+    stats = extract_compaction_stats_from_packed_json("not valid json")
+    assert stats is None
+
+    stats = extract_compaction_stats_from_packed_json("")
+    assert stats is None
+
+
+def test_extract_compaction_stats_from_packed_json_invalid_stats():
+    """Test that extraction handles invalid stats structure gracefully."""
+    from letta.schemas.letta_message import extract_compaction_stats_from_packed_json
+
+    # Missing required fields
+    packed_json = json.dumps(
+        {
+            "type": "system_alert",
+            "message": "Test summary",
+            "compaction_stats": {
+                "trigger": "test",
+                # Missing context_window, messages_count_before, messages_count_after
+            },
+        }
+    )
+
+    stats = extract_compaction_stats_from_packed_json(packed_json)
+    assert stats is None  # Should return None due to validation failure
+
+
+def test_extract_compaction_stats_from_message():
+    """Test extracting CompactionStats from a Message object."""
+    from letta.agents.letta_agent_v3 import extract_compaction_stats_from_message
+    from letta.schemas.letta_message import CompactionStats
+
+    packed_content = json.dumps(
+        {
+            "type": "system_alert",
+            "message": "Test summary",
+            "time": "2024-01-15T10:00:00",
+            "compaction_stats": {
+                "trigger": "post_step_context_check",
+                "context_tokens_before": 50000,
+                "context_tokens_after": 15000,
+                "context_window": 128000,
+                "messages_count_before": 45,
+                "messages_count_after": 12,
+            },
+        }
+    )
+
+    message = PydanticMessage(
+        role=MessageRole.summary,
+        content=[TextContent(type="text", text=packed_content)],
+    )
+
+    stats = extract_compaction_stats_from_message(message)
+
+    assert stats is not None
+    assert isinstance(stats, CompactionStats)
+    assert stats.trigger == "post_step_context_check"
+    assert stats.context_tokens_before == 50000
+    assert stats.messages_count_after == 12
+
+
+def test_extract_compaction_stats_from_message_without_stats():
+    """Test that Message extraction returns None when no stats are present."""
+    from letta.agents.letta_agent_v3 import extract_compaction_stats_from_message
+
+    packed_content = json.dumps(
+        {
+            "type": "system_alert",
+            "message": "Old format summary",
+            "time": "2024-01-15T10:00:00",
+        }
+    )
+
+    message = PydanticMessage(
+        role=MessageRole.summary,
+        content=[TextContent(type="text", text=packed_content)],
+    )
+
+    stats = extract_compaction_stats_from_message(message)
+    assert stats is None
+
+
+def test_message_to_summary_message_with_stats():
+    """Test that Message._convert_summary_message extracts compaction_stats."""
+    from letta.schemas.letta_message import CompactionStats
+
+    packed_content = json.dumps(
+        {
+            "type": "system_alert",
+            "message": "Summary of conversation",
+            "time": "2024-01-15T10:00:00",
+            "compaction_stats": {
+                "trigger": "context_window_exceeded",
+                "context_tokens_before": 80000,
+                "context_tokens_after": 25000,
+                "context_window": 128000,
+                "messages_count_before": 60,
+                "messages_count_after": 20,
+            },
+        }
+    )
+
+    message = PydanticMessage(
+        role=MessageRole.summary,
+        content=[TextContent(type="text", text=packed_content)],
+    )
+
+    # Convert to SummaryMessage (as_user_message=False)
+    summary_msg = message._convert_summary_message(as_user_message=False)
+
+    assert summary_msg.message_type == "summary_message"
+    assert summary_msg.compaction_stats is not None
+    assert isinstance(summary_msg.compaction_stats, CompactionStats)
+    assert summary_msg.compaction_stats.trigger == "context_window_exceeded"
+    assert summary_msg.compaction_stats.context_tokens_before == 80000
+
+
+def test_message_to_summary_message_backward_compatible():
+    """Test that old messages without compaction_stats still convert correctly."""
+    packed_content = json.dumps(
+        {
+            "type": "system_alert",
+            "message": "Old format summary without stats",
+            "time": "2024-01-15T10:00:00",
+        }
+    )
+
+    message = PydanticMessage(
+        role=MessageRole.summary,
+        content=[TextContent(type="text", text=packed_content)],
+    )
+
+    summary_msg = message._convert_summary_message(as_user_message=False)
+
+    assert summary_msg.message_type == "summary_message"
+    assert summary_msg.compaction_stats is None  # Should be None for old messages
+    assert "Old format summary" in summary_msg.summary
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "llm_config",
+    TESTED_LLM_CONFIGS,
+    ids=[c.model for c in TESTED_LLM_CONFIGS],
+)
+async def test_compact_with_stats_params_embeds_stats(server: SyncServer, actor, llm_config: LLMConfig):
+    """
+    Integration test: compact() with trigger/context_tokens_before/messages_count_before
+    embeds compaction_stats in the packed message content.
+    """
+    from letta.agents.letta_agent_v3 import extract_compaction_stats_from_message
+
+    # Create a conversation with enough messages to summarize
+    messages = [
+        PydanticMessage(
+            role=MessageRole.system,
+            content=[TextContent(type="text", text="You are a helpful assistant.")],
+        )
+    ]
+    for i in range(10):
+        messages.append(
+            PydanticMessage(
+                role=MessageRole.user,
+                content=[TextContent(type="text", text=f"User message {i}")],
+            )
+        )
+        messages.append(
+            PydanticMessage(
+                role=MessageRole.assistant,
+                content=[TextContent(type="text", text=f"Response {i}")],
+            )
+        )
+
+    agent_state, in_context_messages = await create_agent_with_messages(server, actor, llm_config, messages)
+
+    handle = llm_config.handle or f"{llm_config.model_endpoint_type}/{llm_config.model}"
+    agent_state.compaction_settings = CompactionSettings(model=handle, mode="all")
+
+    agent_loop = LettaAgentV3(agent_state=agent_state, actor=actor)
+
+    # Call compact with stats params
+    summary_message_obj, compacted_messages, summary_text = await agent_loop.compact(
+        messages=in_context_messages,
+        use_summary_role=True,
+        trigger="post_step_context_check",
+        context_tokens_before=50000,
+        messages_count_before=len(in_context_messages),
+    )
+
+    # Extract stats from the message
+    stats = extract_compaction_stats_from_message(summary_message_obj)
+
+    assert stats is not None, "CompactionStats should be embedded in the message"
+    assert stats.trigger == "post_step_context_check"
+    assert stats.context_tokens_before == 50000
+    assert stats.messages_count_before == len(in_context_messages)
+    assert stats.context_tokens_after is not None  # Should be set by compact()
+    assert stats.messages_count_after == len(compacted_messages)  # final_messages already includes summary
+    assert stats.context_window == llm_config.context_window

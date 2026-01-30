@@ -396,6 +396,42 @@ class LettaErrorMessage(BaseModel):
     seq_id: Optional[int] = None
 
 
+class CompactionStats(BaseModel):
+    """
+    Statistics about a memory compaction operation.
+    """
+
+    trigger: str = Field(..., description="What triggered the compaction (e.g., 'context_window_exceeded', 'post_step_context_check')")
+    context_tokens_before: Optional[int] = Field(
+        None, description="Token count before compaction (from LLM usage stats, includes full context sent to LLM)"
+    )
+    context_tokens_after: Optional[int] = Field(
+        None, description="Token count after compaction (message tokens only, does not include tool definitions)"
+    )
+    context_window: int = Field(..., description="The model's context window size")
+    messages_count_before: int = Field(..., description="Number of messages before compaction")
+    messages_count_after: int = Field(..., description="Number of messages after compaction")
+
+
+def extract_compaction_stats_from_packed_json(text_content: str) -> Optional[CompactionStats]:
+    """
+    Extract CompactionStats from a packed summary message JSON string.
+
+    Args:
+        text_content: The packed JSON string from summary message content
+
+    Returns:
+        CompactionStats if found and valid, None otherwise
+    """
+    try:
+        packed_json = json.loads(text_content)
+        if isinstance(packed_json, dict) and "compaction_stats" in packed_json:
+            return CompactionStats(**packed_json["compaction_stats"])
+    except (json.JSONDecodeError, TypeError, ValueError):
+        pass
+    return None
+
+
 class SummaryMessage(LettaMessage):
     """
     A message representing a summary of the conversation. Sent to the LLM as a user or system message depending on the provider.
@@ -403,6 +439,7 @@ class SummaryMessage(LettaMessage):
 
     message_type: Literal["summary_message"] = "summary_message"
     summary: str
+    compaction_stats: Optional[CompactionStats] = None
 
 
 class EventMessage(LettaMessage):

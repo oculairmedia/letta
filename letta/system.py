@@ -204,7 +204,7 @@ def package_summarize_message(summary, summary_message_count, hidden_message_cou
     return json_dumps(packaged_message)
 
 
-def package_summarize_message_no_counts(summary, timezone):
+def package_summarize_message_no_counts(summary, timezone, compaction_stats: dict | None = None):
     context_message = (
         "Note: prior messages have been hidden from view due to conversation memory constraints.\n"
         + f"The following is a summary of the previous messages:\n {summary}"
@@ -216,6 +216,9 @@ def package_summarize_message_no_counts(summary, timezone):
         "message": context_message,
         "time": formatted_time,
     }
+
+    if compaction_stats:
+        packaged_message["compaction_stats"] = compaction_stats
 
     return json_dumps(packaged_message)
 

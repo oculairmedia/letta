@@ -29,7 +29,16 @@ from letta.local_llm.constants import INNER_THOUGHTS_KWARG
 from letta.otel.tracing import trace_method
 from letta.schemas.agent import AgentState
 from letta.schemas.enums import MessageRole
-from letta.schemas.letta_message import ApprovalReturn, EventMessage, LettaErrorMessage, LettaMessage, MessageType, SummaryMessage
+from letta.schemas.letta_message import (
+    ApprovalReturn,
+    CompactionStats,
+    EventMessage,
+    LettaErrorMessage,
+    LettaMessage,
+    MessageType,
+    SummaryMessage,
+    extract_compaction_stats_from_packed_json,
+)
 from letta.schemas.letta_message_content import OmittedReasoningContent, ReasoningContent, RedactedReasoningContent, TextContent
 from letta.schemas.letta_request import ClientToolSchema
 from letta.schemas.letta_response import LettaResponse
@@ -59,6 +68,25 @@ from letta.services.summarizer.summarizer_sliding_window import (
 from letta.settings import settings, summarizer_settings
 from letta.system import package_function_response, package_summarize_message_no_counts
 from letta.utils import log_telemetry, validate_function_response
+
+
+def extract_compaction_stats_from_message(message: Message) -> CompactionStats | None:
+    """
+    Extract CompactionStats from a Message object's packed content.
+
+    Args:
+        message: Message object with packed JSON content
+
+    Returns:
+        CompactionStats if found and valid, None otherwise
+    """
+    try:
+        if message.content and len(message.content) == 1:
+            text_content = message.content[0].text
+            return extract_compaction_stats_from_packed_json(text_content)
+    except AttributeError:
+        pass
+    return None
 
 
 class LettaAgentV3(LettaAgentV2):
@@ -614,6 +642,9 @@ class LettaAgentV3(LettaAgentV2):
             List of LettaMessage objects to yield to the client
         """
         if include_compaction_messages:
+            # Extract compaction_stats from the packed message content if available
+            compaction_stats = extract_compaction_stats_from_message(summary_message)
+
             # New behavior: structured SummaryMessage
             return [
                 SummaryMessage(
@@ -623,6 +654,7 @@ class LettaAgentV3(LettaAgentV2):
                     otid=Message.generate_otid_from_id(summary_message.id, 0),
                     step_id=step_id,
                     run_id=run_id,
+                    compaction_stats=compaction_stats,
                 ),
             ]
         else:
@@ -865,6 +897,10 @@ class LettaAgentV3(LettaAgentV2):
                                 f"Context window exceeded (error {e}), trying to compact messages attempt {llm_request_attempt + 1} of {summarizer_settings.max_summarizer_retries + 1}"
                             )
                             try:
+                                # Capture pre-compaction state for metadata
+                                context_tokens_before = self.context_token_estimate
+                                messages_count_before = len(messages)
+
                                 # Yield event notification before compaction starts
                                 if include_compaction_messages:
                                     yield self._create_compaction_event_message(
@@ -879,6 +915,9 @@ class LettaAgentV3(LettaAgentV2):
                                     run_id=run_id,
                                     step_id=step_id,
                                     use_summary_role=include_compaction_messages,
+                                    trigger="context_window_exceeded",
+                                    context_tokens_before=context_tokens_before,
+                                    messages_count_before=messages_count_before,
                                 )
                                 self.logger.info("Summarization succeeded, continuing to retry LLM request")
 
@@ -1013,6 +1052,10 @@ class LettaAgentV3(LettaAgentV2):
                     f"Context window exceeded (current: {self.context_token_estimate}, threshold: {self.agent_state.llm_config.context_window}), trying to compact messages"
                 )
 
+                # Capture pre-compaction state for metadata
+                context_tokens_before = self.context_token_estimate
+                messages_count_before = len(messages)
+
                 # Yield event notification before compaction starts
                 if include_compaction_messages:
                     yield self._create_compaction_event_message(
@@ -1027,6 +1070,9 @@ class LettaAgentV3(LettaAgentV2):
                     run_id=run_id,
                     step_id=step_id,
                     use_summary_role=include_compaction_messages,
+                    trigger="post_step_context_check",
+                    context_tokens_before=context_tokens_before,
+                    messages_count_before=messages_count_before,
                 )
                 self.response_messages.append(summary_message)
 
@@ -1612,6 +1658,9 @@ class LettaAgentV3(LettaAgentV2):
         run_id: Optional[str] = None,
         step_id: Optional[str] = None,
         use_summary_role: bool = False,
+        trigger: Optional[str] = None,
+        context_tokens_before: Optional[int] = None,
+        messages_count_before: Optional[int] = None,
     ) -> tuple[Message, list[Message], str]:
         """Compact the current in-context messages for this agent.
 
@@ -1624,6 +1673,9 @@ class LettaAgentV3(LettaAgentV2):
             use_summary_role: If True, the summary message will be created with
                 role=summary instead of role=user. This enables first-class
                 summary message handling in the database and API responses.
+            trigger: What triggered the compaction (e.g., "context_window_exceeded", "post_step_context_check").
+            context_tokens_before: Token count before compaction (for stats).
+            messages_count_before: Message count before compaction (for stats).
         """
 
         # Use the passed-in compaction_settings first, then agent's compaction_settings if set,
@@ -1741,10 +1793,25 @@ class LettaAgentV3(LettaAgentV2):
                     f"Summarization fallback succeeded in bringing the context size below the trigger threshold: {self.context_token_estimate} < {trigger_threshold}"
                 )
 
+        # Build compaction stats if we have the before values
+        # Note: messages_count_after = len(compacted_messages) + 1 because final_messages
+        # will be: [system] + [summary_message] + compacted_messages[1:]
+        compaction_stats = None
+        if trigger and context_tokens_before is not None and messages_count_before is not None:
+            compaction_stats = {
+                "trigger": trigger,
+                "context_tokens_before": context_tokens_before,
+                "context_tokens_after": self.context_token_estimate,
+                "context_window": self.agent_state.llm_config.context_window,
+                "messages_count_before": messages_count_before,
+                "messages_count_after": len(compacted_messages) + 1,
+            }
+
         # Persist the summary message to DB
         summary_message_str_packed = package_summarize_message_no_counts(
             summary=summary,
             timezone=self.agent_state.timezone,
+            compaction_stats=compaction_stats,
         )
 
         if use_summary_role:
