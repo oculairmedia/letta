@@ -37,6 +37,7 @@ from letta.schemas.letta_message import (
     MessageType,
     ReasoningMessage,
     ReasoningMessageListResult,
+    SummaryMessage,
     SystemMessage,
     SystemMessageListResult,
     ToolCall,
@@ -290,7 +291,7 @@ class Message(BaseMessage):
     @field_validator("role")
     @classmethod
     def validate_role(cls, v: str) -> str:
-        roles = ["system", "assistant", "user", "tool", "approval"]
+        roles = ["system", "assistant", "user", "tool", "approval", "summary"]
         assert v in roles, f"Role must be one of {roles}"
         return v
 
@@ -320,6 +321,7 @@ class Message(BaseMessage):
         reverse: bool = True,
         include_err: Optional[bool] = None,
         text_is_assistant_message: bool = False,
+        convert_summary_to_user: bool = True,
     ) -> List[LettaMessage]:
         if use_assistant_message:
             message_ids_to_remove = []
@@ -352,6 +354,7 @@ class Message(BaseMessage):
                 reverse=reverse,
                 include_err=include_err,
                 text_is_assistant_message=text_is_assistant_message,
+                convert_summary_to_user=convert_summary_to_user,
             )
         ]
 
@@ -365,6 +368,7 @@ class Message(BaseMessage):
         reverse: bool = True,
         include_err: Optional[bool] = None,
         text_is_assistant_message: bool = False,
+        convert_summary_to_user: bool = True,
     ) -> List[LettaMessageSearchResult]:
         """Convert MessageSearchResult objects into LettaMessageSearchResult objects.
 
@@ -385,6 +389,7 @@ class Message(BaseMessage):
                 reverse=reverse,
                 include_err=include_err,
                 text_is_assistant_message=text_is_assistant_message,
+                convert_summary_to_user=convert_summary_to_user,
             )
 
             for lm in letta_messages:
@@ -445,8 +450,14 @@ class Message(BaseMessage):
         reverse: bool = True,
         include_err: Optional[bool] = None,
         text_is_assistant_message: bool = False,
+        convert_summary_to_user: bool = True,
     ) -> List[LettaMessage]:
-        """Convert message object (in DB format) to the style used by the original Letta API"""
+        """Convert message object (in DB format) to the style used by the original Letta API
+
+        Args:
+            convert_summary_to_user: If True (default), summary messages are returned as UserMessage
+                for backward compatibility. If False, return as SummaryMessage.
+        """
 
         messages = []
         if self.role == MessageRole.assistant:
@@ -468,6 +479,8 @@ class Message(BaseMessage):
             messages.append(self._convert_user_message())
         elif self.role == MessageRole.system:
             messages.append(self._convert_system_message())
+        elif self.role == MessageRole.summary:
+            messages.append(self._convert_summary_message(as_user_message=convert_summary_to_user))
         elif self.role == MessageRole.approval:
             if self.content:
                 messages.extend(self._convert_reasoning_messages(text_is_assistant_message=text_is_assistant_message))
@@ -1036,6 +1049,45 @@ class Message(BaseMessage):
             run_id=self.run_id,
         )
 
+    def _convert_summary_message(self, as_user_message: bool = True) -> Union[SummaryMessage, UserMessage]:
+        """Convert summary role message to SummaryMessage or UserMessage.
+
+        Args:
+            as_user_message: If True, return UserMessage for backward compatibility with
+                clients that don't support SummaryMessage. If False, return SummaryMessage.
+        """
+        if self.content and len(self.content) == 1 and isinstance(self.content[0], TextContent):
+            text_content = self.content[0].text
+        else:
+            raise ValueError(f"Invalid summary message (no text object on message): {self.content}")
+
+        # Unpack the summary from the packed JSON format
+        # The packed format is: {"type": "system_alert", "message": "...", "time": "..."}
+        summary = unpack_message(text_content)
+
+        if as_user_message:
+            # Return as UserMessage for backward compatibility
+            return UserMessage(
+                id=self.id,
+                date=self.created_at,
+                content=summary,
+                name=self.name,
+                otid=self.otid,
+                sender_id=self.sender_id,
+                step_id=self.step_id,
+                is_err=self.is_err,
+                run_id=self.run_id,
+            )
+        else:
+            return SummaryMessage(
+                id=self.id,
+                date=self.created_at,
+                summary=summary,
+                otid=self.otid,
+                step_id=self.step_id,
+                run_id=self.run_id,
+            )
+
     @staticmethod
     def dict_to_message(
         agent_id: str,
@@ -1297,6 +1349,14 @@ class Message(BaseMessage):
                 "role": self.role,
             }
 
+        elif self.role == "summary":
+            # Summary messages are converted to user messages (same as current system_alert behavior)
+            assert text_content is not None, vars(self)
+            openai_message = {
+                "content": text_content,
+                "role": "user",
+            }
+
         elif self.role == "assistant" or self.role == "approval":
             try:
                 assert self.tool_calls is not None or text_content is not None, vars(self)
@@ -1473,6 +1533,16 @@ class Message(BaseMessage):
                     logger.warning(f"Using OpenAI with invalid 'name' field (name={self.name} role={self.role}).")
 
             message_dicts.append(user_dict)
+
+        elif self.role == "summary":
+            # Summary messages are converted to user messages (same as current system_alert behavior)
+            assert self.content and len(self.content) == 1 and isinstance(self.content[0], TextContent), vars(self)
+            message_dicts.append(
+                {
+                    "role": "user",
+                    "content": self.content[0].text,
+                }
+            )
 
         elif self.role == "assistant" or self.role == "approval":
             # Validate that message has content OpenAI Responses API can process
@@ -1793,6 +1863,14 @@ class Message(BaseMessage):
                     "role": self.role,
                 }
 
+        elif self.role == "summary":
+            # Summary messages are converted to user messages (same as current system_alert behavior)
+            assert text_content is not None, vars(self)
+            anthropic_message = {
+                "content": text_content,
+                "role": "user",
+            }
+
         elif self.role == "assistant" or self.role == "approval":
             # Validate that message has content Anthropic API can process
             if self.tool_calls is None and (self.content is None or len(self.content) == 0):
@@ -2053,6 +2131,14 @@ class Message(BaseMessage):
                 "parts": content_parts,
             }
 
+        elif self.role == "summary":
+            # Summary messages are converted to user messages (same as current system_alert behavior)
+            assert text_content is not None, vars(self)
+            google_ai_message = {
+                "role": "user",
+                "parts": [{"text": text_content}],
+            }
+
         elif self.role == "assistant" or self.role == "approval":
             # Validate that message has content Google API can process
             if self.tool_calls is None and text_content is None and len(self.content) <= 1:
@@ -2290,6 +2376,10 @@ class Message(BaseMessage):
         return self.role == "approval" and self.tool_calls is None and self.approve is not None
 
     def is_summarization_message(self) -> bool:
+        # First-class summary role (new format)
+        if self.role == "summary":
+            return True
+        # Legacy format: user message with system_alert content
         return (
             self.role == "user"
             and self.content is not None

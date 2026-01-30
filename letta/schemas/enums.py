@@ -103,6 +103,7 @@ class MessageRole(str, Enum):
     function = "function"
     system = "system"
     approval = "approval"
+    summary = "summary"
 
 
 class MessageSourceType(str, Enum):

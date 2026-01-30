@@ -7806,8 +7806,8 @@
                       "assistant_message": "#/components/schemas/AssistantMessage",
                       "approval_request_message": "#/components/schemas/ApprovalRequestMessage",
                       "approval_response_message": "#/components/schemas/ApprovalResponseMessage",
-                      "summary": "#/components/schemas/SummaryMessage",
-                      "event": "#/components/schemas/EventMessage"
+                      "summary_message": "#/components/schemas/SummaryMessage",
+                      "event_message": "#/components/schemas/EventMessage"
                     }
                   },
                   "title": "Response Modify Message"
@@ -9965,8 +9965,8 @@
                       "assistant_message": "#/components/schemas/AssistantMessage",
                       "approval_request_message": "#/components/schemas/ApprovalRequestMessage",
                       "approval_response_message": "#/components/schemas/ApprovalResponseMessage",
-                      "summary": "#/components/schemas/SummaryMessage",
-                      "event": "#/components/schemas/EventMessage"
+                      "summary_message": "#/components/schemas/SummaryMessage",
+                      "event_message": "#/components/schemas/EventMessage"
                     }
                   },
                   "title": "Response Modify Group Message"
@@ -16537,8 +16537,8 @@
                         "assistant_message": "#/components/schemas/AssistantMessage",
                         "approval_request_message": "#/components/schemas/ApprovalRequestMessage",
                         "approval_response_message": "#/components/schemas/ApprovalResponseMessage",
-                        "summary": "#/components/schemas/SummaryMessage",
-                        "event": "#/components/schemas/EventMessage"
+                        "summary_message": "#/components/schemas/SummaryMessage",
+                        "event_message": "#/components/schemas/EventMessage"
                       }
                     }
                   },
@@ -30454,6 +30454,12 @@
             "title": "Override Model",
             "description": "Model handle to use for this request instead of the agent's default model. This allows sending a message to a different model without changing the agent's configuration."
           },
+          "include_compaction_messages": {
+            "type": "boolean",
+            "title": "Include Compaction Messages",
+            "description": "If True, compaction events emit structured `SummaryMessage` and `EventMessage` types. If False (default), compaction messages are not included in the response.",
+            "default": false
+          },
           "streaming": {
             "type": "boolean",
             "title": "Streaming",
@@ -32400,7 +32406,7 @@
           },
           "message_type": {
             "type": "string",
-            "const": "event",
+            "const": "event_message",
             "title": "Message Type",
             "default": "event_message"
           },
@@ -36625,6 +36631,12 @@
             "title": "Override Model",
             "description": "Model handle to use for this request instead of the agent's default model. This allows sending a message to a different model without changing the agent's configuration."
           },
+          "include_compaction_messages": {
+            "type": "boolean",
+            "title": "Include Compaction Messages",
+            "description": "If True, compaction events emit structured `SummaryMessage` and `EventMessage` types. If False (default), compaction messages are not included in the response.",
+            "default": false
+          },
           "callback_url": {
             "anyOf": [
               {
@@ -36810,6 +36822,12 @@
             ],
             "title": "Override Model",
             "description": "Model handle to use for this request instead of the agent's default model. This allows sending a message to a different model without changing the agent's configuration."
+          },
+          "include_compaction_messages": {
+            "type": "boolean",
+            "title": "Include Compaction Messages",
+            "description": "If True, compaction events emit structured `SummaryMessage` and `EventMessage` types. If False (default), compaction messages are not included in the response.",
+            "default": false
           },
           "agent_id": {
             "type": "string",
@@ -37176,6 +37194,12 @@
             ],
             "title": "Override Model",
             "description": "Model handle to use for this request instead of the agent's default model. This allows sending a message to a different model without changing the agent's configuration."
+          },
+          "include_compaction_messages": {
+            "type": "boolean",
+            "title": "Include Compaction Messages",
+            "description": "If True, compaction events emit structured `SummaryMessage` and `EventMessage` types. If False (default), compaction messages are not included in the response.",
+            "default": false
           }
         },
         "type": "object",
@@ -37417,6 +37441,12 @@
             ],
             "title": "Override Model",
             "description": "Model handle to use for this request instead of the agent's default model. This allows sending a message to a different model without changing the agent's configuration."
+          },
+          "include_compaction_messages": {
+            "type": "boolean",
+            "title": "Include Compaction Messages",
+            "description": "If True, compaction events emit structured `SummaryMessage` and `EventMessage` types. If False (default), compaction messages are not included in the response.",
+            "default": false
           },
           "streaming": {
             "type": "boolean",
@@ -38396,7 +38426,15 @@
       },
       "MessageRole": {
         "type": "string",
-        "enum": ["assistant", "user", "tool", "function", "system", "approval"],
+        "enum": [
+          "assistant",
+          "user",
+          "tool",
+          "function",
+          "system",
+          "approval",
+          "summary"
+        ],
         "title": "MessageRole"
       },
       "MessageSearchRequest": {
@@ -38579,7 +38617,9 @@
           "tool_call_message",
           "tool_return_message",
           "approval_request_message",
-          "approval_response_message"
+          "approval_response_message",
+          "summary_message",
+          "event_message"
         ],
         "title": "MessageType"
       },
@@ -42959,7 +42999,7 @@
           },
           "message_type": {
             "type": "string",
-            "const": "summary",
+            "const": "summary_message",
             "title": "Message Type",
             "default": "summary_message"
           },
@@ -48487,8 +48527,8 @@
             "assistant_message": "#/components/schemas/AssistantMessage",
             "approval_request_message": "#/components/schemas/ApprovalRequestMessage",
             "approval_response_message": "#/components/schemas/ApprovalResponseMessage",
-            "summary": "#/components/schemas/SummaryMessage",
-            "event": "#/components/schemas/EventMessage"
+            "summary_message": "#/components/schemas/SummaryMessage",
+            "event_message": "#/components/schemas/EventMessage"
           }
         }
       },

@@ -181,6 +181,7 @@ class LettaAgentV2(BaseAgentV2):
         include_return_message_types: list[MessageType] | None = None,
         request_start_timestamp_ns: int | None = None,
         client_tools: list[ClientToolSchema] | None = None,
+        include_compaction_messages: bool = False,  # Not used in V2, but accepted for API compatibility
     ) -> LettaResponse:
         """
         Execute the agent loop in blocking mode, returning all messages at once.
@@ -193,6 +194,7 @@ class LettaAgentV2(BaseAgentV2):
             include_return_message_types: Filter for which message types to return
             request_start_timestamp_ns: Start time for tracking request duration
             client_tools: Optional list of client-side tools (not used in V2, for API compatibility)
+            include_compaction_messages: Not used in V2, but accepted for API compatibility.
 
         Returns:
             LettaResponse: Complete response with all messages and metadata
@@ -271,6 +273,7 @@ class LettaAgentV2(BaseAgentV2):
         request_start_timestamp_ns: int | None = None,
         conversation_id: str | None = None,  # Not used in V2, but accepted for API compatibility
         client_tools: list[ClientToolSchema] | None = None,
+        include_compaction_messages: bool = False,  # Not used in V2, but accepted for API compatibility
     ) -> AsyncGenerator[str, None]:
         """
         Execute the agent loop in streaming mode, yielding chunks as they become available.
@@ -289,6 +292,7 @@ class LettaAgentV2(BaseAgentV2):
             include_return_message_types: Filter for which message types to return
             request_start_timestamp_ns: Start time for tracking request duration
             client_tools: Optional list of client-side tools (not used in V2, for API compatibility)
+            include_compaction_messages: Not used in V2, but accepted for API compatibility.
 
         Yields:
             str: JSON-formatted SSE data chunks for each completed step

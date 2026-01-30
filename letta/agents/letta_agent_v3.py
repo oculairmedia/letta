@@ -29,7 +29,7 @@ from letta.local_llm.constants import INNER_THOUGHTS_KWARG
 from letta.otel.tracing import trace_method
 from letta.schemas.agent import AgentState
 from letta.schemas.enums import MessageRole
-from letta.schemas.letta_message import ApprovalReturn, LettaErrorMessage, LettaMessage, MessageType
+from letta.schemas.letta_message import ApprovalReturn, EventMessage, LettaErrorMessage, LettaMessage, MessageType, SummaryMessage
 from letta.schemas.letta_message_content import OmittedReasoningContent, ReasoningContent, RedactedReasoningContent, TextContent
 from letta.schemas.letta_request import ClientToolSchema
 from letta.schemas.letta_response import LettaResponse
@@ -120,6 +120,7 @@ class LettaAgentV3(LettaAgentV2):
         request_start_timestamp_ns: int | None = None,
         conversation_id: str | None = None,
         client_tools: list[ClientToolSchema] | None = None,
+        include_compaction_messages: bool = False,
     ) -> LettaResponse:
         """
         Execute the agent loop in blocking mode, returning all messages at once.
@@ -134,6 +135,8 @@ class LettaAgentV3(LettaAgentV2):
             conversation_id: Optional conversation ID for conversation-scoped messaging
             client_tools: Optional list of client-side tools. When called, execution pauses
                 for client to provide tool returns.
+            include_compaction_messages: Whether to include SummaryMessage/EventMessage in response
+                and use role=summary for stored summary messages.
 
         Returns:
             LettaResponse: Complete response with all messages and metadata
@@ -191,6 +194,7 @@ class LettaAgentV3(LettaAgentV2):
                 # use_assistant_message=use_assistant_message,
                 include_return_message_types=include_return_message_types,
                 request_start_timestamp_ns=request_start_timestamp_ns,
+                include_compaction_messages=include_compaction_messages,
             )
             input_messages_to_persist = []  # clear after first step
 
@@ -283,6 +287,7 @@ class LettaAgentV3(LettaAgentV2):
         request_start_timestamp_ns: int | None = None,
         conversation_id: str | None = None,
         client_tools: list[ClientToolSchema] | None = None,
+        include_compaction_messages: bool = False,
     ) -> AsyncGenerator[str, None]:
         """
         Execute the agent loop in streaming mode, yielding chunks as they become available.
@@ -372,6 +377,7 @@ class LettaAgentV3(LettaAgentV2):
                     # use_assistant_message=use_assistant_message,
                     include_return_message_types=include_return_message_types,
                     request_start_timestamp_ns=request_start_timestamp_ns,
+                    include_compaction_messages=include_compaction_messages,
                 )
                 input_messages_to_persist = []  # clear after first step
                 async for chunk in response:
@@ -556,6 +562,73 @@ class LettaAgentV3(LettaAgentV2):
 
         self.in_context_messages = in_context_messages  # update in-memory state
 
+    def _create_compaction_event_message(
+        self,
+        step_id: str | None,
+        run_id: str | None,
+        trigger: str,
+    ) -> EventMessage:
+        """
+        Create an EventMessage to notify the client that compaction is starting.
+
+        Args:
+            step_id: The current step ID
+            run_id: The current run ID
+            trigger: The trigger that caused compaction (e.g., "context_window_exceeded", "post_step_context_check")
+
+        Returns:
+            EventMessage to yield before compaction starts
+        """
+        return EventMessage(
+            id=str(uuid.uuid4()),
+            date=get_utc_time(),
+            event_type="compaction",
+            event_data={
+                "trigger": trigger,
+                "context_token_estimate": self.context_token_estimate,
+                "context_window": self.agent_state.llm_config.context_window,
+            },
+            run_id=run_id,
+            step_id=step_id,
+        )
+
+    def _create_summary_result_message(
+        self,
+        summary_message: Message,
+        summary_text: str,
+        step_id: str | None,
+        run_id: str | None,
+        include_compaction_messages: bool,
+    ) -> list[LettaMessage]:
+        """
+        Create the summary message to yield to the client after compaction completes.
+
+        Args:
+            summary_message: The persisted summary Message object
+            summary_text: The raw summary text (unpacked)
+            step_id: The current step ID
+            run_id: The current run ID
+            include_compaction_messages: If True, return SummaryMessage; if False, return UserMessage
+
+        Returns:
+            List of LettaMessage objects to yield to the client
+        """
+        if include_compaction_messages:
+            # New behavior: structured SummaryMessage
+            return [
+                SummaryMessage(
+                    id=summary_message.id,
+                    date=summary_message.created_at,
+                    summary=summary_text,
+                    otid=Message.generate_otid_from_id(summary_message.id, 0),
+                    step_id=step_id,
+                    run_id=run_id,
+                ),
+            ]
+        else:
+            # Old behavior: UserMessage with packed JSON
+            return list(Message.to_letta_messages(summary_message))
+
     @trace_method
     async def _step(
         self,
@@ -569,6 +642,7 @@ class LettaAgentV3(LettaAgentV2):
         remaining_turns: int = -1,
         dry_run: bool = False,
         enforce_run_id_set: bool = True,
+        include_compaction_messages: bool = False,
     ) -> AsyncGenerator[LettaMessage | dict, None]:
         """
         Execute a single agent step (one LLM call and tool execution).
@@ -790,16 +864,43 @@ class LettaAgentV3(LettaAgentV2):
                             self.logger.info(
                                 f"Context window exceeded (error {e}), trying to compact messages attempt {llm_request_attempt + 1} of {summarizer_settings.max_summarizer_retries + 1}"
                             )
-                            # checkpoint summarized messages
-                            # TODO: might want to delay this checkpoint in case of corrupated state
                             try:
-                                summary_message, messages, _ = await self.compact(
+                                # Yield event notification before compaction starts
+                                if include_compaction_messages:
+                                    yield self._create_compaction_event_message(
+                                        step_id=step_id,
+                                        run_id=run_id,
+                                        trigger="context_window_exceeded",
+                                    )
+
+                                summary_message, messages, summary_text = await self.compact(
                                     messages,
                                     trigger_threshold=self.agent_state.llm_config.context_window,
                                     run_id=run_id,
                                     step_id=step_id,
+                                    use_summary_role=include_compaction_messages,
                                 )
                                 self.logger.info("Summarization succeeded, continuing to retry LLM request")
+
+                                # Persist the summary message
+                                self.response_messages.append(summary_message)
+                                await self._checkpoint_messages(
+                                    run_id=run_id,
+                                    step_id=step_id,
+                                    new_messages=[summary_message],
+                                    in_context_messages=messages,
+                                )
+
+                                # Yield summary result message to client
+                                for msg in self._create_summary_result_message(
+                                    summary_message=summary_message,
+                                    summary_text=summary_text,
+                                    step_id=step_id,
+                                    run_id=run_id,
+                                    include_compaction_messages=include_compaction_messages,
+                                ):
+                                    yield msg
+
                                 continue
                             except SystemPromptTokenExceededError:
                                 self.stop_reason = LettaStopReason(
@@ -810,14 +911,6 @@ class LettaAgentV3(LettaAgentV2):
                                 self.stop_reason = LettaStopReason(stop_reason=StopReasonType.error.value)
                                 self.logger.error(f"Unknown error occured for summarization run {run_id}: {e}")
                                 raise e
-
-                            # update the messages
-                            await self._checkpoint_messages(
-                                run_id=run_id,
-                                step_id=step_id,
-                                new_messages=[summary_message],
-                                in_context_messages=messages,
-                            )
 
                         else:
                             self.stop_reason = LettaStopReason(stop_reason=StopReasonType.error.value)
@@ -919,17 +1012,34 @@ class LettaAgentV3(LettaAgentV2):
                 self.logger.info(
                     f"Context window exceeded (current: {self.context_token_estimate}, threshold: {self.agent_state.llm_config.context_window}), trying to compact messages"
                 )
-                summary_message, messages, _ = await self.compact(
+
+                # Yield event notification before compaction starts
+                if include_compaction_messages:
+                    yield self._create_compaction_event_message(
+                        step_id=step_id,
+                        run_id=run_id,
+                        trigger="post_step_context_check",
+                    )
+
+                summary_message, messages, summary_text = await self.compact(
                     messages,
                     trigger_threshold=self.agent_state.llm_config.context_window,
                     run_id=run_id,
                     step_id=step_id,
+                    use_summary_role=include_compaction_messages,
                 )
-                # TODO: persist + return the summary message
-                # TODO: convert this to a SummaryMessage
                 self.response_messages.append(summary_message)
-                for message in Message.to_letta_messages(summary_message):
-                    yield message
+
+                # Yield summary result message to client
+                for msg in self._create_summary_result_message(
+                    summary_message=summary_message,
+                    summary_text=summary_text,
+                    step_id=step_id,
+                    run_id=run_id,
+                    include_compaction_messages=include_compaction_messages,
+                ):
+                    yield msg
+
                 await self._checkpoint_messages(
                     run_id=run_id,
                     step_id=step_id,
@@ -1501,6 +1611,7 @@ class LettaAgentV3(LettaAgentV2):
         compaction_settings: Optional["CompactionSettings"] = None,
         run_id: Optional[str] = None,
         step_id: Optional[str] = None,
+        use_summary_role: bool = False,
     ) -> tuple[Message, list[Message], str]:
         """Compact the current in-context messages for this agent.
 
@@ -1508,6 +1619,11 @@ class LettaAgentV3(LettaAgentV2):
         ``compaction_settings.model`` when provided. This mirrors how agent
         creation derives defaults from provider-specific ModelSettings, but is
         localized to summarization.
+
+        Args:
+            use_summary_role: If True, the summary message will be created with
+                role=summary instead of role=user. This enables first-class
+                summary message handling in the database and API responses.
         """
 
         # Use the passed-in compaction_settings first, then agent's compaction_settings if set,
@@ -1630,23 +1746,36 @@ class LettaAgentV3(LettaAgentV2):
             summary=summary,
             timezone=self.agent_state.timezone,
         )
-        summary_messages = await convert_message_creates_to_messages(
-            message_creates=[
-                MessageCreate(
-                    role=MessageRole.user,
-                    content=[TextContent(text=summary_message_str_packed)],
-                )
-            ],
-            agent_id=self.agent_state.id,
-            timezone=self.agent_state.timezone,
-            # We already packed, don't pack again
-            wrap_user_message=False,
-            wrap_system_message=False,
-            run_id=None,  # TODO: add this
-        )
-        if not len(summary_messages) == 1:
-            self.logger.error(f"Expected only one summary message, got {len(summary_messages)} in {summary_messages}")
-        summary_message_obj = summary_messages[0]
+
+        if use_summary_role:
+            # New behavior: Create Message directly with role=summary
+            # (bypassing MessageCreate which only accepts user/system/assistant roles)
+            summary_message_obj = Message(
+                role=MessageRole.summary,
+                content=[TextContent(text=summary_message_str_packed)],
+                agent_id=self.agent_state.id,
+                run_id=run_id,
+                step_id=step_id,
+            )
+        else:
+            # Legacy behavior: Use convert_message_creates_to_messages with role=user
+            summary_messages = await convert_message_creates_to_messages(
+                message_creates=[
+                    MessageCreate(
+                        role=MessageRole.user,
+                        content=[TextContent(text=summary_message_str_packed)],
+                    )
+                ],
+                agent_id=self.agent_state.id,
+                timezone=self.agent_state.timezone,
+                # We already packed, don't pack again
+                wrap_user_message=False,
+                wrap_system_message=False,
+                run_id=run_id,
+            )
+            if not len(summary_messages) == 1:
+                self.logger.error(f"Expected only one summary message, got {len(summary_messages)} in {summary_messages}")
+            summary_message_obj = summary_messages[0]
 
         # final messages: inject summarization message at the beginning
         final_messages = [compacted_messages[0]] + [summary_message_obj]

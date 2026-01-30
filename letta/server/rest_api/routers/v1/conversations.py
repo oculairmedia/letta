@@ -265,6 +265,7 @@ async def send_conversation_message(
         include_return_message_types=request.include_return_message_types,
         client_tools=request.client_tools,
         conversation_id=conversation_id,
+        include_compaction_messages=request.include_compaction_messages,
     )
 
 

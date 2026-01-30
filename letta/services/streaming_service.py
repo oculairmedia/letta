@@ -150,6 +150,7 @@ class StreamingService:
                     actor=actor,
                     conversation_id=conversation_id,
                     client_tools=request.client_tools,
+                    include_compaction_messages=request.include_compaction_messages,
                 )
 
                 # handle background streaming if requested
@@ -326,6 +327,7 @@ class StreamingService:
         actor: User,
         conversation_id: Optional[str] = None,
         client_tools: Optional[list[ClientToolSchema]] = None,
+        include_compaction_messages: bool = False,
     ) -> AsyncIterator:
         """
         Create a stream with unified error handling.
@@ -354,6 +356,7 @@ class StreamingService:
                     include_return_message_types=include_return_message_types,
                     conversation_id=conversation_id,
                     client_tools=client_tools,
+                    include_compaction_messages=include_compaction_messages,
                 )
 
                 async for chunk in stream:

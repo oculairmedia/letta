@@ -61,6 +61,8 @@ class MessageType(str, Enum):
     tool_return_message = "tool_return_message"
     approval_request_message = "approval_request_message"
     approval_response_message = "approval_response_message"
+    summary_message = "summary_message"
+    event_message = "event_message"
 
 
 class LettaMessage(BaseModel):
@@ -399,7 +401,7 @@ class SummaryMessage(LettaMessage):
     A message representing a summary of the conversation. Sent to the LLM as a user or system message depending on the provider.
     """
 
-    message_type: Literal["summary"] = "summary_message"
+    message_type: Literal["summary_message"] = "summary_message"
     summary: str
 
 
@@ -408,7 +410,7 @@ class EventMessage(LettaMessage):
     A message for notifying the developer that an event that has occured (e.g. a compaction). Events are NOT part of the context window.
     """
 
-    message_type: Literal["event"] = "event_message"
+    message_type: Literal["event_message"] = "event_message"
     event_type: Literal["compaction"]
     event_data: dict
 
@@ -459,8 +461,8 @@ def create_letta_message_union_schema():
                 "assistant_message": "#/components/schemas/AssistantMessage",
                 "approval_request_message": "#/components/schemas/ApprovalRequestMessage",
                 "approval_response_message": "#/components/schemas/ApprovalResponseMessage",
-                "summary": "#/components/schemas/SummaryMessage",
-                "event": "#/components/schemas/EventMessage",
+                "summary_message": "#/components/schemas/SummaryMessage",
+                "event_message": "#/components/schemas/EventMessage",
             },
         },
     }

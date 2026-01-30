@@ -1608,6 +1608,7 @@ async def send_message(
                 request_start_timestamp_ns=request_start_timestamp_ns,
                 include_return_message_types=request.include_return_message_types,
                 client_tools=request.client_tools,
+                include_compaction_messages=request.include_compaction_messages,
             )
         else:
             result = await server.send_message_to_agent(
@@ -1820,6 +1821,7 @@ async def _process_message_background(
     max_steps: int = DEFAULT_MAX_STEPS,
     include_return_message_types: list[MessageType] | None = None,
     override_model: str | None = None,
+    include_compaction_messages: bool = False,
 ) -> None:
     """Background task to process the message and update run status."""
     request_start_timestamp_ns = get_utc_timestamp_ns()
@@ -1866,6 +1868,7 @@ async def _process_message_background(
                 use_assistant_message=use_assistant_message,
                 request_start_timestamp_ns=request_start_timestamp_ns,
                 include_return_message_types=include_return_message_types,
+                include_compaction_messages=include_compaction_messages,
             )
         else:
             result = await server.send_message_to_agent(
@@ -2048,6 +2051,7 @@ async def send_message_async(
             max_steps=request.max_steps,
             include_return_message_types=request.include_return_message_types,
             override_model=request.override_model,
+            include_compaction_messages=request.include_compaction_messages,
         ),
         label=f"process_message_background_{run.id}",
     )

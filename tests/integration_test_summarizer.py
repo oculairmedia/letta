@@ -20,7 +20,7 @@ from letta.schemas.agent import CreateAgent, UpdateAgent
 from letta.schemas.block import BlockUpdate, CreateBlock
 from letta.schemas.embedding_config import EmbeddingConfig
 from letta.schemas.enums import MessageRole
-from letta.schemas.letta_message import LettaMessage
+from letta.schemas.letta_message import EventMessage, LettaMessage, SummaryMessage
 from letta.schemas.letta_message_content import TextContent, ToolCallContent, ToolReturnContent
 from letta.schemas.llm_config import LLMConfig
 from letta.schemas.message import Message as PydanticMessage, MessageCreate
@@ -725,7 +725,7 @@ async def test_summarize_with_mode(server: SyncServer, actor, llm_config: LLMCon
 
     agent_loop = LettaAgentV3(agent_state=agent_state, actor=actor)
 
-    summary, result, _ = await agent_loop.compact(messages=in_context_messages)
+    summary, result, summary_text = await agent_loop.compact(messages=in_context_messages)
 
     assert isinstance(result, list)
 
@@ -734,10 +734,16 @@ async def test_summarize_with_mode(server: SyncServer, actor, llm_config: LLMCon
         assert hasattr(msg, "role")
         assert hasattr(msg, "content")
 
+    # Verify the summary text (third return value) is a non-empty string.
+    # This is used by the agent loop to construct a SummaryMessage for clients.
+    assert isinstance(summary_text, str), f"Expected summary_text to be a string, got {type(summary_text)}"
+    assert len(summary_text) > 0, "Expected non-empty summary text"
+
     print()
     print(f"RESULTS {mode} ======")
     for msg in result:
         print(f"MSG: {msg}")
+    print(f"SUMMARY TEXT: {summary_text[:200]}...")
 
     print()
 
@@ -757,6 +763,87 @@ async def test_summarize_with_mode(server: SyncServer, actor, llm_config: LLMCon
         assert len(result) > 2, f"Expected >2 messages for 'sliding_window' mode, got {len(result)}"
         assert result[0].role == MessageRole.system
         assert result[1].role == MessageRole.user
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "llm_config",
+    TESTED_LLM_CONFIGS,
+    ids=[c.model for c in TESTED_LLM_CONFIGS],
+)
+async def test_compact_returns_valid_summary_message_and_event_message(server: SyncServer, actor, llm_config: LLMConfig):
+    """
+    Test that compact() return values can be used to construct valid SummaryMessage and EventMessage objects.
+
+    This validates the contract that _step() relies on: compact() returns
+    (summary_message_obj, compacted_messages, summary_text) where summary_text
+    is used to build a SummaryMessage and the metadata is used for an EventMessage.
+    """
+    import uuid
+
+    from letta.helpers.datetime_helpers import get_utc_time
+
+    # Create a conversation with enough messages to summarize
+    messages = [
+        PydanticMessage(
+            role=MessageRole.system,
+            content=[TextContent(type="text", text="You are a helpful assistant.")],
+        )
+    ]
+    for i in range(10):
+        messages.append(
+            PydanticMessage(
+                role=MessageRole.user,
+                content=[TextContent(type="text", text=f"User message {i}: Test message {i}.")],
+            )
+        )
+        messages.append(
+            PydanticMessage(
+                role=MessageRole.assistant,
+                content=[TextContent(type="text", text=f"Assistant response {i}: Acknowledged message {i}.")],
+            )
+        )
+
+    agent_state, in_context_messages = await create_agent_with_messages(server, actor, llm_config, messages)
+
+    handle = llm_config.handle or f"{llm_config.model_endpoint_type}/{llm_config.model}"
+    agent_state.compaction_settings = CompactionSettings(model=handle, mode="all")
+
+    agent_loop = LettaAgentV3(agent_state=agent_state, actor=actor)
+
+    summary_message_obj, compacted_messages, summary_text = await agent_loop.compact(messages=in_context_messages)
+
+    # Verify we can construct a valid SummaryMessage from compact() return values
+    summary_msg = SummaryMessage(
+        id=summary_message_obj.id,
+        date=summary_message_obj.created_at,
+        summary=summary_text,
+        otid=PydanticMessage.generate_otid_from_id(summary_message_obj.id, 0),
+        step_id=None,
+        run_id=None,
+    )
+    assert summary_msg.message_type == "summary_message"
+    assert isinstance(summary_msg.summary, str)
+    assert len(summary_msg.summary) > 0
+    assert summary_msg.id == summary_message_obj.id
+
+    # Verify we can construct a valid EventMessage for compaction
+    event_msg = EventMessage(
+        id=str(uuid.uuid4()),
+        date=get_utc_time(),
+        event_type="compaction",
+        event_data={
+            "trigger": "post_step_context_check",
+            "context_token_estimate": 1000,
+            "context_window": agent_state.llm_config.context_window,
+        },
+        run_id=None,
+        step_id=None,
+    )
+    assert event_msg.message_type == "event_message"
+    assert event_msg.event_type == "compaction"
+    assert "trigger" in event_msg.event_data
+    assert "context_window" in event_msg.event_data
 
 
 @pytest.mark.asyncio
@@ -911,7 +998,7 @@ async def test_v3_summarize_hard_eviction_when_still_over_threshold(
 
         caplog.set_level("ERROR")
 
-        summary, result, _ = await agent_loop.compact(
+        summary, result, summary_text = await agent_loop.compact(
             messages=in_context_messages,
             trigger_threshold=context_limit,
         )
@@ -931,6 +1018,10 @@ async def test_v3_summarize_hard_eviction_when_still_over_threshold(
     assert len(result) == 2, f"Expected system + summary after hard eviction, got {len(result)} messages"
     assert result[0].role == MessageRole.system
     assert result[1].role == MessageRole.user
+
+    # Verify the summary text is returned (used to construct SummaryMessage in the agent loop)
+    assert isinstance(summary_text, str), f"Expected summary_text to be a string, got {type(summary_text)}"
+    assert len(summary_text) > 0, "Expected non-empty summary text after hard eviction"
 
 
 # ======================================================================================================================

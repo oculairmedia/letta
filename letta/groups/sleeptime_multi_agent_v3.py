@@ -47,6 +47,7 @@ class SleeptimeMultiAgentV3(LettaAgentV2):
         include_return_message_types: list[MessageType] | None = None,
         request_start_timestamp_ns: int | None = None,
         client_tools: list[ClientToolSchema] | None = None,
+        include_compaction_messages: bool = False,
     ) -> LettaResponse:
         self.run_ids = []
 
@@ -61,6 +62,7 @@ class SleeptimeMultiAgentV3(LettaAgentV2):
             include_return_message_types=include_return_message_types,
             request_start_timestamp_ns=request_start_timestamp_ns,
             client_tools=client_tools,
+            include_compaction_messages=include_compaction_messages,
         )
 
         await self.run_sleeptime_agents()
@@ -79,6 +81,7 @@ class SleeptimeMultiAgentV3(LettaAgentV2):
         request_start_timestamp_ns: int | None = None,
         include_return_message_types: list[MessageType] | None = None,
         client_tools: list[ClientToolSchema] | None = None,
+        include_compaction_messages: bool = False,
     ) -> AsyncGenerator[str, None]:
         self.run_ids = []
 
@@ -96,6 +99,7 @@ class SleeptimeMultiAgentV3(LettaAgentV2):
                 include_return_message_types=include_return_message_types,
                 request_start_timestamp_ns=request_start_timestamp_ns,
                 client_tools=client_tools,
+                include_compaction_messages=include_compaction_messages,
             ):
                 yield chunk
         finally:

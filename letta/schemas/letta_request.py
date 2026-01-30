@@ -73,6 +73,13 @@ class LettaRequest(BaseModel):
         "This allows sending a message to a different model without changing the agent's configuration.",
     )
 
+    # Compaction message format
+    include_compaction_messages: bool = Field(
+        default=False,
+        description="If True, compaction events emit structured `SummaryMessage` and `EventMessage` types. "
+        "If False (default), compaction messages are not included in the response.",
+    )
+
     @field_validator("messages", mode="before")
     @classmethod
     def add_default_type_to_messages(cls, v):
