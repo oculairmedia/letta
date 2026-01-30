@@ -911,7 +911,8 @@ class OpenAIClient(LLMClientBase):
                 if isinstance(result, Exception):
                     current_size = len(chunk_inputs)
 
-                    if current_batch_size > 1:
+                    if current_batch_size > 1 and current_size > 1:
+                        # Multiple inputs in batch - try splitting the batch
                         new_batch_size = max(1, current_batch_size // 2)
                         logger.warning(
                             f"Embeddings request failed for batch starting at {start_idx} with size {current_size}. "
