@@ -675,7 +675,7 @@ class ProviderManager:
             for llm_config in llm_models:
                 logger.info(f"  Checking LLM model: {llm_config.handle} (name: {llm_config.model})")
 
-                # Check if model already exists (excluding soft-deleted ones)
+                # Check if model already exists by handle (excluding soft-deleted ones)
                 existing = await ProviderModelORM.list_async(
                     db_session=session,
                     limit=1,
@@ -686,6 +686,19 @@ class ProviderManager:
                         "model_type": "llm",  # Must check model_type since handle can be same for LLM and embedding
                     },
                 )
+
+                # Also check by name+provider_id (covers unique_model_per_provider_and_type constraint)
+                if not existing:
+                    existing = await ProviderModelORM.list_async(
+                        db_session=session,
+                        limit=1,
+                        check_is_deleted=True,
+                        **{
+                            "name": llm_config.model,
+                            "provider_id": provider.id,
+                            "model_type": "llm",
+                        },
+                    )
 
                 if not existing:
                     logger.info(f"    Creating new LLM model {llm_config.handle}")
@@ -754,7 +767,7 @@ class ProviderManager:
             for embedding_config in embedding_models:
                 logger.info(f"  Checking embedding model: {embedding_config.handle} (name: {embedding_config.embedding_model})")
 
-                # Check if model already exists (excluding soft-deleted ones)
+                # Check if model already exists by handle (excluding soft-deleted ones)
                 existing = await ProviderModelORM.list_async(
                     db_session=session,
                     limit=1,
@@ -765,6 +778,19 @@ class ProviderManager:
                         "model_type": "embedding",  # Must check model_type since handle can be same for LLM and embedding
                     },
                 )
+
+                # Also check by name+provider_id (covers unique_model_per_provider_and_type constraint)
+                if not existing:
+                    existing = await ProviderModelORM.list_async(
+                        db_session=session,
+                        limit=1,
+                        check_is_deleted=True,
+                        **{
+                            "name": embedding_config.embedding_model,
+                            "provider_id": provider.id,
+                            "model_type": "embedding",
+                        },
+                    )
 
                 if not existing:
                     logger.info(f"    Creating new embedding model {embedding_config.handle}")
