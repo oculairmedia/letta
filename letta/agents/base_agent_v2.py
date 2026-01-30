@@ -25,6 +25,11 @@ class BaseAgentV2(ABC):
         self.actor = actor
         self.logger = get_logger(agent_state.id)
 
+    @property
+    def agent_id(self) -> str:
+        """Return the agent ID for backward compatibility with code expecting self.agent_id."""
+        return self.agent_state.id
+
     @abstractmethod
     async def build_request(
         self,
