@@ -120,23 +120,10 @@ def _instrument_engine_events(engine: Engine) -> None:
     if isinstance(engine, AsyncEngine):
         engine = engine.sync_engine
 
-    def checkout(dbapi_conn, connection_record, connection_proxy):
-        """Query and cache statement_timeout on connection checkout."""
-        try:
-            cursor = dbapi_conn.cursor()
-            cursor.execute("SHOW statement_timeout")
-            result = cursor.fetchone()
-            connection_record.info["statement_timeout"] = result[0] if result else None
-            cursor.close()
-        except Exception:
-            connection_record.info["statement_timeout"] = None
-
     def before_cursor_execute(conn, cursor, statement, parameters, context, executemany):
         """Track cursor execution start."""
         if not _config["enabled"]:
             return
-
-        statement_timeout = conn.info.get("statement_timeout")
 
         # Store context for the after event
         context._sync_instrumentation_span = _create_sync_db_span(
@@ -145,7 +132,6 @@ def _instrument_engine_events(engine: Engine) -> None:
             additional_attrs={
                 "db.executemany": executemany,
                 "db.connection.info": str(conn.info),
-                "db.statement_timeout": statement_timeout,
             },
         )
 
@@ -177,7 +163,6 @@ def _instrument_engine_events(engine: Engine) -> None:
             context._sync_instrumentation_span = None
 
     # Register engine events
-    event.listen(engine.pool, "checkout", checkout)
     event.listen(engine, "before_cursor_execute", before_cursor_execute)
     event.listen(engine, "after_cursor_execute", after_cursor_execute)
     event.listen(engine, "handle_error", handle_cursor_error)
@@ -185,7 +170,6 @@ def _instrument_engine_events(engine: Engine) -> None:
     # Store listeners for cleanup
     _instrumentation_state["engine_listeners"].extend(
         [
-            (engine.pool, "checkout", checkout),
             (engine, "before_cursor_execute", before_cursor_execute),
             (engine, "after_cursor_execute", after_cursor_execute),
             (engine, "handle_error", handle_cursor_error),
