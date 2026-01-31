@@ -46358,11 +46358,39 @@
             ],
             "title": "Response Format",
             "description": "The response format for the model."
+          },
+          "thinking": {
+            "$ref": "#/components/schemas/ZAIThinking",
+            "description": "The thinking configuration for GLM-4.5+ models.",
+            "default": {
+              "type": "enabled",
+              "clear_thinking": false
+            }
           }
         },
         "type": "object",
         "title": "ZAIModelSettings",
         "description": "Z.ai (ZhipuAI) model configuration (OpenAI-compatible)."
+      },
+      "ZAIThinking": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": ["enabled", "disabled"],
+            "title": "Type",
+            "description": "Whether thinking is enabled or disabled.",
+            "default": "enabled"
+          },
+          "clear_thinking": {
+            "type": "boolean",
+            "title": "Clear Thinking",
+            "description": "If False, preserved thinking is used (recommended for agents).",
+            "default": false
+          }
+        },
+        "type": "object",
+        "title": "ZAIThinking",
+        "description": "Thinking configuration for ZAI GLM-4.5+ models."
       },
       "letta__schemas__agent_file__AgentSchema": {
         "properties": {

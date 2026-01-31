@@ -564,6 +564,17 @@ class OpenAIClient(LLMClientBase):
         # If set, then in the backend "medium" thinking is turned on
         # request_data["reasoning_effort"] = "medium"
 
+        # Add OpenRouter reasoning configuration via extra_body
+        if is_openrouter and llm_config.enable_reasoner:
+            reasoning_config = {}
+            if llm_config.reasoning_effort:
+                reasoning_config["effort"] = llm_config.reasoning_effort
+            if llm_config.max_reasoning_tokens and llm_config.max_reasoning_tokens > 0:
+                reasoning_config["max_tokens"] = llm_config.max_reasoning_tokens
+            if not reasoning_config:
+                reasoning_config = {"enabled": True}
+            request_data["extra_body"] = {"reasoning": reasoning_config}
+
         return request_data
 
     @trace_method
@@ -765,12 +776,12 @@ class OpenAIClient(LLMClientBase):
         ):
             if "choices" in response_data and len(response_data["choices"]) > 0:
                 choice_data = response_data["choices"][0]
-                if "message" in choice_data and "reasoning_content" in choice_data["message"]:
-                    reasoning_content = choice_data["message"]["reasoning_content"]
-                    if reasoning_content:
-                        chat_completion_response.choices[0].message.reasoning_content = reasoning_content
-
-                        chat_completion_response.choices[0].message.reasoning_content_signature = None
+                message_data = choice_data.get("message", {})
+                # Check for reasoning_content (standard) or reasoning (OpenRouter)
+                reasoning_content = message_data.get("reasoning_content") or message_data.get("reasoning")
+                if reasoning_content:
+                    chat_completion_response.choices[0].message.reasoning_content = reasoning_content
+                    chat_completion_response.choices[0].message.reasoning_content_signature = None
 
         # Unpack inner thoughts if they were embedded in function arguments
         if llm_config.put_inner_thoughts_in_kwargs:

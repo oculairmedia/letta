@@ -1,4 +1,3 @@
-import os
 from typing import List, Optional
 
 from openai import AsyncOpenAI, AsyncStream, OpenAI
@@ -11,7 +10,13 @@ from letta.schemas.embedding_config import EmbeddingConfig
 from letta.schemas.enums import AgentType
 from letta.schemas.llm_config import LLMConfig
 from letta.schemas.message import Message as PydanticMessage
+from letta.schemas.openai.chat_completion_response import ChatCompletionResponse
 from letta.settings import model_settings
+
+
+def is_zai_reasoning_model(model_name: str) -> bool:
+    """Check if the model is a ZAI reasoning model (GLM-4.5+)."""
+    return model_name.startswith("glm-4.5") or model_name.startswith("glm-4.6") or model_name.startswith("glm-4.7")
 
 
 class ZAIClient(OpenAIClient):
@@ -22,6 +27,10 @@ class ZAIClient(OpenAIClient):
 
     def supports_structured_output(self, llm_config: LLMConfig) -> bool:
         return False
+
+    def is_reasoning_model(self, llm_config: LLMConfig) -> bool:
+        """Returns True if the model is a ZAI reasoning model (GLM-4.5+)."""
+        return is_zai_reasoning_model(llm_config.model)
 
     @trace_method
     def build_request_data(
@@ -35,6 +44,24 @@ class ZAIClient(OpenAIClient):
         tool_return_truncation_chars: Optional[int] = None,
     ) -> dict:
         data = super().build_request_data(agent_type, messages, llm_config, tools, force_tool_call, requires_subsequent_tool_call)
+
+        # Add thinking configuration for ZAI GLM-4.5+ models
+        # Must explicitly send type: "disabled" when reasoning is off, as GLM-4.7 has thinking on by default
+        if self.is_reasoning_model(llm_config):
+            if llm_config.enable_reasoner:
+                data["extra_body"] = {
+                    "thinking": {
+                        "type": "enabled",
+                        "clear_thinking": False,  # Preserved thinking for agents
+                    }
+                }
+            else:
+                data["extra_body"] = {
+                    "thinking": {
+                        "type": "disabled",
+                    }
+                }
+
         return data
 
     @trace_method
@@ -79,3 +106,39 @@ class ZAIClient(OpenAIClient):
         response = await client.embeddings.create(model=embedding_config.embedding_model, input=inputs)
 
         return [r.embedding for r in response.data]
+
+    @trace_method
+    async def convert_response_to_chat_completion(
+        self,
+        response_data: dict,
+        input_messages: List[PydanticMessage],
+        llm_config: LLMConfig,
+    ) -> ChatCompletionResponse:
+        """
+        Converts raw ZAI response dict into the ChatCompletionResponse Pydantic model.
+        Handles extraction of reasoning_content from ZAI GLM-4.5+ responses.
+        """
+        # Use parent class conversion first
+        chat_completion_response = await super().convert_response_to_chat_completion(response_data, input_messages, llm_config)
+
+        # Parse reasoning_content from ZAI responses (similar to OpenAI pattern)
+        # ZAI returns reasoning_content in delta.reasoning_content (streaming) or message.reasoning_content
+        if (
+            chat_completion_response.choices
+            and len(chat_completion_response.choices) > 0
+            and chat_completion_response.choices[0].message
+            and not chat_completion_response.choices[0].message.reasoning_content
+        ):
+            if "choices" in response_data and len(response_data["choices"]) > 0:
+                choice_data = response_data["choices"][0]
+                if "message" in choice_data and "reasoning_content" in choice_data["message"]:
+                    reasoning_content = choice_data["message"]["reasoning_content"]
+                    if reasoning_content:
+                        chat_completion_response.choices[0].message.reasoning_content = reasoning_content
+                        chat_completion_response.choices[0].message.reasoning_content_signature = None
+
+        # If we used a reasoning model, mark that reasoning content was used
+        if self.is_reasoning_model(llm_config) and llm_config.enable_reasoner:
+            chat_completion_response.choices[0].message.omitted_reasoning_content = True
+
+        return chat_completion_response

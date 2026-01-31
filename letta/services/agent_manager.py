@@ -351,9 +351,11 @@ class AgentManager:
 
         # For v1 agents, enforce sane defaults even when reasoning is omitted
         if agent_create.agent_type == AgentType.letta_v1_agent:
-            # Claude 3.7/4 or OpenAI o1/o3/o4/gpt-5
-            default_reasoning = LLMConfig.is_anthropic_reasoning_model(agent_create.llm_config) or LLMConfig.is_openai_reasoning_model(
-                agent_create.llm_config
+            # Claude 3.7/4 or OpenAI o1/o3/o4/gpt-5 or ZAI GLM-4.5+
+            default_reasoning = (
+                LLMConfig.is_anthropic_reasoning_model(agent_create.llm_config)
+                or LLMConfig.is_openai_reasoning_model(agent_create.llm_config)
+                or LLMConfig.is_zai_reasoning_model(agent_create.llm_config)
             )
             agent_create.llm_config = LLMConfig.apply_reasoning_setting_to_config(
                 agent_create.llm_config,

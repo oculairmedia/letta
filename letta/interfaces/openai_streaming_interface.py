@@ -887,14 +887,10 @@ class SimpleOpenAIStreamingInterface:
                 prev_message_type = assistant_msg.message_type
                 yield assistant_msg
 
-            if (
-                hasattr(chunk, "choices")
-                and len(chunk.choices) > 0
-                and hasattr(chunk.choices[0], "delta")
-                and hasattr(chunk.choices[0].delta, "reasoning_content")
-            ):
+            if hasattr(chunk, "choices") and len(chunk.choices) > 0 and hasattr(chunk.choices[0], "delta"):
                 delta = chunk.choices[0].delta
-                reasoning_content = getattr(delta, "reasoning_content", None)
+                # Check for reasoning_content (standard) or reasoning (OpenRouter)
+                reasoning_content = getattr(delta, "reasoning_content", None) or getattr(delta, "reasoning", None)
                 if reasoning_content is not None and reasoning_content != "":
                     if prev_message_type and prev_message_type != "reasoning_message":
                         message_index += 1
