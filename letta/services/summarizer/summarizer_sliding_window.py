@@ -42,6 +42,53 @@ async def count_tokens(actor: User, llm_config: LLMConfig, messages: List[Messag
     return tokens
 
 
+async def count_tokens_with_tools(
+    actor: User,
+    llm_config: LLMConfig,
+    messages: List[Message],
+    tools: Optional[List["Tool"]] = None,
+) -> int:
+    """Count tokens in messages AND tool definitions.
+
+    This provides a more accurate context token count by including tool definitions,
+    which are sent to the LLM but not included in the messages list.
+
+    Args:
+        actor: The user making the request.
+        llm_config: The LLM configuration for selecting the appropriate tokenizer.
+        messages: The in-context messages (including system message).
+        tools: Optional list of Tool objects. If provided, their schemas are counted.
+
+    Returns:
+        Total token count for messages + tools.
+    """
+    # Delegate message counting to existing function
+    message_tokens = await count_tokens(actor, llm_config, messages)
+
+    if not tools:
+        return message_tokens
+
+    # Count tools
+    from openai.types.beta.function_tool import FunctionTool as OpenAITool
+
+    from letta.services.context_window_calculator.token_counter import ApproxTokenCounter
+
+    token_counter = create_token_counter(
+        model_endpoint_type=llm_config.model_endpoint_type,
+        model=llm_config.model,
+        actor=actor,
+    )
+
+    tool_definitions = [OpenAITool(type="function", function=t.json_schema) for t in tools if t.json_schema]
+    tool_tokens = await token_counter.count_tool_tokens(tool_definitions) if tool_definitions else 0
+
+    # Apply safety margin for approximate counting (message_tokens already has margin applied)
+    if isinstance(token_counter, ApproxTokenCounter):
+        tool_tokens = int(tool_tokens * APPROX_TOKEN_SAFETY_MARGIN)
+
+    return message_tokens + tool_tokens
+
+
 @trace_method
 async def summarize_via_sliding_window(
     # Required to tag LLM calls

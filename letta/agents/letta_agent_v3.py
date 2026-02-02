@@ -63,6 +63,7 @@ from letta.services.summarizer.summarizer_all import summarize_all
 from letta.services.summarizer.summarizer_config import CompactionSettings
 from letta.services.summarizer.summarizer_sliding_window import (
     count_tokens,
+    count_tokens_with_tools,
     summarize_via_sliding_window,
 )
 from letta.settings import settings, summarizer_settings
@@ -1740,9 +1741,12 @@ class LettaAgentV3(LettaAgentV2):
         else:
             raise ValueError(f"Invalid summarizer mode: {summarizer_config.mode}")
 
-        # update the token count
-        self.context_token_estimate = await count_tokens(
-            actor=self.actor, llm_config=self.agent_state.llm_config, messages=compacted_messages
+        # update the token count (including tools for accurate comparison with LLM's prompt_tokens)
+        self.context_token_estimate = await count_tokens_with_tools(
+            actor=self.actor,
+            llm_config=self.agent_state.llm_config,
+            messages=compacted_messages,
+            tools=self.agent_state.tools,
         )
         self.logger.info(f"Context token estimate after summarization: {self.context_token_estimate}")
 
@@ -1775,8 +1779,11 @@ class LettaAgentV3(LettaAgentV2):
                 )
                 summarization_mode_used = "all"
 
-            self.context_token_estimate = await count_tokens(
-                actor=self.actor, llm_config=self.agent_state.llm_config, messages=compacted_messages
+            self.context_token_estimate = await count_tokens_with_tools(
+                actor=self.actor,
+                llm_config=self.agent_state.llm_config,
+                messages=compacted_messages,
+                tools=self.agent_state.tools,
             )
 
             # final edge case: the system prompt is the cause of the context overflow (raise error)

@@ -1046,10 +1046,10 @@ async def test_v3_summarize_hard_eviction_when_still_over_threshold(
     # summarize_conversation_history to run and then hit the branch where the
     # *post*-summarization token count is still above the proactive
     # summarization threshold. We simulate that by patching the
-    # letta_agent_v3-level count_tokens helper to report an extremely large
+    # letta_agent_v3-level count_tokens_with_tools helper to report an extremely large
     # token count for the first call (post-summary) and a small count for the
     # second call (after hard eviction).
-    with patch("letta.agents.letta_agent_v3.count_tokens") as mock_count_tokens:
+    with patch("letta.agents.letta_agent_v3.count_tokens_with_tools") as mock_count_tokens:
         # First call: pretend the summarized context is still huge relative to
         # this model's context window so that we always trigger the
         # hard-eviction path. Second call: minimal context (system only) is
