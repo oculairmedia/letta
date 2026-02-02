@@ -49,6 +49,8 @@ class Summarizer:
         message_manager: Optional[MessageManager] = None,
         actor: Optional[User] = None,
         agent_id: Optional[str] = None,
+        run_id: Optional[str] = None,
+        step_id: Optional[str] = None,
     ):
         self.mode = mode
 
@@ -64,6 +66,8 @@ class Summarizer:
         self.message_manager = message_manager
         self.actor = actor
         self.agent_id = agent_id
+        self.run_id = run_id
+        self.step_id = step_id
 
     @trace_method
     async def summarize(
@@ -72,6 +76,8 @@ class Summarizer:
         new_letta_messages: List[Message],
         force: bool = False,
         clear: bool = False,
+        run_id: Optional[str] = None,
+        step_id: Optional[str] = None,
     ) -> Tuple[List[Message], bool]:
         """
         Summarizes or trims in_context_messages according to the chosen mode,
@@ -81,6 +87,8 @@ class Summarizer:
             in_context_messages: The existing messages in the conversation's context.
             new_letta_messages: The newly added Letta messages (just appended).
             force: Force summarize even if the criteria is not met
+            run_id: Optional run ID for telemetry (overrides instance default)
+            step_id: Optional step ID for telemetry (overrides instance default)
 
         Returns:
             (updated_messages, summary_message)
@@ -88,6 +96,9 @@ class Summarizer:
             summary_message: Optional summarization message that was created
                              (could be appended to the conversation if desired)
         """
+        effective_run_id = run_id if run_id is not None else self.run_id
+        effective_step_id = step_id if step_id is not None else self.step_id
+
         if self.mode == SummarizationMode.STATIC_MESSAGE_BUFFER:
             return self._static_buffer_summarization(
                 in_context_messages,
@@ -101,6 +112,8 @@ class Summarizer:
                 new_letta_messages,
                 force=force,
                 clear=clear,
+                run_id=effective_run_id,
+                step_id=effective_step_id,
             )
         else:
             # Fallback or future logic
@@ -124,6 +137,8 @@ class Summarizer:
         new_letta_messages: List[Message],
         force: bool = False,
         clear: bool = False,
+        run_id: Optional[str] = None,
+        step_id: Optional[str] = None,
     ) -> Tuple[List[Message], bool]:
         """Summarization as implemented in the original MemGPT loop, but using message count instead of token count.
         Evict a partial amount of messages, and replace message[1] with a recursive summary.
@@ -166,11 +181,23 @@ class Summarizer:
         agent_state = await self.agent_manager.get_agent_by_id_async(agent_id=self.agent_id, actor=self.actor)
 
         # TODO if we do this via the "agent", then we can more easily allow toggling on the memory block version
+        from letta.settings import summarizer_settings
+
         summary_message_str = await simple_summary(
             messages=messages_to_summarize,
             llm_config=agent_state.llm_config,
             actor=self.actor,
             include_ack=True,
+            agent_id=self.agent_id,
+            agent_tags=agent_state.tags,
+            run_id=run_id if run_id is not None else self.run_id,
+            step_id=step_id if step_id is not None else self.step_id,
+            compaction_settings={
+                "mode": str(summarizer_settings.mode.value),
+                "message_buffer_limit": summarizer_settings.message_buffer_limit,
+                "message_buffer_min": summarizer_settings.message_buffer_min,
+                "partial_evict_summarizer_percentage": summarizer_settings.partial_evict_summarizer_percentage,
+            },
         )
 
         # TODO add counts back
@@ -263,6 +290,17 @@ class Summarizer:
         while target_trim_index < len(all_in_context_messages) and all_in_context_messages[target_trim_index].role != MessageRole.user:
             target_trim_index += 1
 
+        # If the first retained message is an approval request, also keep the assistant message before it
+        # (they're part of the same LLM response - assistant has reasoning/tool_calls, approval has approval-required subset)
+        if target_trim_index < len(all_in_context_messages):
+            first_retained = all_in_context_messages[target_trim_index]
+            if first_retained.role == MessageRole.approval and target_trim_index > 1:
+                # Check if the message before it is an assistant from the same step
+                prev_message = all_in_context_messages[target_trim_index - 1]
+                if prev_message.role == MessageRole.assistant and prev_message.step_id == first_retained.step_id:
+                    # Back up to include the assistant message with reasoning
+                    target_trim_index -= 1
+
         evicted_messages = all_in_context_messages[1:target_trim_index]  # everything except sys msg
         updated_in_context_messages = all_in_context_messages[target_trim_index:]  # may be empty
 
@@ -317,7 +355,7 @@ def simple_formatter(
         [message for message in messages if message.role != MessageRole.system or include_system],
         tool_return_truncation_chars=tool_return_truncation_chars,
     )
-    return "\n".join(json.dumps(msg) for msg in parsed_messages)
+    return "<start_transcript>\n" + "\n".join(json.dumps(msg) for msg in parsed_messages) + "\n<end_transcript>\n. Generate the summary."
 
 
 def middle_truncate_text(
@@ -415,11 +453,18 @@ async def simple_summary(
     actor: User,
     include_ack: bool = True,
     prompt: str | None = None,
+    telemetry_manager: "TelemetryManager | None" = None,
+    agent_id: str | None = None,
+    agent_tags: List[str] | None = None,
+    run_id: str | None = None,
+    step_id: str | None = None,
+    compaction_settings: dict | None = None,
 ) -> str:
     """Generate a simple summary from a list of messages.
 
     Intentionally kept functional due to the simplicity of the prompt.
     """
+    from letta.services.telemetry_manager import TelemetryManager
 
     # Create an LLMClient from the config
     llm_client = LLMClient.create(
@@ -428,6 +473,20 @@ async def simple_summary(
         actor=actor,
     )
     assert llm_client is not None
+
+    # Always set telemetry context - create TelemetryManager if not provided
+    tm = telemetry_manager or TelemetryManager()
+    llm_client.set_telemetry_context(
+        telemetry_manager=tm,
+        agent_id=agent_id,
+        agent_tags=agent_tags,
+        run_id=run_id,
+        step_id=step_id,
+        call_type="summarization",
+        org_id=actor.organization_id if actor else None,
+        user_id=actor.id if actor else None,
+        compaction_settings=compaction_settings,
+    )
 
     # Prepare the messages payload to send to the LLM
     system_prompt = prompt or gpt_summarize.SYSTEM
@@ -483,13 +542,27 @@ async def simple_summary(
             )
 
             # AnthropicClient.stream_async sets request_data["stream"] = True internally.
-            stream = await llm_client.stream_async(req_data, summarizer_llm_config)
+            stream = await llm_client.stream_async_with_telemetry(req_data, summarizer_llm_config)
             async for _chunk in interface.process(stream):
                 # We don't emit anything; we just want the fully-accumulated content.
                 pass
 
             content_parts = interface.get_content()
             text = "".join(part.text for part in content_parts if isinstance(part, TextContent)).strip()
+
+            # Log telemetry after stream processing
+            await llm_client.log_provider_trace_async(
+                request_data=req_data,
+                response_json={
+                    "content": text,
+                    "model": summarizer_llm_config.model,
+                    "usage": {
+                        "input_tokens": getattr(interface, "input_tokens", None),
+                        "output_tokens": getattr(interface, "output_tokens", None),
+                    },
+                },
+            )
+
             if not text:
                 logger.warning("No content returned from summarizer (streaming path)")
                 raise Exception("Summary failed to generate")
@@ -501,7 +574,7 @@ async def simple_summary(
             summarizer_llm_config.model_endpoint_type,
             summarizer_llm_config.model,
         )
-        response_data = await llm_client.request_async(req_data, summarizer_llm_config)
+        response_data = await llm_client.request_async_with_telemetry(req_data, summarizer_llm_config)
         response = await llm_client.convert_response_to_chat_completion(
             response_data,
             req_messages_obj,
@@ -596,6 +669,7 @@ async def simple_summary(
                     raise llm_client.handle_llm_error(fallback_error_b)
 
     logger.info(f"Summarized {len(messages)}: {summary}")
+
     return summary
 
 

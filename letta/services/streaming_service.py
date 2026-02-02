@@ -38,9 +38,11 @@ from letta.schemas.usage import LettaUsageStatistics
 from letta.schemas.user import User
 from letta.server.rest_api.redis_stream_manager import create_background_stream_processor, redis_sse_stream_generator
 from letta.server.rest_api.streaming_response import (
+    RunCancelledException,
     StreamingResponseWithStatusCode,
     add_keepalive_to_stream,
     cancellation_aware_stream_wrapper,
+    get_cancellation_event_for_run,
 )
 from letta.server.rest_api.utils import capture_sentry_exception
 from letta.services.run_manager import RunManager
@@ -95,8 +97,19 @@ class StreamingService:
 
         # load agent and check eligibility
         agent = await self.server.agent_manager.get_agent_by_id_async(
-            agent_id, actor, include_relationships=["memory", "multi_agent_group", "sources", "tool_exec_environment_variables", "tools"]
+            agent_id,
+            actor,
+            include_relationships=["memory", "multi_agent_group", "sources", "tool_exec_environment_variables", "tools", "tags"],
         )
+
+        # Handle model override if specified in the request
+        if request.override_model:
+            override_llm_config = await self.server.get_llm_config_from_handle_async(
+                actor=actor,
+                handle=request.override_model,
+            )
+            # Create a copy of agent state with the overridden llm_config
+            agent = agent.model_copy(update={"llm_config": override_llm_config})
 
         agent_eligible = self._is_agent_eligible(agent)
         model_compatible = self._is_model_compatible(agent)
@@ -157,6 +170,7 @@ class StreamingService:
                             run_manager=self.runs_manager,
                             run_id=run.id,
                             actor=actor,
+                            cancellation_event=get_cancellation_event_for_run(run.id),
                         )
 
                     safe_create_task(
@@ -184,6 +198,7 @@ class StreamingService:
                         run_manager=self.runs_manager,
                         run_id=run.id,
                         actor=actor,
+                        cancellation_event=get_cancellation_event_for_run(run.id),
                     )
 
                 # conditionally wrap with keepalive based on request parameter
@@ -211,7 +226,13 @@ class StreamingService:
 
             # update run status to running before returning
             if settings.track_agent_run and run:
-                run_status = RunStatus.running
+                # refetch run since it may have been updated by another service
+                run = await self.server.run_manager.get_run_by_id(run_id=run.id, actor=actor)
+                if run.status == RunStatus.created:
+                    run_status = RunStatus.running
+                else:
+                    # don't override run status if it has already been updated
+                    run_status = None
 
             return run, result
 
@@ -226,7 +247,7 @@ class StreamingService:
                 run_status = RunStatus.failed
             raise
         finally:
-            if settings.track_agent_run and run:
+            if settings.track_agent_run and run and run_status:
                 await self.server.run_manager.update_run_by_id_async(
                     run_id=run.id,
                     conversation_id=conversation_id,
@@ -336,11 +357,11 @@ class StreamingService:
                 )
 
                 async for chunk in stream:
-                    # Track terminal events
+                    # Track terminal events (check at line start to avoid false positives in message content)
                     if isinstance(chunk, str):
-                        if "data: [DONE]" in chunk:
+                        if "\ndata: [DONE]" in chunk or chunk.startswith("data: [DONE]"):
                             saw_done = True
-                        if "event: error" in chunk:
+                        if "\nevent: error" in chunk or chunk.startswith("event: error"):
                             saw_error = True
                     yield chunk
 
@@ -434,17 +455,27 @@ class StreamingService:
                 yield f"event: error\ndata: {error_message.model_dump_json()}\n\n"
                 # Send [DONE] marker to properly close the stream
                 yield "data: [DONE]\n\n"
+            except RunCancelledException as e:
+                # Run was explicitly cancelled - this is not an error
+                # The cancellation has already been handled by cancellation_aware_stream_wrapper
+                logger.info(f"Run {run_id} was cancelled, exiting stream gracefully")
+                # Send [DONE] to properly close the stream
+                yield "data: [DONE]\n\n"
+                # Don't update run status in finally - cancellation is already recorded
+                run_status = None  # Signal to finally block to skip update
             except Exception as e:
                 run_status = RunStatus.failed
                 stop_reason = LettaStopReason(stop_reason=StopReasonType.error)
+                # Use repr() if str() is empty (happens with Exception() with no args)
+                error_detail = str(e) or repr(e)
                 error_message = LettaErrorMessage(
                     run_id=run_id,
                     error_type="internal_error",
                     message="An unknown error occurred with the LLM streaming request.",
-                    detail=str(e),
+                    detail=error_detail,
                 )
                 error_data = {"error": error_message.model_dump()}
-                logger.error(f"Run {run_id} stopped with unknown error: {e}, error_data: {error_message.model_dump()}")
+                logger.error(f"Run {run_id} stopped with unknown error: {error_detail}, error_data: {error_message.model_dump()}")
                 yield f"data: {stop_reason.model_dump_json()}\n\n"
                 yield f"event: error\ndata: {error_message.model_dump_json()}\n\n"
                 # Send [DONE] marker to properly close the stream
@@ -484,11 +515,23 @@ class StreamingService:
             "zai",
             "groq",
             "deepseek",
+            "chatgpt_oauth",
+            "minimax",
+            "openrouter",
         ]
 
     def _is_token_streaming_compatible(self, agent: AgentState) -> bool:
         """Check if agent's model supports token-level streaming."""
-        base_compatible = agent.llm_config.model_endpoint_type in ["anthropic", "openai", "bedrock", "deepseek", "zai"]
+        base_compatible = agent.llm_config.model_endpoint_type in [
+            "anthropic",
+            "openai",
+            "bedrock",
+            "deepseek",
+            "zai",
+            "chatgpt_oauth",
+            "minimax",
+            "openrouter",
+        ]
         google_letta_v1 = agent.agent_type == AgentType.letta_v1_agent and agent.llm_config.model_endpoint_type in [
             "google_ai",
             "google_vertex",

@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from typing import Any, Callable, List, Optional, Tuple
 
 from letta.constants import DEFAULT_EMBEDDING_CHUNK_SIZE
+from letta.errors import LettaInvalidArgumentError
 from letta.otel.tracing import trace_method
 from letta.schemas.embedding_config import EmbeddingConfig
 from letta.schemas.enums import MessageRole, TagMatchMode
@@ -18,6 +19,52 @@ logger = logging.getLogger(__name__)
 # Global semaphore for Turbopuffer operations to prevent overwhelming the service
 # This is separate from embedding semaphore since Turbopuffer can handle more concurrency
 _GLOBAL_TURBOPUFFER_SEMAPHORE = asyncio.Semaphore(5)
+
+
+def _run_turbopuffer_write_in_thread(
+    api_key: str,
+    region: str,
+    namespace_name: str,
+    upsert_columns: dict = None,
+    deletes: list = None,
+    delete_by_filter: tuple = None,
+    distance_metric: str = "cosine_distance",
+    schema: dict = None,
+):
+    """
+    Sync wrapper to run turbopuffer write in isolated event loop.
+
+    Turbopuffer's async write() does CPU-intensive base64 encoding of vectors
+    synchronously in async functions, blocking the event loop. Running it in
+    a thread pool with an isolated event loop prevents blocking.
+    """
+    from turbopuffer import AsyncTurbopuffer
+
+    # Create new event loop for this worker thread
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    try:
+
+        async def do_write():
+            async with AsyncTurbopuffer(api_key=api_key, region=region) as client:
+                namespace = client.namespace(namespace_name)
+
+                # Build write kwargs
+                kwargs = {"distance_metric": distance_metric}
+                if upsert_columns:
+                    kwargs["upsert_columns"] = upsert_columns
+                if deletes:
+                    kwargs["deletes"] = deletes
+                if delete_by_filter:
+                    kwargs["delete_by_filter"] = delete_by_filter
+                if schema:
+                    kwargs["schema"] = schema
+
+                return await namespace.write(**kwargs)
+
+        return loop.run_until_complete(do_write())
+    finally:
+        loop.close()
 
 
 def should_use_tpuf() -> bool:
@@ -246,16 +293,20 @@ class TurbopufferClient:
         }
 
         try:
+            # Use global semaphore to limit concurrent Turbopuffer writes
             async with _GLOBAL_TURBOPUFFER_SEMAPHORE:
-                async with AsyncTurbopuffer(api_key=self.api_key, region=self.region) as client:
-                    namespace = client.namespace(namespace_name)
-                    await namespace.write(
-                        upsert_columns=upsert_columns,
-                        distance_metric="cosine_distance",
-                        schema={"text": {"type": "string", "full_text_search": True}},
-                    )
-                    logger.info(f"Successfully inserted {len(ids)} tools to Turbopuffer")
-                    return True
+                # Run in thread pool to prevent CPU-intensive base64 encoding from blocking event loop
+                await asyncio.to_thread(
+                    _run_turbopuffer_write_in_thread,
+                    api_key=self.api_key,
+                    region=self.region,
+                    namespace_name=namespace_name,
+                    upsert_columns=upsert_columns,
+                    distance_metric="cosine_distance",
+                    schema={"text": {"type": "string", "full_text_search": True}},
+                )
+                logger.info(f"Successfully inserted {len(ids)} tools to Turbopuffer")
+                return True
 
         except Exception as e:
             logger.error(f"Failed to insert tools to Turbopuffer: {e}")
@@ -271,6 +322,7 @@ class TurbopufferClient:
         actor: "PydanticUser",
         tags: Optional[List[str]] = None,
         created_at: Optional[datetime] = None,
+        embeddings: Optional[List[List[float]]] = None,
     ) -> List[PydanticPassage]:
         """Insert passages into Turbopuffer.
 
@@ -282,6 +334,7 @@ class TurbopufferClient:
             actor: User actor for embedding generation
             tags: Optional list of tags to attach to all passages
             created_at: Optional timestamp for retroactive entries (defaults to current UTC time)
+            embeddings: Optional pre-computed embeddings (must match 1:1 with text_chunks). If provided, skips embedding generation.
 
         Returns:
             List of PydanticPassage objects that were inserted
@@ -295,9 +348,30 @@ class TurbopufferClient:
             logger.warning("All text chunks were empty, skipping insertion")
             return []
 
-        # generate embeddings using the default config
         filtered_texts = [text for _, text in filtered_chunks]
-        embeddings = await self._generate_embeddings(filtered_texts, actor)
+
+        # use provided embeddings only if dimensions match TPUF's expected dimension
+        use_provided_embeddings = False
+        if embeddings is not None:
+            if len(embeddings) != len(text_chunks):
+                raise LettaInvalidArgumentError(
+                    f"embeddings length ({len(embeddings)}) must match text_chunks length ({len(text_chunks)})",
+                    argument_name="embeddings",
+                )
+            # check if first non-empty embedding has correct dimensions
+            filtered_indices = [i for i, _ in filtered_chunks]
+            sample_embedding = embeddings[filtered_indices[0]] if filtered_indices else None
+            if sample_embedding is not None and len(sample_embedding) == self.default_embedding_config.embedding_dim:
+                use_provided_embeddings = True
+                filtered_embeddings = [embeddings[i] for i, _ in filtered_chunks]
+            else:
+                logger.debug(
+                    f"Embedding dimension mismatch (got {len(sample_embedding) if sample_embedding else 'None'}, "
+                    f"expected {self.default_embedding_config.embedding_dim}), regenerating embeddings"
+                )
+
+        if not use_provided_embeddings:
+            filtered_embeddings = await self._generate_embeddings(filtered_texts, actor)
 
         namespace_name = await self._get_archive_namespace_name(archive_id)
 
@@ -329,7 +403,7 @@ class TurbopufferClient:
         tags_arrays = []  # Store tags as arrays
         passages = []
 
-        for (original_idx, text), embedding in zip(filtered_chunks, embeddings):
+        for (original_idx, text), embedding in zip(filtered_chunks, filtered_embeddings):
             passage_id = passage_ids[original_idx]
 
             # append to columns
@@ -367,19 +441,20 @@ class TurbopufferClient:
         }
 
         try:
-            # use global semaphore to limit concurrent Turbopuffer writes
+            # Use global semaphore to limit concurrent Turbopuffer writes
             async with _GLOBAL_TURBOPUFFER_SEMAPHORE:
-                # Use AsyncTurbopuffer as a context manager for proper resource cleanup
-                async with AsyncTurbopuffer(api_key=self.api_key, region=self.region) as client:
-                    namespace = client.namespace(namespace_name)
-                    # turbopuffer recommends column-based writes for performance
-                    await namespace.write(
-                        upsert_columns=upsert_columns,
-                        distance_metric="cosine_distance",
-                        schema={"text": {"type": "string", "full_text_search": True}},
-                    )
-                    logger.info(f"Successfully inserted {len(ids)} passages to Turbopuffer for archive {archive_id}")
-                    return passages
+                # Run in thread pool to prevent CPU-intensive base64 encoding from blocking event loop
+                await asyncio.to_thread(
+                    _run_turbopuffer_write_in_thread,
+                    api_key=self.api_key,
+                    region=self.region,
+                    namespace_name=namespace_name,
+                    upsert_columns=upsert_columns,
+                    distance_metric="cosine_distance",
+                    schema={"text": {"type": "string", "full_text_search": True}},
+                )
+                logger.info(f"Successfully inserted {len(ids)} passages to Turbopuffer for archive {archive_id}")
+                return passages
 
         except Exception as e:
             logger.error(f"Failed to insert passages to Turbopuffer: {e}")
@@ -508,22 +583,23 @@ class TurbopufferClient:
             upsert_columns["template_id"] = template_ids_list
 
         try:
-            # use global semaphore to limit concurrent Turbopuffer writes
+            # Use global semaphore to limit concurrent Turbopuffer writes
             async with _GLOBAL_TURBOPUFFER_SEMAPHORE:
-                # Use AsyncTurbopuffer as a context manager for proper resource cleanup
-                async with AsyncTurbopuffer(api_key=self.api_key, region=self.region) as client:
-                    namespace = client.namespace(namespace_name)
-                    # turbopuffer recommends column-based writes for performance
-                    await namespace.write(
-                        upsert_columns=upsert_columns,
-                        distance_metric="cosine_distance",
-                        schema={
-                            "text": {"type": "string", "full_text_search": True},
-                            "conversation_id": {"type": "string"},
-                        },
-                    )
-                    logger.info(f"Successfully inserted {len(ids)} messages to Turbopuffer for agent {agent_id}")
-                    return True
+                # Run in thread pool to prevent CPU-intensive base64 encoding from blocking event loop
+                await asyncio.to_thread(
+                    _run_turbopuffer_write_in_thread,
+                    api_key=self.api_key,
+                    region=self.region,
+                    namespace_name=namespace_name,
+                    upsert_columns=upsert_columns,
+                    distance_metric="cosine_distance",
+                    schema={
+                        "text": {"type": "string", "full_text_search": True},
+                        "conversation_id": {"type": "string"},
+                    },
+                )
+                logger.info(f"Successfully inserted {len(ids)} messages to Turbopuffer for agent {agent_id}")
+                return True
 
         except Exception as e:
             logger.error(f"Failed to insert messages to Turbopuffer: {e}")
@@ -1308,12 +1384,16 @@ class TurbopufferClient:
         namespace_name = await self._get_archive_namespace_name(archive_id)
 
         try:
-            async with AsyncTurbopuffer(api_key=self.api_key, region=self.region) as client:
-                namespace = client.namespace(namespace_name)
-                # Use write API with deletes parameter as per Turbopuffer docs
-                await namespace.write(deletes=[passage_id])
-                logger.info(f"Successfully deleted passage {passage_id} from Turbopuffer archive {archive_id}")
-                return True
+            # Run in thread pool for consistency (deletes are lightweight but use same wrapper)
+            await asyncio.to_thread(
+                _run_turbopuffer_write_in_thread,
+                api_key=self.api_key,
+                region=self.region,
+                namespace_name=namespace_name,
+                deletes=[passage_id],
+            )
+            logger.info(f"Successfully deleted passage {passage_id} from Turbopuffer archive {archive_id}")
+            return True
         except Exception as e:
             logger.error(f"Failed to delete passage from Turbopuffer: {e}")
             raise
@@ -1329,12 +1409,16 @@ class TurbopufferClient:
         namespace_name = await self._get_archive_namespace_name(archive_id)
 
         try:
-            async with AsyncTurbopuffer(api_key=self.api_key, region=self.region) as client:
-                namespace = client.namespace(namespace_name)
-                # Use write API with deletes parameter as per Turbopuffer docs
-                await namespace.write(deletes=passage_ids)
-                logger.info(f"Successfully deleted {len(passage_ids)} passages from Turbopuffer archive {archive_id}")
-                return True
+            # Run in thread pool for consistency
+            await asyncio.to_thread(
+                _run_turbopuffer_write_in_thread,
+                api_key=self.api_key,
+                region=self.region,
+                namespace_name=namespace_name,
+                deletes=passage_ids,
+            )
+            logger.info(f"Successfully deleted {len(passage_ids)} passages from Turbopuffer archive {archive_id}")
+            return True
         except Exception as e:
             logger.error(f"Failed to delete passages from Turbopuffer: {e}")
             raise
@@ -1368,12 +1452,16 @@ class TurbopufferClient:
         namespace_name = await self._get_message_namespace_name(organization_id)
 
         try:
-            async with AsyncTurbopuffer(api_key=self.api_key, region=self.region) as client:
-                namespace = client.namespace(namespace_name)
-                # Use write API with deletes parameter as per Turbopuffer docs
-                await namespace.write(deletes=message_ids)
-                logger.info(f"Successfully deleted {len(message_ids)} messages from Turbopuffer for agent {agent_id}")
-                return True
+            # Run in thread pool for consistency
+            await asyncio.to_thread(
+                _run_turbopuffer_write_in_thread,
+                api_key=self.api_key,
+                region=self.region,
+                namespace_name=namespace_name,
+                deletes=message_ids,
+            )
+            logger.info(f"Successfully deleted {len(message_ids)} messages from Turbopuffer for agent {agent_id}")
+            return True
         except Exception as e:
             logger.error(f"Failed to delete messages from Turbopuffer: {e}")
             raise
@@ -1386,13 +1474,16 @@ class TurbopufferClient:
         namespace_name = await self._get_message_namespace_name(organization_id)
 
         try:
-            async with AsyncTurbopuffer(api_key=self.api_key, region=self.region) as client:
-                namespace = client.namespace(namespace_name)
-                # Use delete_by_filter to only delete messages for this agent
-                # since namespace is now org-scoped
-                result = await namespace.write(delete_by_filter=("agent_id", "Eq", agent_id))
-                logger.info(f"Successfully deleted all messages for agent {agent_id} (deleted {result.rows_affected} rows)")
-                return True
+            # Run in thread pool for consistency
+            result = await asyncio.to_thread(
+                _run_turbopuffer_write_in_thread,
+                api_key=self.api_key,
+                region=self.region,
+                namespace_name=namespace_name,
+                delete_by_filter=("agent_id", "Eq", agent_id),
+            )
+            logger.info(f"Successfully deleted all messages for agent {agent_id} (deleted {result.rows_affected if result else 0} rows)")
+            return True
         except Exception as e:
             logger.error(f"Failed to delete all messages from Turbopuffer: {e}")
             raise
@@ -1511,19 +1602,20 @@ class TurbopufferClient:
         }
 
         try:
-            # use global semaphore to limit concurrent Turbopuffer writes
+            # Use global semaphore to limit concurrent Turbopuffer writes
             async with _GLOBAL_TURBOPUFFER_SEMAPHORE:
-                # use AsyncTurbopuffer as a context manager for proper resource cleanup
-                async with AsyncTurbopuffer(api_key=self.api_key, region=self.region) as client:
-                    namespace = client.namespace(namespace_name)
-                    # turbopuffer recommends column-based writes for performance
-                    await namespace.write(
-                        upsert_columns=upsert_columns,
-                        distance_metric="cosine_distance",
-                        schema={"text": {"type": "string", "full_text_search": True}},
-                    )
-                    logger.info(f"Successfully inserted {len(ids)} file passages to Turbopuffer for source {source_id}, file {file_id}")
-                    return passages
+                # Run in thread pool to prevent CPU-intensive base64 encoding from blocking event loop
+                await asyncio.to_thread(
+                    _run_turbopuffer_write_in_thread,
+                    api_key=self.api_key,
+                    region=self.region,
+                    namespace_name=namespace_name,
+                    upsert_columns=upsert_columns,
+                    distance_metric="cosine_distance",
+                    schema={"text": {"type": "string", "full_text_search": True}},
+                )
+                logger.info(f"Successfully inserted {len(ids)} file passages to Turbopuffer for source {source_id}, file {file_id}")
+                return passages
 
         except Exception as e:
             logger.error(f"Failed to insert file passages to Turbopuffer: {e}")
@@ -1680,16 +1772,22 @@ class TurbopufferClient:
         namespace_name = await self._get_file_passages_namespace_name(organization_id)
 
         try:
-            async with AsyncTurbopuffer(api_key=self.api_key, region=self.region) as client:
-                namespace = client.namespace(namespace_name)
-                # use delete_by_filter to only delete passages for this file
-                # need to filter by both source_id and file_id
-                filter_expr = ("And", [("source_id", "Eq", source_id), ("file_id", "Eq", file_id)])
-                result = await namespace.write(delete_by_filter=filter_expr)
-                logger.info(
-                    f"Successfully deleted passages for file {file_id} from source {source_id} (deleted {result.rows_affected} rows)"
-                )
-                return True
+            # use delete_by_filter to only delete passages for this file
+            # need to filter by both source_id and file_id
+            filter_expr = ("And", [("source_id", "Eq", source_id), ("file_id", "Eq", file_id)])
+
+            # Run in thread pool for consistency
+            result = await asyncio.to_thread(
+                _run_turbopuffer_write_in_thread,
+                api_key=self.api_key,
+                region=self.region,
+                namespace_name=namespace_name,
+                delete_by_filter=filter_expr,
+            )
+            logger.info(
+                f"Successfully deleted passages for file {file_id} from source {source_id} (deleted {result.rows_affected if result else 0} rows)"
+            )
+            return True
         except Exception as e:
             logger.error(f"Failed to delete file passages from Turbopuffer: {e}")
             raise
@@ -1702,12 +1800,16 @@ class TurbopufferClient:
         namespace_name = await self._get_file_passages_namespace_name(organization_id)
 
         try:
-            async with AsyncTurbopuffer(api_key=self.api_key, region=self.region) as client:
-                namespace = client.namespace(namespace_name)
-                # delete all passages for this source
-                result = await namespace.write(delete_by_filter=("source_id", "Eq", source_id))
-                logger.info(f"Successfully deleted all passages for source {source_id} (deleted {result.rows_affected} rows)")
-                return True
+            # Run in thread pool for consistency
+            result = await asyncio.to_thread(
+                _run_turbopuffer_write_in_thread,
+                api_key=self.api_key,
+                region=self.region,
+                namespace_name=namespace_name,
+                delete_by_filter=("source_id", "Eq", source_id),
+            )
+            logger.info(f"Successfully deleted all passages for source {source_id} (deleted {result.rows_affected if result else 0} rows)")
+            return True
         except Exception as e:
             logger.error(f"Failed to delete source passages from Turbopuffer: {e}")
             raise
@@ -1733,11 +1835,16 @@ class TurbopufferClient:
         namespace_name = await self._get_tool_namespace_name(organization_id)
 
         try:
-            async with AsyncTurbopuffer(api_key=self.api_key, region=self.region) as client:
-                namespace = client.namespace(namespace_name)
-                await namespace.write(deletes=tool_ids)
-                logger.info(f"Successfully deleted {len(tool_ids)} tools from Turbopuffer")
-                return True
+            # Run in thread pool for consistency
+            await asyncio.to_thread(
+                _run_turbopuffer_write_in_thread,
+                api_key=self.api_key,
+                region=self.region,
+                namespace_name=namespace_name,
+                deletes=tool_ids,
+            )
+            logger.info(f"Successfully deleted {len(tool_ids)} tools from Turbopuffer")
+            return True
         except Exception as e:
             logger.error(f"Failed to delete tools from Turbopuffer: {e}")
             raise

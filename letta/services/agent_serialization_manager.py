@@ -33,6 +33,7 @@ from letta.schemas.embedding_config import EmbeddingConfig
 from letta.schemas.enums import FileProcessingStatus, VectorDBProvider
 from letta.schemas.file import FileMetadata
 from letta.schemas.group import Group, GroupCreate
+from letta.schemas.llm_config import LLMConfig
 from letta.schemas.mcp import MCPServer
 from letta.schemas.message import Message
 from letta.schemas.source import Source
@@ -358,12 +359,14 @@ class AgentSerializationManager:
             logger.error(f"Failed to convert group {group.id}: {e}")
             raise
 
-    async def export(self, agent_ids: List[str], actor: User) -> AgentFileSchema:
+    async def export(self, agent_ids: List[str], actor: User, conversation_id: Optional[str] = None) -> AgentFileSchema:
         """
         Export agents and their related entities to AgentFileSchema format.
 
         Args:
             agent_ids: List of agent UUIDs to export
+            conversation_id: Optional conversation ID. If provided, uses the conversation's
+                           in-context message_ids instead of the agent's global message_ids.
 
         Returns:
             AgentFileSchema with all related entities
@@ -375,6 +378,19 @@ class AgentSerializationManager:
             self._reset_state()
 
             agent_states = await self.agent_manager.get_agents_by_ids_async(agent_ids=agent_ids, actor=actor)
+
+            # If conversation_id is provided, override the agent's message_ids with conversation's
+            if conversation_id:
+                from letta.services.conversation_manager import ConversationManager
+
+                conversation_manager = ConversationManager()
+                conversation_message_ids = await conversation_manager.get_message_ids_for_conversation(
+                    conversation_id=conversation_id,
+                    actor=actor,
+                )
+                # Override message_ids for the first agent (conversation export is single-agent)
+                if agent_states:
+                    agent_states[0].message_ids = conversation_message_ids
 
             # Validate that all requested agents were found
             if len(agent_states) != len(agent_ids):
@@ -457,6 +473,7 @@ class AgentSerializationManager:
         dry_run: bool = False,
         env_vars: Optional[Dict[str, Any]] = None,
         override_embedding_config: Optional[EmbeddingConfig] = None,
+        override_llm_config: Optional[LLMConfig] = None,
         project_id: Optional[str] = None,
     ) -> ImportResult:
         """
@@ -656,6 +673,11 @@ class AgentSerializationManager:
                 if override_embedding_config:
                     agent_schema.embedding_config = override_embedding_config
                     agent_schema.embedding = override_embedding_config.handle
+
+                # Override llm_config if provided (keeps other defaults like context size)
+                if override_llm_config:
+                    agent_schema.llm_config = override_llm_config
+                    agent_schema.model = override_llm_config.handle
 
                 # Convert AgentSchema back to CreateAgent, remapping tool/block IDs
                 agent_data = agent_schema.model_dump(exclude={"id", "in_context_message_ids", "messages"})

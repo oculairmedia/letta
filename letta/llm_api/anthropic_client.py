@@ -48,6 +48,7 @@ from letta.schemas.openai.chat_completion_response import (
     UsageStatistics,
 )
 from letta.schemas.response_format import JsonSchemaResponseFormat
+from letta.schemas.usage import LettaUsageStatistics
 from letta.settings import model_settings
 
 DUMMY_FIRST_USER_MESSAGE = "User initializing bootup sequence."
@@ -83,17 +84,9 @@ class AnthropicClient(LLMClientBase):
         if llm_config.model.startswith("claude-opus-4-5") and llm_config.enable_reasoner:
             betas.append("context-management-2025-06-27")
 
-        # Structured outputs beta - only for supported models
-        # Supported: Claude Sonnet 4.5, Opus 4.1, Opus 4.5, Haiku 4.5
-        # DISABLED: Commenting out structured outputs to investigate TTFT latency impact
-        # See PR #7495 for original implementation
-        # supports_structured_outputs = _supports_structured_outputs(llm_config.model)
-        #
-        # if supports_structured_outputs:
-        #     # Always enable structured outputs beta on supported models.
-        #     # NOTE: We do NOT send `strict` on tool schemas because the current Anthropic SDK
-        #     # typed tool params reject unknown fields (e.g., `tools.0.custom.strict`).
-        #     betas.append("structured-outputs-2025-11-13")
+        # Structured outputs beta - only when strict is enabled and model supports it
+        if llm_config.strict and _supports_structured_outputs(llm_config.model):
+            betas.append("structured-outputs-2025-11-13")
 
         if betas:
             response = client.beta.messages.create(**request_data, betas=betas)
@@ -128,20 +121,136 @@ class AnthropicClient(LLMClientBase):
         if llm_config.model.startswith("claude-opus-4-5") and llm_config.enable_reasoner:
             betas.append("context-management-2025-06-27")
 
-        # Structured outputs beta - only for supported models
-        # DISABLED: Commenting out structured outputs to investigate TTFT latency impact
-        # See PR #7495 for original implementation
-        # supports_structured_outputs = _supports_structured_outputs(llm_config.model)
-        #
-        # if supports_structured_outputs:
-        #     betas.append("structured-outputs-2025-11-13")
+        # Structured outputs beta - only when strict is enabled and model supports it
+        if llm_config.strict and _supports_structured_outputs(llm_config.model):
+            betas.append("structured-outputs-2025-11-13")
 
-        if betas:
-            response = await client.beta.messages.create(**request_data, betas=betas)
-        else:
-            response = await client.beta.messages.create(**request_data)
+        try:
+            if betas:
+                response = await client.beta.messages.create(**request_data, betas=betas)
+            else:
+                response = await client.beta.messages.create(**request_data)
+            return response.model_dump()
+        except ValueError as e:
+            # Anthropic SDK raises ValueError when streaming is required for long-running operations
+            # See: https://github.com/anthropics/anthropic-sdk-python#long-requests
+            if "streaming is required" in str(e).lower():
+                logger.warning(
+                    "[Anthropic] Non-streaming request rejected due to potential long duration. Falling back to streaming mode. Error: %s",
+                    str(e),
+                )
+                return await self._request_via_streaming(request_data, llm_config, betas)
+            raise
 
-        return response.model_dump()
+    @trace_method
+    async def _request_via_streaming(self, request_data: dict, llm_config: LLMConfig, betas: list[str]) -> dict:
+        """
+        Fallback method that uses streaming to handle long-running requests.
+
+        When Anthropic SDK detects a request may exceed 10 minutes, it requires streaming.
+        This method streams the response and accumulates it into the same dict format
+        as the non-streaming response.
+
+        See: https://github.com/anthropics/anthropic-sdk-python#long-requests
+        """
+        from letta.interfaces.anthropic_parallel_tool_call_streaming_interface import (
+            SimpleAnthropicStreamingInterface,
+        )
+
+        interface = SimpleAnthropicStreamingInterface(
+            requires_approval_tools=[],
+            run_id=None,
+            step_id=None,
+        )
+
+        # Get the streaming response
+        stream = await self.stream_async(request_data, llm_config)
+
+        # Process the stream to accumulate the response
+        async for _chunk in interface.process(stream):
+            # We don't emit anything; we just want the fully-accumulated content
+            pass
+
+        # Reconstruct the response dict in the same format as non-streaming
+        # Build content array from accumulated data
+        content = []
+
+        # Add reasoning content (thinking blocks)
+        reasoning_parts = interface.get_reasoning_content()
+        for part in reasoning_parts:
+            if hasattr(part, "reasoning") and part.reasoning:
+                # Native thinking block
+                content.append(
+                    {
+                        "type": "thinking",
+                        "thinking": part.reasoning,
+                        "signature": getattr(part, "signature", None),
+                    }
+                )
+            elif hasattr(part, "data") and part.data:
+                # Redacted thinking block
+                content.append(
+                    {
+                        "type": "redacted_thinking",
+                        "data": part.data,
+                    }
+                )
+            elif hasattr(part, "text") and part.text:
+                # Text content (non-native reasoning)
+                content.append(
+                    {
+                        "type": "text",
+                        "text": part.text,
+                    }
+                )
+
+        # Add tool use if present
+        tool_call = interface.get_tool_call_object()
+        if tool_call:
+            try:
+                tool_input = json.loads(tool_call.function.arguments)
+            except json.JSONDecodeError:
+                tool_input = {}
+            content.append(
+                {
+                    "type": "tool_use",
+                    "id": tool_call.id,
+                    "name": tool_call.function.name,
+                    "input": tool_input,
+                }
+            )
+
+        # Calculate total input tokens (Anthropic reports input_tokens as non-cached only)
+        # We need to add cache tokens if they're available
+        input_tokens = interface.input_tokens or 0
+        cache_read_tokens = getattr(interface, "cache_read_tokens", 0) or 0
+        cache_creation_tokens = getattr(interface, "cache_creation_tokens", 0) or 0
+
+        # Build the response dict
+        response_dict = {
+            "id": interface.message_id or "msg_streaming_fallback",
+            "type": "message",
+            "role": "assistant",
+            "content": content,
+            "model": interface.model or llm_config.model,
+            "stop_reason": "tool_use" if tool_call else "end_turn",
+            "stop_sequence": None,
+            "usage": {
+                "input_tokens": input_tokens,
+                "output_tokens": interface.output_tokens or 0,
+                "cache_read_input_tokens": cache_read_tokens,
+                "cache_creation_input_tokens": cache_creation_tokens,
+            },
+        }
+
+        logger.info(
+            "[Anthropic] Streaming fallback completed successfully. Message ID: %s, Input tokens: %d, Output tokens: %d",
+            response_dict["id"],
+            response_dict["usage"]["input_tokens"],
+            response_dict["usage"]["output_tokens"],
+        )
+
+        return response_dict
 
     @trace_method
     async def stream_async(self, request_data: dict, llm_config: LLMConfig) -> AsyncStream[BetaRawMessageStreamEvent]:
@@ -177,13 +286,9 @@ class AnthropicClient(LLMClientBase):
         if llm_config.model.startswith("claude-opus-4-5") and llm_config.enable_reasoner:
             betas.append("context-management-2025-06-27")
 
-        # Structured outputs beta - only for supported models
-        # DISABLED: Commenting out structured outputs to investigate TTFT latency impact
-        # See PR #7495 for original implementation
-        # supports_structured_outputs = _supports_structured_outputs(llm_config.model)
-        #
-        # if supports_structured_outputs:
-        #     betas.append("structured-outputs-2025-11-13")
+        # Structured outputs beta - only when strict is enabled and model supports it
+        if llm_config.strict and _supports_structured_outputs(llm_config.model):
+            betas.append("structured-outputs-2025-11-13")
 
         # log failed requests
         try:
@@ -343,8 +448,14 @@ class AnthropicClient(LLMClientBase):
         else:
             max_output_tokens = llm_config.max_tokens
 
+        # Strip provider prefix from model name if present (e.g., "anthropic/claude-..." -> "claude-...")
+        # This handles cases where the handle format was incorrectly passed as the model name
+        model_name = llm_config.model
+        if "/" in model_name:
+            model_name = model_name.split("/", 1)[-1]
+
         data = {
-            "model": llm_config.model,
+            "model": model_name,
             "max_tokens": max_output_tokens,
             "temperature": llm_config.temperature,
         }
@@ -440,11 +551,11 @@ class AnthropicClient(LLMClientBase):
 
         if tools_for_request and len(tools_for_request) > 0:
             # TODO eventually enable parallel tool use
-            # DISABLED: use_strict=False to disable structured outputs (TTFT latency impact)
-            # See PR #7495 for original implementation
+            # Enable strict mode when strict is enabled and model supports it
+            use_strict = llm_config.strict and _supports_structured_outputs(llm_config.model)
             data["tools"] = convert_tools_to_anthropic_format(
                 tools_for_request,
-                use_strict=False,  # Was: _supports_structured_outputs(llm_config.model)
+                use_strict=use_strict,
             )
             # Add cache control to the last tool for caching tool definitions
             if len(data["tools"]) > 0:
@@ -667,6 +778,18 @@ class AnthropicClient(LLMClientBase):
                                 if not block.get("text", "").strip():
                                     block["text"] = "."
 
+                # Strip trailing whitespace from final assistant message
+                # Anthropic API rejects messages where "final assistant content cannot end with trailing whitespace"
+                if is_final_assistant:
+                    if isinstance(content, str):
+                        msg["content"] = content.rstrip()
+                    elif isinstance(content, list) and len(content) > 0:
+                        # Find and strip trailing whitespace from the last text block
+                        for block in reversed(content):
+                            if isinstance(block, dict) and block.get("type") == "text":
+                                block["text"] = block.get("text", "").rstrip()
+                                break
+
         try:
             count_params = {
                 "model": model or "claude-3-7-sonnet-20250219",
@@ -866,6 +989,35 @@ class AnthropicClient(LLMClientBase):
 
         return super().handle_llm_error(e)
 
+    def extract_usage_statistics(self, response_data: dict | None, llm_config: LLMConfig) -> LettaUsageStatistics:
+        """Extract usage statistics from Anthropic response and return as LettaUsageStatistics."""
+        if not response_data:
+            return LettaUsageStatistics()
+
+        response = AnthropicMessage(**response_data)
+        prompt_tokens = response.usage.input_tokens
+        completion_tokens = response.usage.output_tokens
+
+        # Extract cache data if available (None means not reported, 0 means reported as 0)
+        cache_read_tokens = None
+        cache_creation_tokens = None
+        if hasattr(response.usage, "cache_read_input_tokens"):
+            cache_read_tokens = response.usage.cache_read_input_tokens
+        if hasattr(response.usage, "cache_creation_input_tokens"):
+            cache_creation_tokens = response.usage.cache_creation_input_tokens
+
+        # Per Anthropic docs: "Total input tokens in a request is the summation of
+        # input_tokens, cache_creation_input_tokens, and cache_read_input_tokens."
+        actual_input_tokens = prompt_tokens + (cache_read_tokens or 0) + (cache_creation_tokens or 0)
+
+        return LettaUsageStatistics(
+            prompt_tokens=actual_input_tokens,
+            completion_tokens=completion_tokens,
+            total_tokens=actual_input_tokens + completion_tokens,
+            cached_input_tokens=cache_read_tokens,
+            cache_write_tokens=cache_creation_tokens,
+        )
+
     # TODO: Input messages doesn't get used here
     # TODO: Clean up this interface
     @trace_method
@@ -910,9 +1062,12 @@ class AnthropicClient(LLMClientBase):
         }
         """
         response = AnthropicMessage(**response_data)
-        prompt_tokens = response.usage.input_tokens
-        completion_tokens = response.usage.output_tokens
         finish_reason = remap_finish_reason(str(response.stop_reason))
+
+        # Extract usage via centralized method
+        from letta.schemas.enums import ProviderType
+
+        usage_stats = self.extract_usage_statistics(response_data, llm_config).to_usage(ProviderType.anthropic)
 
         content = None
         reasoning_content = None
@@ -978,35 +1133,12 @@ class AnthropicClient(LLMClientBase):
             ),
         )
 
-        # Build prompt tokens details with cache data if available
-        prompt_tokens_details = None
-        cache_read_tokens = 0
-        cache_creation_tokens = 0
-        if hasattr(response.usage, "cache_read_input_tokens") or hasattr(response.usage, "cache_creation_input_tokens"):
-            from letta.schemas.openai.chat_completion_response import UsageStatisticsPromptTokenDetails
-
-            cache_read_tokens = getattr(response.usage, "cache_read_input_tokens", 0) or 0
-            cache_creation_tokens = getattr(response.usage, "cache_creation_input_tokens", 0) or 0
-            prompt_tokens_details = UsageStatisticsPromptTokenDetails(
-                cache_read_tokens=cache_read_tokens,
-                cache_creation_tokens=cache_creation_tokens,
-            )
-
-        # Per Anthropic docs: "Total input tokens in a request is the summation of
-        # input_tokens, cache_creation_input_tokens, and cache_read_input_tokens."
-        actual_input_tokens = prompt_tokens + cache_read_tokens + cache_creation_tokens
-
         chat_completion_response = ChatCompletionResponse(
             id=response.id,
             choices=[choice],
             created=get_utc_time_int(),
             model=response.model,
-            usage=UsageStatistics(
-                prompt_tokens=actual_input_tokens,
-                completion_tokens=completion_tokens,
-                total_tokens=actual_input_tokens + completion_tokens,
-                prompt_tokens_details=prompt_tokens_details,
-            ),
+            usage=usage_stats,
         )
         if llm_config.put_inner_thoughts_in_kwargs:
             chat_completion_response = unpack_all_inner_thoughts_from_kwargs(
@@ -1165,14 +1297,14 @@ def convert_tools_to_anthropic_format(
         # when we are using structured outputs models. Limit the number of strict tools
         # to avoid exceeding Anthropic constraints.
         # NOTE: The token counting endpoint does NOT support `strict` - only the messages endpoint does.
-        if (
-            use_strict
-            and add_strict_field
-            and tool.function.name in ANTHROPIC_STRICT_MODE_ALLOWLIST
-            and strict_count < ANTHROPIC_MAX_STRICT_TOOLS
-        ):
-            formatted_tool["strict"] = True
-            strict_count += 1
+        if use_strict and add_strict_field and tool.function.name in ANTHROPIC_STRICT_MODE_ALLOWLIST:
+            if strict_count < ANTHROPIC_MAX_STRICT_TOOLS:
+                formatted_tool["strict"] = True
+                strict_count += 1
+            else:
+                logger.warning(
+                    f"Exceeded max strict tools limit ({ANTHROPIC_MAX_STRICT_TOOLS}), tool '{tool.function.name}' will not use strict mode"
+                )
 
         formatted_tools.append(formatted_tool)
 

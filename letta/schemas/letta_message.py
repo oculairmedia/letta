@@ -7,8 +7,10 @@ from pydantic import BaseModel, Field, field_serializer, field_validator
 
 from letta.schemas.letta_message_content import (
     LettaAssistantMessageContentUnion,
+    LettaToolReturnContentUnion,
     LettaUserMessageContentUnion,
     get_letta_assistant_message_content_union_str_json_schema,
+    get_letta_tool_return_content_union_str_json_schema,
     get_letta_user_message_content_union_str_json_schema,
 )
 
@@ -35,7 +37,11 @@ class ApprovalReturn(MessageReturn):
 
 class ToolReturn(MessageReturn):
     type: Literal[MessageReturnType.tool] = Field(default=MessageReturnType.tool, description="The message type to be created.")
-    tool_return: str
+    tool_return: Union[str, List[LettaToolReturnContentUnion]] = Field(
+        ...,
+        description="The tool return value - either a string or list of content parts (text/image)",
+        json_schema_extra=get_letta_tool_return_content_union_str_json_schema(),
+    )
     status: Literal["success", "error"]
     tool_call_id: str
     stdout: Optional[List[str]] = None
@@ -377,6 +383,7 @@ class LettaErrorMessage(BaseModel):
         error_type (str): The type of error
         message (str): The error message
         detail (Optional[str]): An optional error detail
+        seq_id (Optional[int]): The sequence ID for cursor-based pagination
     """
 
     message_type: Literal["error_message"] = "error_message"
@@ -384,6 +391,7 @@ class LettaErrorMessage(BaseModel):
     error_type: str
     message: str
     detail: Optional[str] = None
+    seq_id: Optional[int] = None
 
 
 class SummaryMessage(LettaMessage):
@@ -458,24 +466,6 @@ def create_letta_message_union_schema():
     }
 
 
-def create_letta_ping_schema():
-    return {
-        "properties": {
-            "message_type": {
-                "type": "string",
-                "const": "ping",
-                "title": "Message Type",
-                "description": "The type of the message.",
-                "default": "ping",
-            }
-        },
-        "type": "object",
-        "required": ["message_type"],
-        "title": "LettaPing",
-        "description": "Ping messages are a keep-alive to prevent SSE streams from timing out during long running requests.",
-    }
-
-
 def create_letta_error_message_schema():
     return {
         "properties": {
@@ -505,6 +495,11 @@ def create_letta_error_message_schema():
                 "type": "string",
                 "title": "Detail",
                 "description": "An optional error detail.",
+            },
+            "seq_id": {
+                "type": "integer",
+                "title": "Seq ID",
+                "description": "The sequence ID for cursor-based pagination.",
             },
         },
         "type": "object",
@@ -574,6 +569,10 @@ class SystemMessageListResult(UpdateSystemMessage):
         default=None,
         description="The unique identifier of the agent that owns the message.",
     )
+    conversation_id: str | None = Field(
+        default=None,
+        description="The unique identifier of the conversation that the message belongs to.",
+    )
 
     created_at: datetime = Field(..., description="The time the message was created in ISO format.")
 
@@ -591,6 +590,10 @@ class UserMessageListResult(UpdateUserMessage):
     agent_id: str | None = Field(
         default=None,
         description="The unique identifier of the agent that owns the message.",
+    )
+    conversation_id: str | None = Field(
+        default=None,
+        description="The unique identifier of the conversation that the message belongs to.",
     )
 
     created_at: datetime = Field(..., description="The time the message was created in ISO format.")
@@ -610,6 +613,10 @@ class ReasoningMessageListResult(UpdateReasoningMessage):
         default=None,
         description="The unique identifier of the agent that owns the message.",
     )
+    conversation_id: str | None = Field(
+        default=None,
+        description="The unique identifier of the conversation that the message belongs to.",
+    )
 
     created_at: datetime = Field(..., description="The time the message was created in ISO format.")
 
@@ -627,6 +634,10 @@ class AssistantMessageListResult(UpdateAssistantMessage):
     agent_id: str | None = Field(
         default=None,
         description="The unique identifier of the agent that owns the message.",
+    )
+    conversation_id: str | None = Field(
+        default=None,
+        description="The unique identifier of the conversation that the message belongs to.",
     )
 
     created_at: datetime = Field(..., description="The time the message was created in ISO format.")

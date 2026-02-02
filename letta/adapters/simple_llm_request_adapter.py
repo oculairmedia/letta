@@ -38,9 +38,20 @@ class SimpleLLMRequestAdapter(LettaLLMRequestAdapter):
         # Store request data
         self.request_data = request_data
 
-        # Make the blocking LLM request
+        # Set telemetry context and make the blocking LLM request
+        self.llm_client.set_telemetry_context(
+            telemetry_manager=self.telemetry_manager,
+            step_id=step_id,
+            agent_id=self.agent_id,
+            agent_tags=self.agent_tags,
+            run_id=self.run_id,
+            call_type="agent_step",
+            org_id=self.org_id,
+            user_id=self.user_id,
+            llm_config=self.llm_config.model_dump() if self.llm_config else None,
+        )
         try:
-            self.response_data = await self.llm_client.request_async(request_data, self.llm_config)
+            self.response_data = await self.llm_client.request_async_with_telemetry(request_data, self.llm_config)
         except Exception as e:
             raise self.llm_client.handle_llm_error(e)
 

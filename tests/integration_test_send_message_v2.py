@@ -484,8 +484,22 @@ def is_reasoner_model(model_handle: str, model_settings: dict) -> bool:
     )
     # Z.ai models output reasoning by default
     is_zai_reasoning = model_settings.get("provider_type") == "zai"
+    # Bedrock Anthropic reasoning models
+    is_bedrock_reasoning = model_settings.get("provider_type") == "bedrock" and (
+        "claude-3-7-sonnet" in model_handle
+        or "claude-sonnet-4" in model_handle
+        or "claude-opus-4" in model_handle
+        or "claude-haiku-4-5" in model_handle
+    )
 
-    return is_openai_reasoning or is_anthropic_reasoning or is_google_vertex_reasoning or is_google_ai_reasoning or is_zai_reasoning
+    return (
+        is_openai_reasoning
+        or is_anthropic_reasoning
+        or is_google_vertex_reasoning
+        or is_google_ai_reasoning
+        or is_zai_reasoning
+        or is_bedrock_reasoning
+    )
 
 
 # ------------------------------
@@ -653,8 +667,8 @@ async def test_parallel_tool_calls(
     model_handle, model_settings = model_config
     provider_type = model_settings.get("provider_type", "")
 
-    if provider_type not in ["anthropic", "openai", "google_ai", "google_vertex"]:
-        pytest.skip("Parallel tool calling test only applies to Anthropic, OpenAI, and Gemini models.")
+    if provider_type not in ["anthropic", "openai", "google_ai", "google_vertex", "bedrock"]:
+        pytest.skip("Parallel tool calling test only applies to Anthropic, OpenAI, Gemini, and Bedrock models.")
 
     if "gpt-5" in model_handle or "o3" in model_handle:
         pytest.skip("GPT-5 takes too long to test, o3 is bad at this task.")
@@ -1000,6 +1014,65 @@ async def test_conversation_streaming_raw_http(
         # Check message types are present
         message_types = [msg.get("message_type") for msg in conversation_messages]
         assert "user_message" in message_types, f"Expected user_message in {message_types}"
+        assert "assistant_message" in message_types, f"Expected assistant_message in {message_types}"
+
+
+@pytest.mark.parametrize(
+    "model_config",
+    TESTED_MODEL_CONFIGS,
+    ids=[handle for handle, _ in TESTED_MODEL_CONFIGS],
+)
+@pytest.mark.asyncio(loop_scope="function")
+async def test_conversation_non_streaming_raw_http(
+    disable_e2b_api_key: Any,
+    client: AsyncLetta,
+    server_url: str,
+    agent_state: AgentState,
+    model_config: Tuple[str, dict],
+) -> None:
+    """
+    Test conversation-based non-streaming functionality using raw HTTP requests.
+
+    This test verifies that:
+    1. A conversation can be created for an agent
+    2. Messages can be sent to the conversation without streaming (streaming=False)
+    3. The JSON response contains the expected message types
+    """
+    import httpx
+
+    model_handle, model_settings = model_config
+    agent_state = await client.agents.update(agent_id=agent_state.id, model=model_handle, model_settings=model_settings)
+
+    async with httpx.AsyncClient(base_url=server_url, timeout=60.0) as http_client:
+        # Create a conversation for the agent
+        create_response = await http_client.post(
+            "/v1/conversations/",
+            params={"agent_id": agent_state.id},
+            json={},
+        )
+        assert create_response.status_code == 200, f"Failed to create conversation: {create_response.text}"
+        conversation = create_response.json()
+        assert conversation["id"] is not None
+        assert conversation["agent_id"] == agent_state.id
+
+        # Send a message to the conversation using NON-streaming mode
+        response = await http_client.post(
+            f"/v1/conversations/{conversation['id']}/messages",
+            json={
+                "messages": [{"role": "user", "content": f"Reply with the message '{USER_MESSAGE_RESPONSE}'."}],
+                "streaming": False,  # Non-streaming mode
+            },
+        )
+        assert response.status_code == 200, f"Failed to send message: {response.text}"
+
+        # Parse JSON response (LettaResponse)
+        result = response.json()
+        assert "messages" in result, f"Expected 'messages' in response: {result}"
+        messages = result["messages"]
+
+        # Verify the response contains expected message types
+        assert len(messages) > 0, "Expected at least one message in response"
+        message_types = [msg.get("message_type") for msg in messages]
         assert "assistant_message" in message_types, f"Expected assistant_message in {message_types}"
 
 

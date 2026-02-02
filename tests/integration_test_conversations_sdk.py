@@ -6,6 +6,7 @@ import uuid
 from time import sleep
 
 import pytest
+import requests
 from letta_client import Letta
 
 
@@ -396,3 +397,314 @@ class TestConversationsSDK:
             )
         )
         assert len(messages) > 0, "Should be able to send message after concurrent requests complete"
+
+    def test_list_conversation_messages_order_asc(self, client: Letta, agent):
+        """Test listing messages in ascending order (oldest first)."""
+        conversation = client.conversations.create(agent_id=agent.id)
+
+        # Send messages to create history
+        list(
+            client.conversations.messages.create(
+                conversation_id=conversation.id,
+                messages=[{"role": "user", "content": "First message"}],
+            )
+        )
+        list(
+            client.conversations.messages.create(
+                conversation_id=conversation.id,
+                messages=[{"role": "user", "content": "Second message"}],
+            )
+        )
+
+        # List messages in ascending order (oldest first)
+        messages_asc = client.conversations.messages.list(
+            conversation_id=conversation.id,
+            order="asc",
+        )
+
+        # First message should be system message (oldest)
+        assert messages_asc[0].message_type == "system_message"
+
+        # Get user messages and verify order
+        user_messages = [m for m in messages_asc if m.message_type == "user_message"]
+        assert len(user_messages) >= 2
+        # First user message should contain "First message"
+        assert "First" in user_messages[0].content
+
+    def test_list_conversation_messages_order_desc(self, client: Letta, agent):
+        """Test listing messages in descending order (newest first)."""
+        conversation = client.conversations.create(agent_id=agent.id)
+
+        # Send messages to create history
+        list(
+            client.conversations.messages.create(
+                conversation_id=conversation.id,
+                messages=[{"role": "user", "content": "First message"}],
+            )
+        )
+        list(
+            client.conversations.messages.create(
+                conversation_id=conversation.id,
+                messages=[{"role": "user", "content": "Second message"}],
+            )
+        )
+
+        # List messages in descending order (newest first) - this is the default
+        messages_desc = client.conversations.messages.list(
+            conversation_id=conversation.id,
+            order="desc",
+        )
+
+        # Get user messages and verify order
+        user_messages = [m for m in messages_desc if m.message_type == "user_message"]
+        assert len(user_messages) >= 2
+        # First user message in desc order should contain "Second message" (newest)
+        assert "Second" in user_messages[0].content
+
+    def test_list_conversation_messages_order_affects_pagination(self, client: Letta, agent):
+        """Test that order parameter affects pagination correctly."""
+        conversation = client.conversations.create(agent_id=agent.id)
+
+        # Send multiple messages
+        for i in range(3):
+            list(
+                client.conversations.messages.create(
+                    conversation_id=conversation.id,
+                    messages=[{"role": "user", "content": f"Message {i}"}],
+                )
+            )
+
+        # Get all messages in descending order with limit
+        messages_desc = client.conversations.messages.list(
+            conversation_id=conversation.id,
+            order="desc",
+            limit=5,
+        )
+
+        # Get all messages in ascending order with limit
+        messages_asc = client.conversations.messages.list(
+            conversation_id=conversation.id,
+            order="asc",
+            limit=5,
+        )
+
+        # The first messages should be different based on order
+        assert messages_desc[0].id != messages_asc[0].id
+
+    def test_list_conversation_messages_with_before_cursor(self, client: Letta, agent):
+        """Test pagination with before cursor."""
+        conversation = client.conversations.create(agent_id=agent.id)
+
+        # Send messages to create history
+        list(
+            client.conversations.messages.create(
+                conversation_id=conversation.id,
+                messages=[{"role": "user", "content": "First message"}],
+            )
+        )
+        list(
+            client.conversations.messages.create(
+                conversation_id=conversation.id,
+                messages=[{"role": "user", "content": "Second message"}],
+            )
+        )
+
+        # Get all messages first
+        all_messages = client.conversations.messages.list(
+            conversation_id=conversation.id,
+            order="asc",
+        )
+        assert len(all_messages) >= 4  # system + user + assistant + user + assistant
+
+        # Use the last message ID as cursor
+        last_message_id = all_messages[-1].id
+        messages_before = client.conversations.messages.list(
+            conversation_id=conversation.id,
+            order="asc",
+            before=last_message_id,
+        )
+
+        # Should have fewer messages (all except the last one)
+        assert len(messages_before) < len(all_messages)
+        # Should not contain the cursor message
+        assert last_message_id not in [m.id for m in messages_before]
+
+    def test_list_conversation_messages_with_after_cursor(self, client: Letta, agent):
+        """Test pagination with after cursor."""
+        conversation = client.conversations.create(agent_id=agent.id)
+
+        # Send messages to create history
+        list(
+            client.conversations.messages.create(
+                conversation_id=conversation.id,
+                messages=[{"role": "user", "content": "First message"}],
+            )
+        )
+        list(
+            client.conversations.messages.create(
+                conversation_id=conversation.id,
+                messages=[{"role": "user", "content": "Second message"}],
+            )
+        )
+
+        # Get all messages first
+        all_messages = client.conversations.messages.list(
+            conversation_id=conversation.id,
+            order="asc",
+        )
+        assert len(all_messages) >= 4
+
+        # Use the first message ID as cursor
+        first_message_id = all_messages[0].id
+        messages_after = client.conversations.messages.list(
+            conversation_id=conversation.id,
+            order="asc",
+            after=first_message_id,
+        )
+
+        # Should have fewer messages (all except the first one)
+        assert len(messages_after) < len(all_messages)
+        # Should not contain the cursor message
+        assert first_message_id not in [m.id for m in messages_after]
+
+
+class TestConversationCompact:
+    """Tests for the conversation compact (summarization) endpoint."""
+
+    def test_compact_conversation_basic(self, client: Letta, agent, server_url: str):
+        """Test basic conversation compaction via the REST endpoint."""
+        # Create a conversation
+        conversation = client.conversations.create(agent_id=agent.id)
+
+        # Send multiple messages to create a history worth summarizing
+        for i in range(5):
+            list(
+                client.conversations.messages.create(
+                    conversation_id=conversation.id,
+                    messages=[{"role": "user", "content": f"Message {i}: Tell me about topic {i}."}],
+                )
+            )
+
+        # Get initial message count
+        initial_messages = client.conversations.messages.list(
+            conversation_id=conversation.id,
+            order="asc",
+        )
+        initial_count = len(initial_messages)
+        assert initial_count >= 10  # At least 5 user + 5 assistant messages
+
+        # Call compact endpoint via REST
+        response = requests.post(
+            f"{server_url}/v1/conversations/{conversation.id}/compact",
+            json={},
+        )
+        assert response.status_code == 200, f"Expected 200, got {response.status_code}: {response.text}"
+
+        result = response.json()
+
+        # Verify the response structure
+        assert "summary" in result
+        assert "num_messages_before" in result
+        assert "num_messages_after" in result
+        assert isinstance(result["summary"], str)
+        assert len(result["summary"]) > 0
+        assert result["num_messages_before"] > result["num_messages_after"]
+
+        # Verify messages were actually compacted
+        compacted_messages = client.conversations.messages.list(
+            conversation_id=conversation.id,
+            order="asc",
+        )
+        assert len(compacted_messages) < initial_count
+
+    def test_compact_conversation_with_settings(self, client: Letta, agent, server_url: str):
+        """Test conversation compaction with custom compaction settings."""
+        # Create a conversation with multiple messages
+        conversation = client.conversations.create(agent_id=agent.id)
+
+        for i in range(5):
+            list(
+                client.conversations.messages.create(
+                    conversation_id=conversation.id,
+                    messages=[{"role": "user", "content": f"Remember fact {i}: The number {i} is important."}],
+                )
+            )
+
+        # Call compact with 'all' mode
+        response = requests.post(
+            f"{server_url}/v1/conversations/{conversation.id}/compact",
+            json={
+                "compaction_settings": {
+                    "mode": "all",
+                }
+            },
+        )
+        assert response.status_code == 200, f"Expected 200, got {response.status_code}: {response.text}"
+
+        result = response.json()
+        assert result["num_messages_before"] > result["num_messages_after"]
+
+    def test_compact_conversation_preserves_conversation_isolation(self, client: Letta, agent, server_url: str):
+        """Test that compacting one conversation doesn't affect another."""
+        # Create two conversations
+        conv1 = client.conversations.create(agent_id=agent.id)
+        conv2 = client.conversations.create(agent_id=agent.id)
+
+        # Add messages to both
+        for i in range(5):
+            list(
+                client.conversations.messages.create(
+                    conversation_id=conv1.id,
+                    messages=[{"role": "user", "content": f"Conv1 message {i}"}],
+                )
+            )
+            list(
+                client.conversations.messages.create(
+                    conversation_id=conv2.id,
+                    messages=[{"role": "user", "content": f"Conv2 message {i}"}],
+                )
+            )
+
+        # Get initial counts
+        conv1_initial = len(client.conversations.messages.list(conversation_id=conv1.id))
+        conv2_initial = len(client.conversations.messages.list(conversation_id=conv2.id))
+
+        # Compact only conv1
+        response = requests.post(
+            f"{server_url}/v1/conversations/{conv1.id}/compact",
+            json={},
+        )
+        assert response.status_code == 200
+
+        # Conv1 should be compacted
+        conv1_after = len(client.conversations.messages.list(conversation_id=conv1.id))
+        assert conv1_after < conv1_initial
+
+        # Conv2 should be unchanged
+        conv2_after = len(client.conversations.messages.list(conversation_id=conv2.id))
+        assert conv2_after == conv2_initial
+
+    def test_compact_conversation_empty_fails(self, client: Letta, agent, server_url: str):
+        """Test that compacting an empty conversation fails gracefully."""
+        # Create a new conversation without messages
+        conversation = client.conversations.create(agent_id=agent.id)
+
+        # Try to compact - should fail since no messages exist
+        response = requests.post(
+            f"{server_url}/v1/conversations/{conversation.id}/compact",
+            json={},
+        )
+
+        # Should return 400 because there are no in-context messages
+        assert response.status_code == 400
+
+    def test_compact_conversation_invalid_id(self, client: Letta, agent, server_url: str):
+        """Test that compacting with invalid conversation ID returns 404."""
+        fake_id = "conv-00000000-0000-0000-0000-000000000000"
+
+        response = requests.post(
+            f"{server_url}/v1/conversations/{fake_id}/compact",
+            json={},
+        )
+
+        assert response.status_code == 404

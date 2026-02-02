@@ -211,7 +211,13 @@ class LettaAgentV2(BaseAgentV2):
         response = self._step(
             run_id=None,
             messages=in_context_messages + input_messages_to_persist,
-            llm_adapter=LettaLLMRequestAdapter(llm_client=self.llm_client, llm_config=self.agent_state.llm_config),
+            llm_adapter=LettaLLMRequestAdapter(
+                llm_client=self.llm_client,
+                llm_config=self.agent_state.llm_config,
+                agent_tags=self.agent_state.tags,
+                org_id=self.actor.organization_id,
+                user_id=self.actor.id,
+            ),
             dry_run=True,
             enforce_run_id_set=False,
         )
@@ -261,7 +267,15 @@ class LettaAgentV2(BaseAgentV2):
             response = self._step(
                 messages=in_context_messages + self.response_messages,
                 input_messages_to_persist=input_messages_to_persist,
-                llm_adapter=LettaLLMRequestAdapter(llm_client=self.llm_client, llm_config=self.agent_state.llm_config),
+                llm_adapter=LettaLLMRequestAdapter(
+                    llm_client=self.llm_client,
+                    llm_config=self.agent_state.llm_config,
+                    agent_id=self.agent_state.id,
+                    agent_tags=self.agent_state.tags,
+                    run_id=run_id,
+                    org_id=self.actor.organization_id,
+                    user_id=self.actor.id,
+                ),
                 run_id=run_id,
                 use_assistant_message=use_assistant_message,
                 include_return_message_types=include_return_message_types,
@@ -284,6 +298,7 @@ class LettaAgentV2(BaseAgentV2):
                 new_letta_messages=self.response_messages,
                 total_tokens=self.usage.total_tokens,
                 force=False,
+                run_id=run_id,
             )
 
         if self.stop_reason is None:
@@ -342,12 +357,21 @@ class LettaAgentV2(BaseAgentV2):
             llm_adapter = LettaLLMStreamAdapter(
                 llm_client=self.llm_client,
                 llm_config=self.agent_state.llm_config,
+                agent_id=self.agent_state.id,
+                agent_tags=self.agent_state.tags,
                 run_id=run_id,
+                org_id=self.actor.organization_id,
+                user_id=self.actor.id,
             )
         else:
             llm_adapter = LettaLLMRequestAdapter(
                 llm_client=self.llm_client,
                 llm_config=self.agent_state.llm_config,
+                agent_id=self.agent_state.id,
+                agent_tags=self.agent_state.tags,
+                run_id=run_id,
+                org_id=self.actor.organization_id,
+                user_id=self.actor.id,
             )
 
         try:
@@ -386,6 +410,7 @@ class LettaAgentV2(BaseAgentV2):
                     new_letta_messages=self.response_messages,
                     total_tokens=self.usage.total_tokens,
                     force=False,
+                    run_id=run_id,
                 )
 
         except:
@@ -531,6 +556,8 @@ class LettaAgentV2(BaseAgentV2):
                                 in_context_messages=messages,
                                 new_letta_messages=self.response_messages,
                                 force=True,
+                                run_id=run_id,
+                                step_id=step_id,
                             )
                         else:
                             raise e
@@ -835,7 +862,9 @@ class LettaAgentV2(BaseAgentV2):
             last_function_response=self.last_function_response,
             error_on_empty=False,  # Return empty list instead of raising error
         ) or list(set(t.name for t in tools))
-        allowed_tools = [enable_strict_mode(t.json_schema) for t in tools if t.name in set(valid_tool_names)]
+        allowed_tools = [
+            enable_strict_mode(t.json_schema, strict=self.agent_state.llm_config.strict) for t in tools if t.name in set(valid_tool_names)
+        ]
         terminal_tool_names = {rule.tool_name for rule in self.tool_rules_solver.terminal_tool_rules}
         allowed_tools = runtime_override_tool_json_schema(
             tool_list=allowed_tools,
@@ -1287,6 +1316,8 @@ class LettaAgentV2(BaseAgentV2):
         new_letta_messages: list[Message],
         total_tokens: int | None = None,
         force: bool = False,
+        run_id: str | None = None,
+        step_id: str | None = None,
     ) -> list[Message]:
         self.logger.warning("Running deprecated v2 summarizer. This should be removed in the future.")
         # always skip summarization if last message is an approval request message
@@ -1309,6 +1340,8 @@ class LettaAgentV2(BaseAgentV2):
                         new_letta_messages=new_letta_messages,
                         force=True,
                         clear=True,
+                        run_id=run_id,
+                        step_id=step_id,
                     )
                 else:
                     # NOTE (Sarah): Seems like this is doing nothing?
@@ -1318,6 +1351,8 @@ class LettaAgentV2(BaseAgentV2):
                     new_in_context_messages, updated = await self.summarizer.summarize(
                         in_context_messages=in_context_messages,
                         new_letta_messages=new_letta_messages,
+                        run_id=run_id,
+                        step_id=step_id,
                     )
             except Exception as e:
                 self.logger.error(f"Failed to summarize conversation history: {e}")

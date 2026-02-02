@@ -244,6 +244,10 @@ async def export_agent(
         description="If True, exports using the legacy single-agent 'v1' format with inline tools/blocks. If False, exports using the new multi-entity 'v2' format, with separate agents, tools, blocks, files, etc.",
         deprecated=True,
     ),
+    conversation_id: Optional[str] = Query(
+        None,
+        description="Conversation ID to export. If provided, uses messages from this conversation instead of the agent's global message history.",
+    ),
     # do not remove, used to autogeneration of spec
     # TODO: Think of a better way to export AgentFileSchema
     spec: AgentFileSchema | None = None,
@@ -255,7 +259,7 @@ async def export_agent(
     if use_legacy_format:
         raise HTTPException(status_code=400, detail="Legacy format is not supported")
     actor = await server.user_manager.get_actor_or_default_async(actor_id=headers.actor_id)
-    agent_file_schema = await server.agent_serialization_manager.export(agent_ids=[agent_id], actor=actor)
+    agent_file_schema = await server.agent_serialization_manager.export(agent_ids=[agent_id], actor=actor, conversation_id=conversation_id)
     return agent_file_schema.model_dump()
 
 
@@ -305,6 +309,7 @@ async def _import_agent(
     strip_messages: bool = False,
     env_vars: Optional[dict[str, Any]] = None,
     override_embedding_handle: Optional[str] = None,
+    override_model_handle: Optional[str] = None,
 ) -> List[str]:
     """
     Import an agent using the new AgentFileSchema format.
@@ -316,6 +321,11 @@ async def _import_agent(
     else:
         embedding_config_override = None
 
+    if override_model_handle:
+        llm_config_override = await server.get_llm_config_from_handle_async(actor=actor, handle=override_model_handle)
+    else:
+        llm_config_override = None
+
     import_result = await server.agent_serialization_manager.import_file(
         schema=agent_schema,
         actor=actor,
@@ -324,6 +334,7 @@ async def _import_agent(
         override_existing_tools=override_existing_tools,
         env_vars=env_vars,
         override_embedding_config=embedding_config_override,
+        override_llm_config=llm_config_override,
         project_id=project_id,
     )
 
@@ -359,6 +370,10 @@ async def import_agent(
         None,
         description="Embedding handle to override with.",
     ),
+    model: Optional[str] = Form(
+        None,
+        description="Model handle to override the agent's default model. This allows the imported agent to use a different model while keeping other defaults (e.g., context size) from the original configuration.",
+    ),
     # Deprecated fields (maintain backward compatibility)
     append_copy_suffix: bool = Form(
         True,
@@ -373,6 +388,11 @@ async def import_agent(
     override_embedding_handle: Optional[str] = Form(
         None,
         description="Override import with specific embedding handle. Use 'embedding' instead.",
+        deprecated=True,
+    ),
+    override_model_handle: Optional[str] = Form(
+        None,
+        description="Model handle to override the agent's default model. Use 'model' instead.",
         deprecated=True,
     ),
     project_id: str | None = Form(
@@ -405,6 +425,7 @@ async def import_agent(
     # Handle backward compatibility: prefer new field names over deprecated ones
     final_name = name or override_name
     final_embedding_handle = embedding or override_embedding_handle or x_override_embedding_model
+    final_model_handle = model or override_model_handle
 
     # Parse secrets (new) or env_vars_json (deprecated)
     env_vars = None
@@ -437,6 +458,7 @@ async def import_agent(
             strip_messages=strip_messages,
             env_vars=env_vars,
             override_embedding_handle=final_embedding_handle,
+            override_model_handle=final_model_handle,
         )
     else:
         # This is a legacy AgentSchema
@@ -453,12 +475,15 @@ async def retrieve_agent_context_window(
     agent_id: AgentId,
     server: "SyncServer" = Depends(get_letta_server),
     headers: HeaderParams = Depends(get_headers),
+    conversation_id: Optional[str] = Query(
+        None, description="Conversation ID to get context window for. If provided, uses messages from this conversation."
+    ),
 ):
     """
     Retrieve the context window of a specific agent.
     """
     actor = await server.user_manager.get_actor_or_default_async(actor_id=headers.actor_id)
-    return await server.agent_manager.get_context_window(agent_id=agent_id, actor=actor)
+    return await server.agent_manager.get_context_window(agent_id=agent_id, actor=actor, conversation_id=conversation_id)
 
 
 class CreateAgentRequest(CreateAgent):
@@ -622,7 +647,9 @@ async def run_tool_for_agent(
 
     # Get agent with all relationships
     agent = await server.agent_manager.get_agent_by_id_async(
-        agent_id, actor, include_relationships=["memory", "multi_agent_group", "sources", "tool_exec_environment_variables", "tools"]
+        agent_id,
+        actor,
+        include_relationships=["memory", "multi_agent_group", "sources", "tool_exec_environment_variables", "tools", "tags"],
     )
 
     # Find the tool by name among attached tools
@@ -695,7 +722,7 @@ async def attach_source(
         await server.agent_manager.insert_files_into_context_window(agent_state=agent_state, file_metadata_with_content=files, actor=actor)
 
     if agent_state.enable_sleeptime:
-        source = await server.source_manager.get_source_by_id(source_id=source_id)
+        source = await server.source_manager.get_source_by_id(source_id=source_id, actor=actor)
         safe_create_task(server.sleeptime_document_ingest_async(agent_state, source, actor), label="sleeptime_document_ingest_async")
 
     return agent_state
@@ -722,7 +749,7 @@ async def attach_folder_to_agent(
         await server.agent_manager.insert_files_into_context_window(agent_state=agent_state, file_metadata_with_content=files, actor=actor)
 
     if agent_state.enable_sleeptime:
-        source = await server.source_manager.get_source_by_id(source_id=folder_id)
+        source = await server.source_manager.get_source_by_id(source_id=folder_id, actor=actor)
         safe_create_task(server.sleeptime_document_ingest_async(agent_state, source, actor), label="sleeptime_document_ingest_async")
 
     if is_1_0_sdk_version(headers):
@@ -753,7 +780,7 @@ async def detach_source(
 
     if agent_state.enable_sleeptime:
         try:
-            source = await server.source_manager.get_source_by_id(source_id=source_id)
+            source = await server.source_manager.get_source_by_id(source_id=source_id, actor=actor)
             block = await server.agent_manager.get_block_with_label_async(agent_id=agent_state.id, block_label=source.name, actor=actor)
             await server.block_manager.delete_block_async(block.id, actor)
         except:
@@ -785,7 +812,7 @@ async def detach_folder_from_agent(
 
     if agent_state.enable_sleeptime:
         try:
-            source = await server.source_manager.get_source_by_id(source_id=folder_id)
+            source = await server.source_manager.get_source_by_id(source_id=folder_id, actor=actor)
             block = await server.agent_manager.get_block_with_label_async(agent_id=agent_state.id, block_label=source.name, actor=actor)
             await server.block_manager.delete_block_async(block.id, actor)
         except:
@@ -1250,7 +1277,7 @@ async def detach_identity_from_agent(
     return None
 
 
-@router.get("/{agent_id}/archival-memory", response_model=list[Passage], operation_id="list_passages", deprecated=True)
+@router.get("/{agent_id}/archival-memory", response_model=list[Passage], operation_id="list_passages")
 async def list_passages(
     agent_id: AgentId,
     server: "SyncServer" = Depends(get_letta_server),
@@ -1279,7 +1306,7 @@ async def list_passages(
     )
 
 
-@router.post("/{agent_id}/archival-memory", response_model=list[Passage], operation_id="create_passage", deprecated=True)
+@router.post("/{agent_id}/archival-memory", response_model=list[Passage], operation_id="create_passage")
 async def create_passage(
     agent_id: AgentId,
     request: CreateArchivalMemory = Body(...),
@@ -1300,7 +1327,6 @@ async def create_passage(
     "/{agent_id}/archival-memory/search",
     response_model=ArchivalMemorySearchResponse,
     operation_id="search_archival_memory",
-    deprecated=True,
 )
 async def search_archival_memory(
     agent_id: AgentId,
@@ -1348,7 +1374,7 @@ async def search_archival_memory(
 
 # TODO(ethan): query or path parameter for memory_id?
 # @router.delete("/{agent_id}/archival")
-@router.delete("/{agent_id}/archival-memory/{memory_id}", response_model=None, operation_id="delete_passage", deprecated=True)
+@router.delete("/{agent_id}/archival-memory/{memory_id}", response_model=None, operation_id="delete_passage")
 async def delete_passage(
     memory_id: str,
     agent_id: AgentId,
@@ -1514,8 +1540,20 @@ async def send_message(
     MetricRegistry().user_message_counter.add(1, get_ctx_attributes())
     # TODO: This is redundant, remove soon
     agent = await server.agent_manager.get_agent_by_id_async(
-        agent_id, actor, include_relationships=["memory", "multi_agent_group", "sources", "tool_exec_environment_variables", "tools"]
+        agent_id,
+        actor,
+        include_relationships=["memory", "multi_agent_group", "sources", "tool_exec_environment_variables", "tools", "tags"],
     )
+
+    # Handle model override if specified in the request
+    if request.override_model:
+        override_llm_config = await server.get_llm_config_from_handle_async(
+            actor=actor,
+            handle=request.override_model,
+        )
+        # Create a copy of agent state with the overridden llm_config
+        agent = agent.model_copy(update={"llm_config": override_llm_config})
+
     agent_eligible = agent.multi_agent_group is None or agent.multi_agent_group.manager_type in ["sleeptime", "voice_sleeptime"]
     model_compatible = agent.llm_config.model_endpoint_type in [
         "anthropic",
@@ -1530,6 +1568,7 @@ async def send_message(
         "zai",
         "groq",
         "deepseek",
+        "chatgpt_oauth",
     ]
 
     # Create a new run for execution tracking
@@ -1773,6 +1812,7 @@ async def _process_message_background(
     assistant_message_tool_kwarg: str,
     max_steps: int = DEFAULT_MAX_STEPS,
     include_return_message_types: list[MessageType] | None = None,
+    override_model: str | None = None,
 ) -> None:
     """Background task to process the message and update run status."""
     request_start_timestamp_ns = get_utc_timestamp_ns()
@@ -1781,8 +1821,20 @@ async def _process_message_background(
 
     try:
         agent = await server.agent_manager.get_agent_by_id_async(
-            agent_id, actor, include_relationships=["memory", "multi_agent_group", "sources", "tool_exec_environment_variables", "tools"]
+            agent_id,
+            actor,
+            include_relationships=["memory", "multi_agent_group", "sources", "tool_exec_environment_variables", "tools", "tags"],
         )
+
+        # Handle model override if specified
+        if override_model:
+            override_llm_config = await server.get_llm_config_from_handle_async(
+                actor=actor,
+                handle=override_model,
+            )
+            # Create a copy of agent state with the overridden llm_config
+            agent = agent.model_copy(update={"llm_config": override_llm_config})
+
         agent_eligible = agent.multi_agent_group is None or agent.multi_agent_group.manager_type in ["sleeptime", "voice_sleeptime"]
         model_compatible = agent.llm_config.model_endpoint_type in [
             "anthropic",
@@ -1825,15 +1877,24 @@ async def _process_message_background(
 
         runs_manager = RunManager()
         from letta.schemas.enums import RunStatus
+        from letta.schemas.letta_stop_reason import StopReasonType
 
-        if result.stop_reason.stop_reason == "cancelled":
+        # Handle cases where stop_reason might be None (defensive)
+        if result.stop_reason and result.stop_reason.stop_reason == "cancelled":
             run_status = RunStatus.cancelled
-        else:
+            stop_reason = result.stop_reason.stop_reason
+        elif result.stop_reason:
             run_status = RunStatus.completed
+            stop_reason = result.stop_reason.stop_reason
+        else:
+            # Fallback: no stop_reason set (shouldn't happen but defensive)
+            logger.error(f"Run {run_id} completed without stop_reason in result, defaulting to end_turn")
+            run_status = RunStatus.completed
+            stop_reason = StopReasonType.end_turn
 
         await runs_manager.update_run_by_id_async(
             run_id=run_id,
-            update=RunUpdate(status=run_status, stop_reason=result.stop_reason.stop_reason),
+            update=RunUpdate(status=run_status, stop_reason=stop_reason),
             actor=actor,
         )
 
@@ -1841,20 +1902,22 @@ async def _process_message_background(
         # Update run status to failed with specific error info
         runs_manager = RunManager()
         from letta.schemas.enums import RunStatus
+        from letta.schemas.letta_stop_reason import StopReasonType
 
         await runs_manager.update_run_by_id_async(
             run_id=run_id,
-            update=RunUpdate(status=RunStatus.failed, metadata={"error": str(e)}),
+            update=RunUpdate(status=RunStatus.failed, stop_reason=StopReasonType.error, metadata={"error": str(e)}),
             actor=actor,
         )
     except Exception as e:
         # Update run status to failed
         runs_manager = RunManager()
         from letta.schemas.enums import RunStatus
+        from letta.schemas.letta_stop_reason import StopReasonType
 
         await runs_manager.update_run_by_id_async(
             run_id=run_id,
-            update=RunUpdate(status=RunStatus.failed, metadata={"error": str(e)}),
+            update=RunUpdate(status=RunStatus.failed, stop_reason=StopReasonType.error, metadata={"error": str(e)}),
             actor=actor,
         )
     finally:
@@ -1938,7 +2001,9 @@ async def send_message_async(
 
     if use_lettuce:
         agent_state = await server.agent_manager.get_agent_by_id_async(
-            agent_id, actor, include_relationships=["memory", "multi_agent_group", "sources", "tool_exec_environment_variables", "tools"]
+            agent_id,
+            actor,
+            include_relationships=["memory", "multi_agent_group", "sources", "tool_exec_environment_variables", "tools", "tags"],
         )
         # Allow V1 agents only if the message async flag is enabled
         is_v1_message_async_enabled = (
@@ -1971,6 +2036,7 @@ async def send_message_async(
             assistant_message_tool_kwarg=request.assistant_message_tool_kwarg,
             max_steps=request.max_steps,
             include_return_message_types=request.include_return_message_types,
+            override_model=request.override_model,
         ),
         label=f"process_message_background_{run.id}",
     )
@@ -1991,10 +2057,11 @@ async def send_message_async(
             async def update_failed_run():
                 runs_manager = RunManager()
                 from letta.schemas.enums import RunStatus
+                from letta.schemas.letta_stop_reason import StopReasonType
 
                 await runs_manager.update_run_by_id_async(
                     run_id=run.id,
-                    update=RunUpdate(status=RunStatus.failed, metadata={"error": error_str}),
+                    update=RunUpdate(status=RunStatus.failed, stop_reason=StopReasonType.error, metadata={"error": error_str}),
                     actor=actor,
                 )
 
@@ -2102,6 +2169,7 @@ async def preview_model_request(
         "zai",
         "groq",
         "deepseek",
+        "chatgpt_oauth",
     ]
 
     if agent_eligible and model_compatible:
@@ -2156,6 +2224,7 @@ async def summarize_messages(
         "zai",
         "groq",
         "deepseek",
+        "chatgpt_oauth",
     ]
 
     if agent_eligible and model_compatible:
@@ -2217,7 +2286,7 @@ async def capture_messages(
             messages_to_persist.append(
                 Message(
                     role=MessageRole.user,
-                    content=[(TextContent(text=message["content"]))],
+                    content=[TextContent(text=message["content"])],
                     agent_id=agent_id,
                     tool_calls=None,
                     tool_call_id=None,
@@ -2229,7 +2298,7 @@ async def capture_messages(
     messages_to_persist.append(
         Message(
             role=MessageRole.assistant,
-            content=[(TextContent(text=request.response_dict["content"]))],
+            content=[TextContent(text=request.response_dict["content"])],
             agent_id=agent_id,
             model=request.model,
             tool_calls=None,

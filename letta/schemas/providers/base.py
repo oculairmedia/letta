@@ -32,6 +32,7 @@ class Provider(ProviderBase):
     api_version: str | None = Field(None, description="API version used for requests to the provider.")
     organization_id: str | None = Field(None, description="The organization id of the user")
     updated_at: datetime | None = Field(None, description="The last update timestamp of the provider.")
+    last_synced: datetime | None = Field(None, description="The last time models were synced for this provider.")
 
     # Encrypted fields (stored as Secret objects, serialized to strings for DB)
     # Secret class handles validation and serialization automatically via __get_pydantic_core_schema__
@@ -184,15 +185,19 @@ class Provider(ProviderBase):
             AzureProvider,
             BedrockProvider,
             CerebrasProvider,
+            ChatGPTOAuthProvider,
             DeepSeekProvider,
             GoogleAIProvider,
             GoogleVertexProvider,
             GroqProvider,
             LettaProvider,
             LMStudioOpenAIProvider,
+            MiniMaxProvider,
             MistralProvider,
             OllamaProvider,
             OpenAIProvider,
+            OpenRouterProvider,
+            SGLangProvider,
             TogetherProvider,
             VLLMProvider,
             XAIProvider,
@@ -223,12 +228,16 @@ class Provider(ProviderBase):
                 return OllamaProvider(**self.model_dump(exclude_none=True))
             case ProviderType.vllm:
                 return VLLMProvider(**self.model_dump(exclude_none=True))  # Removed support for CompletionsProvider
+            case ProviderType.sglang:
+                return SGLangProvider(**self.model_dump(exclude_none=True))
             case ProviderType.mistral:
                 return MistralProvider(**self.model_dump(exclude_none=True))
             case ProviderType.deepseek:
                 return DeepSeekProvider(**self.model_dump(exclude_none=True))
             case ProviderType.cerebras:
                 return CerebrasProvider(**self.model_dump(exclude_none=True))
+            case ProviderType.chatgpt_oauth:
+                return ChatGPTOAuthProvider(**self.model_dump(exclude_none=True))
             case ProviderType.xai:
                 return XAIProvider(**self.model_dump(exclude_none=True))
             case ProviderType.zai:
@@ -237,6 +246,10 @@ class Provider(ProviderBase):
                 return LMStudioOpenAIProvider(**self.model_dump(exclude_none=True))
             case ProviderType.bedrock:
                 return BedrockProvider(**self.model_dump(exclude_none=True))
+            case ProviderType.minimax:
+                return MiniMaxProvider(**self.model_dump(exclude_none=True))
+            case ProviderType.openrouter:
+                return OpenRouterProvider(**self.model_dump(exclude_none=True))
             case _:
                 raise ValueError(f"Unknown provider type: {self.provider_type}")
 

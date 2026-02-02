@@ -36,6 +36,7 @@ from letta.orm import (
     ArchivalPassage,
     Block as BlockModel,
     BlocksAgents,
+    BlocksTags,
     Group as GroupModel,
     GroupsAgents,
     IdentitiesAgents,
@@ -82,6 +83,7 @@ from letta.services.archive_manager import ArchiveManager
 from letta.services.block_manager import BlockManager, validate_block_limit_constraint
 from letta.services.context_window_calculator.context_window_calculator import ContextWindowCalculator
 from letta.services.context_window_calculator.token_counter import create_token_counter
+from letta.services.conversation_manager import ConversationManager
 from letta.services.file_processor.chunker.line_chunker import LineChunker
 from letta.services.files_agents_manager import FileAgentManager
 from letta.services.helpers.agent_manager_helper import (
@@ -175,6 +177,7 @@ class AgentManager:
         self.identity_manager = IdentityManager()
         self.file_agent_manager = FileAgentManager()
         self.archive_manager = ArchiveManager()
+        self.conversation_manager = ConversationManager()
 
     @staticmethod
     def _should_exclude_model_from_base_tool_rules(model: str) -> bool:
@@ -393,7 +396,11 @@ class AgentManager:
             )
             agent_create.llm_config = LLMConfig.apply_reasoning_setting_to_config(
                 agent_create.llm_config,
-                agent_create.reasoning if agent_create.reasoning is not None else default_reasoning,
+                agent_create.reasoning
+                if agent_create.reasoning is not None
+                else (
+                    agent_create.llm_config.enable_reasoner if agent_create.llm_config.enable_reasoner is not None else default_reasoning
+                ),
                 agent_create.agent_type,
             )
         else:
@@ -1281,9 +1288,34 @@ class AgentManager:
             agent = await AgentModel.read_async(db_session=session, identifier=agent_id, actor=actor)
             agents_to_delete = [agent]
             sleeptime_group_to_delete = None
+            manager_agent_to_update = None
 
-            # Delete sleeptime agent and group (TODO this is flimsy pls fix)
-            if agent.multi_agent_group:
+            # Handle case where we're deleting a sleeptime agent (not the main agent)
+            # In this case, we need to clean up the group and the main agent's enable_sleeptime flag
+            if agent.agent_type in {AgentType.sleeptime_agent, AgentType.voice_sleeptime_agent}:
+                # Find the group that this sleeptime agent belongs to
+                group_query = (
+                    select(GroupModel)
+                    .join(GroupsAgents, GroupsAgents.group_id == GroupModel.id)
+                    .where(GroupsAgents.agent_id == agent_id)
+                    .where(GroupModel.manager_type.in_([ManagerType.sleeptime, ManagerType.voice_sleeptime]))
+                )
+                result = await session.execute(group_query)
+                sleeptime_group = result.scalars().first()
+
+                if sleeptime_group:
+                    sleeptime_group_to_delete = sleeptime_group
+                    # Get the manager (main) agent and mark it for update
+                    if sleeptime_group.manager_agent_id:
+                        try:
+                            manager_agent_to_update = await AgentModel.read_async(
+                                db_session=session, identifier=sleeptime_group.manager_agent_id, actor=actor
+                            )
+                        except NoResultFound:
+                            pass  # Manager agent already deleted
+
+            # Delete sleeptime agent and group when deleting the main agent
+            elif agent.multi_agent_group:
                 participant_agent_ids = agent.multi_agent_group.agent_ids
                 if agent.multi_agent_group.manager_type in {ManagerType.sleeptime, ManagerType.voice_sleeptime} and participant_agent_ids:
                     for participant_agent_id in participant_agent_ids:
@@ -1305,6 +1337,10 @@ class AgentManager:
                     await session.delete(agent)
                     # context manager now handles commits
                     # await session.commit()
+                # Update the manager agent's enable_sleeptime flag if we deleted a sleeptime agent
+                if manager_agent_to_update is not None:
+                    manager_agent_to_update.enable_sleeptime = None
+                    await session.commit()
             except Exception as e:
                 await session.rollback()
                 logger.exception(f"Failed to hard delete Agent with ID {agent_id}")
@@ -1662,7 +1698,9 @@ class AgentManager:
                     updated_value = new_memory.get_block(label).value
                     if updated_value != agent_state.memory.get_block(label).value:
                         # update the block if it's changed
-                        block_id = agent_state.memory.get_block(label).id
+                        # Use block ID from new_memory, not agent_state.memory, because new_memory
+                        # may contain conversation-isolated blocks with different IDs
+                        block_id = new_memory.get_block(label).id
                         await self.block_manager.update_block_async(
                             block_id=block_id, block_update=BlockUpdate(value=updated_value), actor=actor
                         )
@@ -1972,7 +2010,10 @@ class AgentManager:
             agent = await AgentModel.read_async(db_session=session, identifier=agent_id, actor=actor)
             for block in agent.core_memory:
                 if block.label == block_label:
-                    return block.to_pydantic()
+                    pydantic_block = block.to_pydantic()
+                    tags_result = await session.execute(select(BlocksTags.tag).where(BlocksTags.block_id == block.id))
+                    pydantic_block.tags = [row[0] for row in tags_result.fetchall()]
+                    return pydantic_block
             raise NoResultFound(f"No block with label '{block_label}' found for agent '{agent_id}'")
 
     @enforce_types
@@ -1984,7 +2025,7 @@ class AgentManager:
         block_update: BlockUpdate,
         actor: PydanticUser,
     ) -> PydanticBlock:
-        """Gets a block attached to an agent by its label."""
+        """Modifies a block attached to an agent by its label."""
         async with db_registry.async_session() as session:
             matched_block = None
             agent = await AgentModel.read_async(db_session=session, identifier=agent_id, actor=actor)
@@ -1997,6 +2038,9 @@ class AgentManager:
 
             update_data = block_update.model_dump(to_orm=True, exclude_unset=True, exclude_none=True)
 
+            # Extract tags from update data (it's not a column on the block table)
+            new_tags = update_data.pop("tags", None)
+
             # Validate limit constraints before updating
             validate_block_limit_constraint(update_data, matched_block)
 
@@ -2004,7 +2048,23 @@ class AgentManager:
                 setattr(matched_block, key, value)
 
             await matched_block.update_async(session, actor=actor)
-            return matched_block.to_pydantic()
+
+            if new_tags is not None:
+                await BlockManager._replace_block_pivot_rows_async(
+                    session,
+                    BlocksTags.__table__,
+                    matched_block.id,
+                    [{"block_id": matched_block.id, "tag": tag} for tag in new_tags],
+                )
+
+            pydantic_block = matched_block.to_pydantic()
+            if new_tags is not None:
+                pydantic_block.tags = new_tags
+            else:
+                tags_result = await session.execute(select(BlocksTags.tag).where(BlocksTags.block_id == matched_block.id))
+                pydantic_block.tags = [row[0] for row in tags_result.fetchall()]
+
+            return pydantic_block
 
     @enforce_types
     @raise_on_invalid_id(param_name="agent_id", expected_prefix=PrimitiveType.AGENT)
@@ -2029,10 +2089,12 @@ class AgentManager:
                     if other_agent_id != agent_id:
                         try:
                             other_agent = await AgentModel.read_async(db_session=session, identifier=other_agent_id, actor=actor)
-                            if other_agent.agent_type == AgentType.sleeptime_agent and block not in other_agent.core_memory:
-                                other_agent.core_memory.append(block)
-                                # await other_agent.update_async(session, actor=actor, no_commit=True)
-                                await other_agent.update_async(session, actor=actor)
+                            if other_agent.agent_type == AgentType.sleeptime_agent:
+                                # Check if block with same label already exists
+                                existing_block = next((b for b in other_agent.core_memory if b.label == block.label), None)
+                                if not existing_block:
+                                    other_agent.core_memory.append(block)
+                                    await other_agent.update_async(session, actor=actor)
                         except NoResultFound:
                             # Agent might not exist anymore, skip
                             continue
@@ -2308,15 +2370,6 @@ class AgentManager:
                 # Use Turbopuffer for vector search if archive is configured for TPUF
                 if archive.vector_db_provider == VectorDBProvider.TPUF:
                     from letta.helpers.tpuf_client import TurbopufferClient
-                    from letta.llm_api.llm_client import LLMClient
-
-                    # Generate embedding for query
-                    embedding_client = LLMClient.create(
-                        provider_type=embedding_config.embedding_endpoint_type,
-                        actor=actor,
-                    )
-                    embeddings = await embedding_client.request_embeddings([query_text], embedding_config)
-                    query_embedding = embeddings[0]
 
                     # Query Turbopuffer - use hybrid search when text is available
                     tpuf_client = TurbopufferClient()
@@ -2475,13 +2528,15 @@ class AgentManager:
 
         # Get results using existing passage query method
         limit = top_k if top_k is not None else RETRIEVAL_QUERY_DEFAULT_PAGE_SIZE
+        # Only use embedding-based search if embedding config is available
+        use_embedding_search = agent_state.embedding_config is not None
         passages_with_metadata = await self.query_agent_passages_async(
             actor=actor,
             agent_id=agent_id,
             query_text=query,
             limit=limit,
             embedding_config=agent_state.embedding_config,
-            embed_query=True,
+            embed_query=use_embedding_search,
             tags=tags,
             tag_match_mode=tag_mode,
             start_date=start_date,
@@ -3064,10 +3119,19 @@ class AgentManager:
             )
 
             # Apply cursor-based pagination
-            if before:
-                query = query.where(BlockModel.id < before)
-            if after:
-                query = query.where(BlockModel.id > after)
+            # Note: cursor direction must account for sort order
+            # - ascending order: "after X" means id > X, "before X" means id < X
+            # - descending order: "after X" means id < X, "before X" means id > X
+            if ascending:
+                if before:
+                    query = query.where(BlockModel.id < before)
+                if after:
+                    query = query.where(BlockModel.id > after)
+            else:
+                if before:
+                    query = query.where(BlockModel.id > before)
+                if after:
+                    query = query.where(BlockModel.id < after)
 
             # Apply sorting - use id instead of created_at for core memory blocks
             if ascending:
@@ -3082,7 +3146,25 @@ class AgentManager:
             result = await session.execute(query)
             blocks = result.scalars().all()
 
-            return [block.to_pydantic() for block in blocks]
+            if not blocks:
+                return []
+
+            block_ids = [block.id for block in blocks]
+            tags_result = await session.execute(select(BlocksTags.block_id, BlocksTags.tag).where(BlocksTags.block_id.in_(block_ids)))
+            tags_by_block: Dict[str, List[str]] = {}
+            for row in tags_result.fetchall():
+                block_id, tag = row
+                if block_id not in tags_by_block:
+                    tags_by_block[block_id] = []
+                tags_by_block[block_id].append(tag)
+
+            pydantic_blocks = []
+            for block in blocks:
+                pydantic_block = block.to_pydantic()
+                pydantic_block.tags = tags_by_block.get(block.id, [])
+                pydantic_blocks.append(pydantic_block)
+
+            return pydantic_blocks
 
     @enforce_types
     @trace_method
@@ -3414,7 +3496,7 @@ class AgentManager:
     @enforce_types
     @raise_on_invalid_id(param_name="agent_id", expected_prefix=PrimitiveType.AGENT)
     @trace_method
-    async def get_context_window(self, agent_id: str, actor: PydanticUser) -> ContextWindowOverview:
+    async def get_context_window(self, agent_id: str, actor: PydanticUser, conversation_id: Optional[str] = None) -> ContextWindowOverview:
         agent_state, system_message, num_messages, num_archival_memories = await self.rebuild_system_prompt_async(
             agent_id=agent_id, actor=actor, force=True, dry_run=True
         )
@@ -3428,6 +3510,16 @@ class AgentManager:
             agent_id=agent_id,
         )
 
+        # If conversation_id is provided, get message_ids from the conversation
+        # Skip the first message ID (system message) since it's passed separately
+        message_ids = None
+        if conversation_id is not None:
+            conversation_message_ids = await self.conversation_manager.get_message_ids_for_conversation(
+                conversation_id=conversation_id, actor=actor
+            )
+            # Skip the system message (first message) as it's handled separately
+            message_ids = conversation_message_ids[1:] if conversation_message_ids else []
+
         try:
             result = await calculator.calculate_context_window(
                 agent_state=agent_state,
@@ -3437,6 +3529,7 @@ class AgentManager:
                 system_message_compiled=system_message,
                 num_archival_memories=num_archival_memories,
                 num_messages=num_messages,
+                message_ids=message_ids,
             )
         except Exception as e:
             raise e
