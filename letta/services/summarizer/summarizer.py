@@ -561,6 +561,7 @@ async def simple_summary(
                         "output_tokens": getattr(interface, "output_tokens", None),
                     },
                 },
+                llm_config=summarizer_llm_config,
             )
 
             if not text:

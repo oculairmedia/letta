@@ -88,10 +88,22 @@ class LettaLLMStreamAdapter(LettaLLMAdapter):
         # Extract optional parameters
         # ttft_span = kwargs.get('ttft_span', None)
 
+        request_start_ns = get_utc_timestamp_ns()
+
         # Start the streaming request (map provider errors to common LLMError types)
         try:
             stream = await self.llm_client.stream_async(request_data, self.llm_config)
         except Exception as e:
+            self.llm_request_finish_timestamp_ns = get_utc_timestamp_ns()
+            latency_ms = int((self.llm_request_finish_timestamp_ns - request_start_ns) / 1_000_000)
+            await self.llm_client.log_provider_trace_async(
+                request_data=request_data,
+                response_json=None,
+                llm_config=self.llm_config,
+                latency_ms=latency_ms,
+                error_msg=str(e),
+                error_type=type(e).__name__,
+            )
             raise self.llm_client.handle_llm_error(e)
 
         # Process the stream and yield chunks immediately for TTFT
@@ -101,6 +113,16 @@ class LettaLLMStreamAdapter(LettaLLMAdapter):
                 # Yield each chunk immediately as it arrives
                 yield chunk
         except Exception as e:
+            self.llm_request_finish_timestamp_ns = get_utc_timestamp_ns()
+            latency_ms = int((self.llm_request_finish_timestamp_ns - request_start_ns) / 1_000_000)
+            await self.llm_client.log_provider_trace_async(
+                request_data=request_data,
+                response_json=None,
+                llm_config=self.llm_config,
+                latency_ms=latency_ms,
+                error_msg=str(e),
+                error_type=type(e).__name__,
+            )
             raise self.llm_client.handle_llm_error(e)
 
         # After streaming completes, extract the accumulated data

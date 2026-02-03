@@ -331,6 +331,13 @@ class Settings(BaseSettings):
     track_agent_run: bool = Field(default=True, description="Enable tracking agent run with cancellation support")
     track_provider_trace: bool = Field(default=True, description="Enable tracking raw llm request and response at each step")
 
+    # LLM trace storage for analytics (direct ClickHouse, bypasses OTEL for large payloads)
+    # TTL is configured in the ClickHouse DDL (default 90 days)
+    store_llm_traces: bool = Field(
+        default=False,
+        description="Enable storing LLM traces in ClickHouse for cost analytics",
+    )
+
     # FastAPI Application Settings
     uvicorn_workers: int = 1
     uvicorn_reload: bool = False

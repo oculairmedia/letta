@@ -1152,6 +1152,8 @@ class LettaAgent(BaseAgent):
                                 "output_tokens": interface.output_tokens,
                             },
                         },
+                        llm_config=agent_state.llm_config,
+                        latency_ms=int(llm_request_ms),
                     )
                     persisted_messages, should_continue, stop_reason = await self._handle_ai_response(
                         tool_call,

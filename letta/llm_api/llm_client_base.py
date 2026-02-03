@@ -82,6 +82,10 @@ class LLMClientBase:
         """Wrapper around request_async that logs telemetry for all requests including errors.
 
         Call set_telemetry_context() first to set agent_id, run_id, etc.
+
+        Telemetry is logged via TelemetryManager which supports multiple backends
+        (postgres, clickhouse, socket, etc.) configured via
+        LETTA_TELEMETRY_PROVIDER_TRACE_BACKEND.
         """
         from letta.log import get_logger
 
@@ -97,6 +101,7 @@ class LLMClientBase:
             error_type = type(e).__name__
             raise
         finally:
+            # Log telemetry via configured backends
             if self._telemetry_manager and settings.track_provider_trace:
                 if self.actor is None:
                     logger.warning(f"Skipping telemetry: actor is None (call_type={self._telemetry_call_type})")
@@ -116,7 +121,7 @@ class LLMClientBase:
                                 org_id=self._telemetry_org_id,
                                 user_id=self._telemetry_user_id,
                                 compaction_settings=self._telemetry_compaction_settings,
-                                llm_config=self._telemetry_llm_config,
+                                llm_config=llm_config.model_dump() if llm_config else self._telemetry_llm_config,
                             ),
                         )
                     except Exception as e:
@@ -130,10 +135,27 @@ class LLMClientBase:
         """
         return await self.stream_async(request_data, llm_config)
 
-    async def log_provider_trace_async(self, request_data: dict, response_json: dict) -> None:
+    async def log_provider_trace_async(
+        self,
+        request_data: dict,
+        response_json: Optional[dict],
+        llm_config: Optional[LLMConfig] = None,
+        latency_ms: Optional[int] = None,
+        error_msg: Optional[str] = None,
+        error_type: Optional[str] = None,
+    ) -> None:
         """Log provider trace telemetry. Call after processing LLM response.
 
         Uses telemetry context set via set_telemetry_context().
+        Telemetry is logged via TelemetryManager which supports multiple backends.
+
+        Args:
+            request_data: The request payload sent to the LLM
+            response_json: The response payload from the LLM
+            llm_config: LLMConfig for extracting provider/model info
+            latency_ms: Latency in milliseconds (not used currently, kept for API compatibility)
+            error_msg: Error message if request failed (not used currently)
+            error_type: Error type if request failed (not used currently)
         """
         from letta.log import get_logger
 
@@ -144,6 +166,9 @@ class LLMClientBase:
 
         if self.actor is None:
             logger.warning(f"Skipping telemetry: actor is None (call_type={self._telemetry_call_type})")
+            return
+
+        if response_json is None:
             return
 
         try:
@@ -161,7 +186,7 @@ class LLMClientBase:
                     org_id=self._telemetry_org_id,
                     user_id=self._telemetry_user_id,
                     compaction_settings=self._telemetry_compaction_settings,
-                    llm_config=self._telemetry_llm_config,
+                    llm_config=llm_config.model_dump() if llm_config else self._telemetry_llm_config,
                 ),
             )
         except Exception as e:

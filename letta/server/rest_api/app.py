@@ -221,6 +221,17 @@ async def lifespan(app_: FastAPI):
         except Exception as e:
             logger.warning(f"[Worker {worker_id}] SQLAlchemy instrumentation shutdown failed: {e}")
 
+    # Shutdown LLM raw trace writer (closes ClickHouse connection)
+    if settings.store_llm_traces:
+        try:
+            from letta.services.llm_trace_writer import get_llm_trace_writer
+
+            writer = get_llm_trace_writer()
+            await writer.shutdown_async()
+            logger.info(f"[Worker {worker_id}] LLM raw trace writer shutdown completed")
+        except Exception as e:
+            logger.warning(f"[Worker {worker_id}] LLM raw trace writer shutdown failed: {e}")
+
     logger.info(f"[Worker {worker_id}] Lifespan shutdown completed")
 
 

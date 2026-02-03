@@ -670,6 +670,7 @@ class GoogleVertexClient(LLMClientBase):
             #     "candidatesTokenCount": 27,
             #     "totalTokenCount": 36
             #   }
+            usage = None
             if response.usage_metadata:
                 # Extract usage via centralized method
                 from letta.schemas.enums import ProviderType
