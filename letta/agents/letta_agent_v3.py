@@ -59,13 +59,9 @@ from letta.server.rest_api.utils import (
 )
 from letta.services.conversation_manager import ConversationManager
 from letta.services.helpers.tool_parser_helper import runtime_override_tool_json_schema
-from letta.services.summarizer.summarizer_all import summarize_all
+from letta.services.summarizer.compact import compact_messages
 from letta.services.summarizer.summarizer_config import CompactionSettings
-from letta.services.summarizer.summarizer_sliding_window import (
-    count_tokens,
-    count_tokens_with_tools,
-    summarize_via_sliding_window,
-)
+from letta.services.summarizer.summarizer_sliding_window import count_tokens
 from letta.settings import settings, summarizer_settings
 from letta.system import package_function_response, package_summarize_message_no_counts
 from letta.utils import log_telemetry, validate_function_response
@@ -943,10 +939,11 @@ class LettaAgentV3(LettaAgentV2):
 
                                 continue
                             except SystemPromptTokenExceededError:
+                                self.should_continue = False
                                 self.stop_reason = LettaStopReason(
                                     stop_reason=StopReasonType.context_window_overflow_in_system_prompt.value
                                 )
-                                raise e
+                                raise
                             except Exception as e:
                                 self.stop_reason = LettaStopReason(stop_reason=StopReasonType.error.value)
                                 self.logger.error(f"Unknown error occured for summarization run {run_id}: {e}")
@@ -1065,34 +1062,39 @@ class LettaAgentV3(LettaAgentV2):
                         trigger="post_step_context_check",
                     )
 
-                summary_message, messages, summary_text = await self.compact(
-                    messages,
-                    trigger_threshold=self.agent_state.llm_config.context_window,
-                    run_id=run_id,
-                    step_id=step_id,
-                    use_summary_role=include_compaction_messages,
-                    trigger="post_step_context_check",
-                    context_tokens_before=context_tokens_before,
-                    messages_count_before=messages_count_before,
-                )
-                self.response_messages.append(summary_message)
+                try:
+                    summary_message, messages, summary_text = await self.compact(
+                        messages,
+                        trigger_threshold=self.agent_state.llm_config.context_window,
+                        run_id=run_id,
+                        step_id=step_id,
+                        use_summary_role=include_compaction_messages,
+                        trigger="post_step_context_check",
+                        context_tokens_before=context_tokens_before,
+                        messages_count_before=messages_count_before,
+                    )
+                    self.response_messages.append(summary_message)
 
-                # Yield summary result message to client
-                for msg in self._create_summary_result_message(
-                    summary_message=summary_message,
-                    summary_text=summary_text,
-                    step_id=step_id,
-                    run_id=run_id,
-                    include_compaction_messages=include_compaction_messages,
-                ):
-                    yield msg
+                    # Yield summary result message to client
+                    for msg in self._create_summary_result_message(
+                        summary_message=summary_message,
+                        summary_text=summary_text,
+                        step_id=step_id,
+                        run_id=run_id,
+                        include_compaction_messages=include_compaction_messages,
+                    ):
+                        yield msg
 
-                await self._checkpoint_messages(
-                    run_id=run_id,
-                    step_id=step_id,
-                    new_messages=[summary_message],
-                    in_context_messages=messages,
-                )
+                    await self._checkpoint_messages(
+                        run_id=run_id,
+                        step_id=step_id,
+                        new_messages=[summary_message],
+                        in_context_messages=messages,
+                    )
+                except SystemPromptTokenExceededError:
+                    self.should_continue = False
+                    self.stop_reason = LettaStopReason(stop_reason=StopReasonType.context_window_overflow_in_system_prompt.value)
+                    raise
 
         except Exception as e:
             # NOTE: message persistence does not happen in the case of an exception (rollback to previous state)
@@ -1678,256 +1680,29 @@ class LettaAgentV3(LettaAgentV2):
             context_tokens_before: Token count before compaction (for stats).
             messages_count_before: Message count before compaction (for stats).
         """
+        # Determine compaction settings: passed-in > agent's > global defaults
+        effective_compaction_settings = compaction_settings or self.agent_state.compaction_settings
 
-        # Use the passed-in compaction_settings first, then agent's compaction_settings if set,
-        # otherwise fall back to global defaults based on the agent's model handle.
-        if compaction_settings is not None:
-            summarizer_config = compaction_settings
-        elif self.agent_state.compaction_settings is not None:
-            summarizer_config = self.agent_state.compaction_settings
-        else:
-            # Prefer the new handle field if set, otherwise derive from llm_config
-            if self.agent_state.model is not None:
-                handle = self.agent_state.model
-            else:
-                llm_cfg = self.agent_state.llm_config
-                handle = llm_cfg.handle or f"{llm_cfg.model_endpoint_type}/{llm_cfg.model}"
-
-            summarizer_config = CompactionSettings(model=handle)
-
-        # Build the LLMConfig used for summarization
-        summarizer_llm_config = await self._build_summarizer_llm_config(
-            agent_llm_config=self.agent_state.llm_config,
-            summarizer_config=summarizer_config,
-        )
-
-        summarization_mode_used = summarizer_config.mode
-        if summarizer_config.mode == "all":
-            summary, compacted_messages = await summarize_all(
-                actor=self.actor,
-                llm_config=summarizer_llm_config,
-                summarizer_config=summarizer_config,
-                in_context_messages=messages,
-                agent_id=self.agent_state.id,
-                agent_tags=self.agent_state.tags,
-                run_id=run_id,
-                step_id=step_id,
-            )
-        elif summarizer_config.mode == "sliding_window":
-            try:
-                summary, compacted_messages = await summarize_via_sliding_window(
-                    actor=self.actor,
-                    llm_config=summarizer_llm_config,
-                    summarizer_config=summarizer_config,
-                    in_context_messages=messages,
-                    agent_id=self.agent_state.id,
-                    agent_tags=self.agent_state.tags,
-                    run_id=run_id,
-                    step_id=step_id,
-                )
-            except Exception as e:
-                self.logger.error(f"Sliding window summarization failed with exception: {str(e)}. Falling back to all mode.")
-                summary, compacted_messages = await summarize_all(
-                    actor=self.actor,
-                    llm_config=summarizer_llm_config,
-                    summarizer_config=summarizer_config,
-                    in_context_messages=messages,
-                    agent_id=self.agent_state.id,
-                    agent_tags=self.agent_state.tags,
-                    run_id=run_id,
-                    step_id=step_id,
-                )
-                summarization_mode_used = "all"
-        else:
-            raise ValueError(f"Invalid summarizer mode: {summarizer_config.mode}")
-
-        # update the token count (including tools for accurate comparison with LLM's prompt_tokens)
-        self.context_token_estimate = await count_tokens_with_tools(
+        result = await compact_messages(
             actor=self.actor,
-            llm_config=self.agent_state.llm_config,
-            messages=compacted_messages,
-            tools=self.agent_state.tools,
-        )
-        self.logger.info(f"Context token estimate after summarization: {self.context_token_estimate}")
-
-        # if the trigger_threshold is provided, we need to make sure that the new token count is below it
-        if trigger_threshold is not None and self.context_token_estimate is not None and self.context_token_estimate >= trigger_threshold:
-            # If even after summarization the context is still at or above
-            # the proactive summarization threshold, treat this as a hard
-            # failure: log loudly and evict all prior conversation state
-            # (keeping only the system message) to avoid getting stuck in
-            # repeated summarization loops.
-            self.logger.error(
-                "Summarization failed to sufficiently reduce context size: "
-                f"post-summarization tokens={self.context_token_estimate}, "
-                f"threshold={trigger_threshold}, context_window={self.context_token_estimate}. "
-                "Evicting all prior messages without a summary to break potential loops.",
-            )
-
-            # if we used the sliding window mode, try to summarize again with the all mode
-            if summarization_mode_used == "sliding_window":
-                # try to summarize again with the all mode
-                summary, compacted_messages = await summarize_all(
-                    actor=self.actor,
-                    llm_config=self.agent_state.llm_config,
-                    summarizer_config=summarizer_config,
-                    in_context_messages=compacted_messages,
-                    agent_id=self.agent_state.id,
-                    agent_tags=self.agent_state.tags,
-                    run_id=run_id,
-                    step_id=step_id,
-                )
-                summarization_mode_used = "all"
-
-            self.context_token_estimate = await count_tokens_with_tools(
-                actor=self.actor,
-                llm_config=self.agent_state.llm_config,
-                messages=compacted_messages,
-                tools=self.agent_state.tools,
-            )
-
-            # final edge case: the system prompt is the cause of the context overflow (raise error)
-            if self.context_token_estimate is not None and self.context_token_estimate >= trigger_threshold:
-                await self._check_for_system_prompt_overflow(compacted_messages[0])
-
-                # raise an error if this is STILL not the problem
-                # do not throw an error, since we don't want to brick the agent
-                self.logger.error(
-                    f"Failed to summarize messages after hard eviction and checking the system prompt token estimate: {self.context_token_estimate} > {trigger_threshold}"
-                )
-            else:
-                self.logger.info(
-                    f"Summarization fallback succeeded in bringing the context size below the trigger threshold: {self.context_token_estimate} < {trigger_threshold}"
-                )
-
-        # Build compaction stats if we have the before values
-        # Note: messages_count_after = len(compacted_messages) + 1 because final_messages
-        # will be: [system] + [summary_message] + compacted_messages[1:]
-        compaction_stats = None
-        if trigger and context_tokens_before is not None and messages_count_before is not None:
-            compaction_stats = {
-                "trigger": trigger,
-                "context_tokens_before": context_tokens_before,
-                "context_tokens_after": self.context_token_estimate,
-                "context_window": self.agent_state.llm_config.context_window,
-                "messages_count_before": messages_count_before,
-                "messages_count_after": len(compacted_messages) + 1,
-            }
-
-        # Persist the summary message to DB
-        summary_message_str_packed = package_summarize_message_no_counts(
-            summary=summary,
+            agent_id=self.agent_state.id,
+            agent_llm_config=self.agent_state.llm_config,
+            messages=messages,
             timezone=self.agent_state.timezone,
-            compaction_stats=compaction_stats,
+            compaction_settings=effective_compaction_settings,
+            agent_model_handle=self.agent_state.model,
+            agent_tags=self.agent_state.tags,
+            tools=self.agent_state.tools,
+            trigger_threshold=trigger_threshold,
+            run_id=run_id,
+            step_id=step_id,
+            use_summary_role=use_summary_role,
+            trigger=trigger,
+            context_tokens_before=context_tokens_before,
+            messages_count_before=messages_count_before,
         )
 
-        if use_summary_role:
-            # New behavior: Create Message directly with role=summary
-            # (bypassing MessageCreate which only accepts user/system/assistant roles)
-            summary_message_obj = Message(
-                role=MessageRole.summary,
-                content=[TextContent(text=summary_message_str_packed)],
-                agent_id=self.agent_state.id,
-                run_id=run_id,
-                step_id=step_id,
-            )
-        else:
-            # Legacy behavior: Use convert_message_creates_to_messages with role=user
-            summary_messages = await convert_message_creates_to_messages(
-                message_creates=[
-                    MessageCreate(
-                        role=MessageRole.user,
-                        content=[TextContent(text=summary_message_str_packed)],
-                    )
-                ],
-                agent_id=self.agent_state.id,
-                timezone=self.agent_state.timezone,
-                # We already packed, don't pack again
-                wrap_user_message=False,
-                wrap_system_message=False,
-                run_id=run_id,
-            )
-            if not len(summary_messages) == 1:
-                self.logger.error(f"Expected only one summary message, got {len(summary_messages)} in {summary_messages}")
-            summary_message_obj = summary_messages[0]
+        # Update the agent's context token estimate
+        self.context_token_estimate = result.context_token_estimate
 
-        # final messages: inject summarization message at the beginning
-        final_messages = [compacted_messages[0]] + [summary_message_obj]
-        if len(compacted_messages) > 1:
-            final_messages += compacted_messages[1:]
-
-        return summary_message_obj, final_messages, summary
-
-    async def _build_summarizer_llm_config(
-        self,
-        agent_llm_config: LLMConfig,
-        summarizer_config: CompactionSettings,
-    ) -> LLMConfig:
-        """Derive an LLMConfig for summarization from a model handle.
-
-        This mirrors the agent-creation path: start from the agent's LLMConfig,
-        override provider/model/handle from ``compaction_settings.model``, and
-        then apply any explicit ``compaction_settings.model_settings`` via
-        ``_to_legacy_config_params``.
-        """
-
-        # If no summarizer model handle is provided, fall back to the agent's config
-        if not summarizer_config.model:
-            return agent_llm_config
-
-        try:
-            # Parse provider/model from the handle, falling back to the agent's
-            # provider type when only a model name is given.
-            if "/" in summarizer_config.model:
-                provider_name, model_name = summarizer_config.model.split("/", 1)
-            else:
-                provider_name = agent_llm_config.provider_name
-                model_name = summarizer_config.model
-
-            # Start from the agent's config and override model + provider_name + handle
-            # Check if the summarizer's provider matches the agent's provider
-            # If they match, we can safely use the agent's config as a base
-            # If they don't match, we need to load the default config for the new provider
-            from letta.schemas.enums import ProviderType
-
-            provider_matches = False
-            try:
-                # Check if provider_name is a valid ProviderType that matches agent's endpoint type
-                provider_type = ProviderType(provider_name)
-                provider_matches = provider_type.value == agent_llm_config.model_endpoint_type
-            except ValueError:
-                # provider_name is a custom label - check if it matches agent's provider_name
-                provider_matches = provider_name == agent_llm_config.provider_name
-
-            if provider_matches:
-                # Same provider - use agent's config as base and override model/handle
-                base = agent_llm_config.model_copy()
-                base.model = model_name
-                base.handle = summarizer_config.model
-            else:
-                # Different provider - load default config for this handle
-                from letta.services.provider_manager import ProviderManager
-
-                provider_manager = ProviderManager()
-                try:
-                    base = await provider_manager.get_llm_config_from_handle(
-                        handle=summarizer_config.model,
-                        actor=self.actor,
-                    )
-                except Exception as e:
-                    self.logger.warning(
-                        f"Failed to load LLM config for summarizer handle '{summarizer_config.model}': {e}. "
-                        f"Falling back to agent's LLM config."
-                    )
-                    return agent_llm_config
-
-            # If explicit model_settings are provided for the summarizer, apply
-            # them just like server.create_agent_async does for agents.
-            if summarizer_config.model_settings is not None:
-                update_params = summarizer_config.model_settings._to_legacy_config_params()
-                return base.model_copy(update=update_params)
-
-            return base
-        except Exception:
-            # On any error, do not break the agent – just fall back
-            return agent_llm_config
+        return result.summary_message, result.compacted_messages, result.summary_text

@@ -314,12 +314,12 @@ async def test_compaction_settings_model_uses_separate_llm_config_for_summarizat
     the LLMConfig used for the summarizer request.
     """
 
-    from letta.agents.letta_agent_v3 import LettaAgentV3
     from letta.schemas.agent import AgentState as PydanticAgentState
     from letta.schemas.enums import AgentType, MessageRole
     from letta.schemas.memory import Memory
     from letta.schemas.message import Message as PydanticMessage
     from letta.schemas.model import OpenAIModelSettings, OpenAIReasoning
+    from letta.services.summarizer.compact import build_summarizer_llm_config
 
     # Base agent LLM config
     base_llm_config = LLMConfig.default_config("gpt-4o-mini")
@@ -406,16 +406,11 @@ async def test_compaction_settings_model_uses_separate_llm_config_for_summarizat
         tool_rules=None,
     )
 
-    # Create a mock agent instance to call the instance method
-    mock_agent = Mock(spec=LettaAgentV3)
-    mock_agent.actor = default_user
-    mock_agent.logger = Mock()
-
-    # Use the instance method to derive summarizer llm_config
-    summarizer_llm_config = await LettaAgentV3._build_summarizer_llm_config(
-        mock_agent,
+    # Use the shared function to derive summarizer llm_config
+    summarizer_llm_config = await build_summarizer_llm_config(
         agent_llm_config=agent_state.llm_config,
         summarizer_config=agent_state.compaction_settings,
+        actor=default_user,
     )
 
     # Agent model remains the base model
