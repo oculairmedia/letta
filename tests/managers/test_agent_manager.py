@@ -691,7 +691,7 @@ async def test_update_agent(server: SyncServer, comprehensive_test_agent_fixture
         system="train system",
         llm_config=LLMConfig.default_config("gpt-4o-mini"),
         embedding_config=EmbeddingConfig.default_config(model_name="letta"),
-        message_ids=["10", "20"],
+        message_ids=[f"message-{uuid.uuid4()}", f"message-{uuid.uuid4()}"],
         metadata={"train_key": "train_value"},
         tool_exec_environment_variables={"test_env_var_key_a": "a", "new_tool_exec_key": "n"},
         message_buffer_autoclear=False,

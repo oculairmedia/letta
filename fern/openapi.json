@@ -30546,7 +30546,12 @@
             "anyOf": [
               {
                 "items": {
-                  "type": "string"
+                  "type": "string",
+                  "maxLength": 41,
+                  "minLength": 41,
+                  "pattern": "^tool-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                  "description": "The ID of the tool in the format 'tool-<uuid4>'",
+                  "examples": ["tool-123e4567-e89b-42d3-8456-426614174000"]
                 },
                 "type": "array"
               },
@@ -30561,7 +30566,12 @@
             "anyOf": [
               {
                 "items": {
-                  "type": "string"
+                  "type": "string",
+                  "maxLength": 43,
+                  "minLength": 43,
+                  "pattern": "^source-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                  "description": "The ID of the source in the format 'source-<uuid4>'",
+                  "examples": ["source-123e4567-e89b-42d3-8456-426614174000"]
                 },
                 "type": "array"
               },
@@ -30577,7 +30587,12 @@
             "anyOf": [
               {
                 "items": {
-                  "type": "string"
+                  "type": "string",
+                  "maxLength": 43,
+                  "minLength": 43,
+                  "pattern": "^source-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                  "description": "The ID of the source in the format 'source-<uuid4>'",
+                  "examples": ["source-123e4567-e89b-42d3-8456-426614174000"]
                 },
                 "type": "array"
               },
@@ -30592,7 +30607,12 @@
             "anyOf": [
               {
                 "items": {
-                  "type": "string"
+                  "type": "string",
+                  "maxLength": 42,
+                  "minLength": 42,
+                  "pattern": "^block-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                  "description": "The ID of the block in the format 'block-<uuid4>'",
+                  "examples": ["block-123e4567-e89b-42d3-8456-426614174000"]
                 },
                 "type": "array"
               },
@@ -31093,7 +31113,12 @@
             "anyOf": [
               {
                 "items": {
-                  "type": "string"
+                  "type": "string",
+                  "maxLength": 45,
+                  "minLength": 45,
+                  "pattern": "^identity-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                  "description": "The ID of the identity in the format 'identity-<uuid4>'",
+                  "examples": ["identity-123e4567-e89b-42d3-8456-426614174000"]
                 },
                 "type": "array"
               },
@@ -34958,7 +34983,12 @@
             "anyOf": [
               {
                 "items": {
-                  "type": "string"
+                  "type": "string",
+                  "maxLength": 41,
+                  "minLength": 41,
+                  "pattern": "^tool-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                  "description": "The ID of the tool in the format 'tool-<uuid4>'",
+                  "examples": ["tool-123e4567-e89b-42d3-8456-426614174000"]
                 },
                 "type": "array"
               },
@@ -34973,7 +35003,12 @@
             "anyOf": [
               {
                 "items": {
-                  "type": "string"
+                  "type": "string",
+                  "maxLength": 43,
+                  "minLength": 43,
+                  "pattern": "^source-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                  "description": "The ID of the source in the format 'source-<uuid4>'",
+                  "examples": ["source-123e4567-e89b-42d3-8456-426614174000"]
                 },
                 "type": "array"
               },
@@ -34989,7 +35024,12 @@
             "anyOf": [
               {
                 "items": {
-                  "type": "string"
+                  "type": "string",
+                  "maxLength": 43,
+                  "minLength": 43,
+                  "pattern": "^source-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                  "description": "The ID of the source in the format 'source-<uuid4>'",
+                  "examples": ["source-123e4567-e89b-42d3-8456-426614174000"]
                 },
                 "type": "array"
               },
@@ -35004,7 +35044,12 @@
             "anyOf": [
               {
                 "items": {
-                  "type": "string"
+                  "type": "string",
+                  "maxLength": 42,
+                  "minLength": 42,
+                  "pattern": "^block-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                  "description": "The ID of the block in the format 'block-<uuid4>'",
+                  "examples": ["block-123e4567-e89b-42d3-8456-426614174000"]
                 },
                 "type": "array"
               },
@@ -35489,7 +35534,12 @@
             "anyOf": [
               {
                 "items": {
-                  "type": "string"
+                  "type": "string",
+                  "maxLength": 45,
+                  "minLength": 45,
+                  "pattern": "^identity-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                  "description": "The ID of the identity in the format 'identity-<uuid4>'",
+                  "examples": ["identity-123e4567-e89b-42d3-8456-426614174000"]
                 },
                 "type": "array"
               },
@@ -44947,7 +44997,12 @@
             "anyOf": [
               {
                 "items": {
-                  "type": "string"
+                  "type": "string",
+                  "maxLength": 41,
+                  "minLength": 41,
+                  "pattern": "^tool-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                  "description": "The ID of the tool in the format 'tool-<uuid4>'",
+                  "examples": ["tool-123e4567-e89b-42d3-8456-426614174000"]
                 },
                 "type": "array"
               },
@@ -44962,7 +45017,12 @@
             "anyOf": [
               {
                 "items": {
-                  "type": "string"
+                  "type": "string",
+                  "maxLength": 43,
+                  "minLength": 43,
+                  "pattern": "^source-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                  "description": "The ID of the source in the format 'source-<uuid4>'",
+                  "examples": ["source-123e4567-e89b-42d3-8456-426614174000"]
                 },
                 "type": "array"
               },
@@ -44978,7 +45038,12 @@
             "anyOf": [
               {
                 "items": {
-                  "type": "string"
+                  "type": "string",
+                  "maxLength": 43,
+                  "minLength": 43,
+                  "pattern": "^source-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                  "description": "The ID of the source in the format 'source-<uuid4>'",
+                  "examples": ["source-123e4567-e89b-42d3-8456-426614174000"]
                 },
                 "type": "array"
               },
@@ -44993,7 +45058,12 @@
             "anyOf": [
               {
                 "items": {
-                  "type": "string"
+                  "type": "string",
+                  "maxLength": 42,
+                  "minLength": 42,
+                  "pattern": "^block-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                  "description": "The ID of the block in the format 'block-<uuid4>'",
+                  "examples": ["block-123e4567-e89b-42d3-8456-426614174000"]
                 },
                 "type": "array"
               },
@@ -45092,7 +45162,12 @@
             "anyOf": [
               {
                 "items": {
-                  "type": "string"
+                  "type": "string",
+                  "maxLength": 44,
+                  "minLength": 44,
+                  "pattern": "^message-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                  "description": "The ID of the message in the format 'message-<uuid4>'",
+                  "examples": ["message-123e4567-e89b-42d3-8456-426614174000"]
                 },
                 "type": "array"
               },
@@ -45198,7 +45273,12 @@
             "anyOf": [
               {
                 "items": {
-                  "type": "string"
+                  "type": "string",
+                  "maxLength": 45,
+                  "minLength": 45,
+                  "pattern": "^identity-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                  "description": "The ID of the identity in the format 'identity-<uuid4>'",
+                  "examples": ["identity-123e4567-e89b-42d3-8456-426614174000"]
                 },
                 "type": "array"
               },
@@ -46051,8 +46131,12 @@
         "properties": {
           "id": {
             "type": "string",
+            "maxLength": 41,
+            "minLength": 41,
+            "pattern": "^user-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
             "title": "Id",
-            "description": "The id of the user to update."
+            "description": "The id of the user to update.",
+            "examples": ["user-123e4567-e89b-42d3-8456-426614174000"]
           },
           "name": {
             "anyOf": [
@@ -46468,8 +46552,7 @@
               }
             ],
             "title": "Source Ids",
-            "description": "Deprecated: Use `folder_ids` field instead. The ids of the sources used by the agent.",
-            "deprecated": true
+            "description": "The ids of the sources used by the agent."
           },
           "folder_ids": {
             "anyOf": [

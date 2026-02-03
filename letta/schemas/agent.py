@@ -32,6 +32,7 @@ from letta.schemas.tool import Tool
 from letta.schemas.tool_rule import ToolRule
 from letta.services.summarizer.summarizer_config import CompactionSettings
 from letta.utils import calculate_file_defaults_based_on_context_window, create_random_username
+from letta.validators import BlockId, IdentityId, MessageId, SourceId, ToolId
 
 
 # TODO: Remove this upon next OSS release, there's a duplicate AgentType in enums
@@ -215,12 +216,12 @@ class CreateAgent(BaseModel, validate_assignment=True):  #
     )
     # TODO: This is a legacy field and should be removed ASAP to force `tool_ids` usage
     tools: Optional[List[str]] = Field(None, description="The tools used by the agent.")
-    tool_ids: Optional[List[str]] = Field(None, description="The ids of the tools used by the agent.")
-    source_ids: Optional[List[str]] = Field(
+    tool_ids: Optional[List[ToolId]] = Field(None, description="The ids of the tools used by the agent.")
+    source_ids: Optional[List[SourceId]] = Field(
         None, description="Deprecated: Use `folder_ids` field instead. The ids of the sources used by the agent.", deprecated=True
     )
-    folder_ids: Optional[List[str]] = Field(None, description="The ids of the folders used by the agent.")
-    block_ids: Optional[List[str]] = Field(None, description="The ids of the blocks used by the agent.")
+    folder_ids: Optional[List[SourceId]] = Field(None, description="The ids of the folders used by the agent.")
+    block_ids: Optional[List[BlockId]] = Field(None, description="The ids of the blocks used by the agent.")
     tool_rules: Optional[List[ToolRule]] = Field(None, description="The tool rules governing the agent.")
     tags: Optional[List[str]] = Field(None, description="The tags associated with the agent.")
     system: Optional[str] = Field(None, description="The system prompt used by the agent.")
@@ -311,7 +312,7 @@ class CreateAgent(BaseModel, validate_assignment=True):  #
     base_template_id: Optional[str] = Field(
         None, description="Deprecated: No longer used. The base template id of the agent.", deprecated=True
     )
-    identity_ids: Optional[List[str]] = Field(None, description="The ids of the identities associated with this agent.")
+    identity_ids: Optional[List[IdentityId]] = Field(None, description="The ids of the identities associated with this agent.")
     message_buffer_autoclear: bool = Field(
         False,
         description="If set to True, the agent will not remember previous messages (though the agent will still retain state via core memory blocks and archival/recall memory). Not recommended unless you have an advanced use case.",
@@ -444,16 +445,16 @@ class InternalTemplateAgentCreate(CreateAgent):
 
 class UpdateAgent(BaseModel):
     name: Optional[str] = Field(None, description="The name of the agent.")
-    tool_ids: Optional[List[str]] = Field(None, description="The ids of the tools used by the agent.")
-    source_ids: Optional[List[str]] = Field(
+    tool_ids: Optional[List[ToolId]] = Field(None, description="The ids of the tools used by the agent.")
+    source_ids: Optional[List[SourceId]] = Field(
         None, description="Deprecated: Use `folder_ids` field instead. The ids of the sources used by the agent.", deprecated=True
     )
-    folder_ids: Optional[List[str]] = Field(None, description="The ids of the folders used by the agent.")
-    block_ids: Optional[List[str]] = Field(None, description="The ids of the blocks used by the agent.")
+    folder_ids: Optional[List[SourceId]] = Field(None, description="The ids of the folders used by the agent.")
+    block_ids: Optional[List[BlockId]] = Field(None, description="The ids of the blocks used by the agent.")
     tags: Optional[List[str]] = Field(None, description="The tags associated with the agent.")
     system: Optional[str] = Field(None, description="The system prompt used by the agent.")
     tool_rules: Optional[List[ToolRule]] = Field(None, description="The tool rules governing the agent.")
-    message_ids: Optional[List[str]] = Field(None, description="The ids of the messages in the agent's in-context memory.")
+    message_ids: Optional[List[MessageId]] = Field(None, description="The ids of the messages in the agent's in-context memory.")
     description: Optional[str] = Field(None, description="The description of the agent.")
     metadata: Optional[Dict] = Field(None, description="The metadata of the agent.")
     tool_exec_environment_variables: Optional[Dict[str, str]] = Field(None, description="Deprecated: use `secrets` field instead")
@@ -461,7 +462,7 @@ class UpdateAgent(BaseModel):
     project_id: Optional[str] = Field(None, description="The id of the project the agent belongs to.")
     template_id: Optional[str] = Field(None, description="The id of the template the agent belongs to.")
     base_template_id: Optional[str] = Field(None, description="The base template id of the agent.")
-    identity_ids: Optional[List[str]] = Field(None, description="The ids of the identities associated with this agent.")
+    identity_ids: Optional[List[IdentityId]] = Field(None, description="The ids of the identities associated with this agent.")
     message_buffer_autoclear: Optional[bool] = Field(
         None,
         description="If set to True, the agent will not remember previous messages (though the agent will still retain state via core memory blocks and archival/recall memory). Not recommended unless you have an advanced use case.",

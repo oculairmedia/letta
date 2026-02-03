@@ -135,6 +135,12 @@ class AgentSchema(CreateAgent):
     files_agents: List[FileAgentSchema] = Field(default_factory=list, description="List of file-agent relationships for this agent")
     group_ids: List[str] = Field(default_factory=list, description="List of groups that the agent manages")
 
+    tool_ids: Optional[List[str]] = Field(None, description="The ids of the tools used by the agent.")
+    source_ids: Optional[List[str]] = Field(None, description="The ids of the sources used by the agent.")
+    folder_ids: Optional[List[str]] = Field(None, description="The ids of the folders used by the agent.")
+    block_ids: Optional[List[str]] = Field(None, description="The ids of the blocks used by the agent.")
+    identity_ids: Optional[List[str]] = Field(None, description="The ids of the identities associated with this agent.")
+
     @classmethod
     async def from_agent_state(
         cls, agent_state: AgentState, message_manager: MessageManager, files_agents: List[FileAgent], actor: User
