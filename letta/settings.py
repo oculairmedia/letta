@@ -6,8 +6,13 @@ from typing import Optional
 from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+# Load config file and apply to environment before settings are created
+# This allows YAML config values to be picked up by pydantic-settings
+from letta.config_file import apply_config_to_env
 from letta.schemas.enums import SandboxType
 from letta.services.summarizer.enums import SummarizationMode
+
+apply_config_to_env()
 
 # Define constants here to avoid circular import with letta.log
 DEFAULT_WRAPPER_NAME = "chatml"
