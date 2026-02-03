@@ -1579,6 +1579,8 @@ async def send_message(
     await redis_client.set(f"{REDIS_RUN_ID_PREFIX}:{agent_id}", run.id if run else None)
 
     run_update_metadata = None
+    result = None
+    run_status = None
     try:
         agent_loop = AgentLoop.load(agent_state=agent, actor=actor)
         result = await agent_loop.step(
