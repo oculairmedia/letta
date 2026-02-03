@@ -99,18 +99,17 @@ class ClickhouseProviderTraceBackend(ProviderTraceBackendClient):
         # Extract usage from response (generic parsing for common formats)
         usage = self._extract_usage(provider_trace.response_json, provider)
 
-        # Check for error in response
-        is_error = "error" in provider_trace.response_json
-        error_type = None
+        # Check for error in response - must have actual error content, not just null
+        # OpenAI Responses API returns {"error": null} on success
+        error_data = provider_trace.response_json.get("error")
+        error_type = provider_trace.response_json.get("error_type")
         error_message = None
+        is_error = bool(error_data) or bool(error_type)
         if is_error:
-            # error_type may be at top level or inside error dict
-            error_type = provider_trace.response_json.get("error_type")
-            error_data = provider_trace.response_json.get("error", {})
             if isinstance(error_data, dict):
                 error_type = error_type or error_data.get("type")
                 error_message = error_data.get("message", str(error_data))[:1000]
-            else:
+            elif error_data:
                 error_message = str(error_data)[:1000]
 
         # Extract UUID from provider_trace.id (strip "provider_trace-" prefix)
