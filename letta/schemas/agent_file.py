@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Annotated, Any, Dict, List, Literal, Optional, Union
 
 from openai.types.chat.chat_completion_message_tool_call import ChatCompletionMessageToolCall as OpenAIToolCall
 from pydantic import BaseModel, Field
@@ -9,7 +9,13 @@ from letta.schemas.agent import AgentState, CreateAgent
 from letta.schemas.block import Block, CreateBlock
 from letta.schemas.enums import MessageRole, PrimitiveType
 from letta.schemas.file import FileAgent, FileAgentBase, FileMetadata, FileMetadataBase
-from letta.schemas.group import Group, GroupCreate
+from letta.schemas.group import (
+    Group,
+    GroupCreate,
+    ManagerConfig,
+    ManagerType,
+    RoundRobinManager,
+)
 from letta.schemas.letta_message import ApprovalReturn
 from letta.schemas.mcp import MCPServer
 from letta.schemas.message import Message, MessageCreate, ToolReturn
@@ -195,11 +201,51 @@ class AgentSchema(CreateAgent):
         )
 
 
+# Agentfile-specific manager configs that use plain str instead of validated AgentId
+# These allow importing agentfiles with simple IDs like "agent-0"
+
+
+class SupervisorManagerSchema(ManagerConfig):
+    manager_type: Literal[ManagerType.supervisor] = Field(ManagerType.supervisor, description="")
+    manager_agent_id: str = Field(..., description="")
+
+
+class DynamicManagerSchema(ManagerConfig):
+    manager_type: Literal[ManagerType.dynamic] = Field(ManagerType.dynamic, description="")
+    manager_agent_id: str = Field(..., description="")
+    termination_token: Optional[str] = Field("DONE!", description="")
+    max_turns: Optional[int] = Field(None, description="")
+
+
+class SleeptimeManagerSchema(ManagerConfig):
+    manager_type: Literal[ManagerType.sleeptime] = Field(ManagerType.sleeptime, description="")
+    manager_agent_id: str = Field(..., description="")
+    sleeptime_agent_frequency: Optional[int] = Field(None, description="")
+
+
+class VoiceSleeptimeManagerSchema(ManagerConfig):
+    manager_type: Literal[ManagerType.voice_sleeptime] = Field(ManagerType.voice_sleeptime, description="")
+    manager_agent_id: str = Field(..., description="")
+    max_message_buffer_length: Optional[int] = Field(None, description="")
+    min_message_buffer_length: Optional[int] = Field(None, description="")
+
+
+ManagerConfigSchemaUnion = Annotated[
+    Union[RoundRobinManager, SupervisorManagerSchema, DynamicManagerSchema, SleeptimeManagerSchema, VoiceSleeptimeManagerSchema],
+    Field(discriminator="manager_type"),
+]
+
+
 class GroupSchema(GroupCreate):
     """Group with human-readable ID for agent file"""
 
     __id_prefix__ = PrimitiveType.GROUP.value
     id: str = Field(..., description="Human-readable identifier for this group in the file")
+
+    # Override validated ID fields from GroupCreate to accept simple IDs like "agent-0"
+    agent_ids: List[str] = Field(..., description="List of agent IDs in this group")
+    shared_block_ids: List[str] = Field([], description="List of shared block IDs")
+    manager_config: ManagerConfigSchemaUnion = Field(RoundRobinManager(), description="")
 
     @classmethod
     def from_group(cls, group: Group) -> "GroupSchema":

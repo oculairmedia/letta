@@ -31940,6 +31940,50 @@
         "required": ["manager_agent_id"],
         "title": "DynamicManager"
       },
+      "DynamicManagerSchema": {
+        "properties": {
+          "manager_type": {
+            "type": "string",
+            "const": "dynamic",
+            "title": "Manager Type",
+            "description": "",
+            "default": "dynamic"
+          },
+          "manager_agent_id": {
+            "type": "string",
+            "title": "Manager Agent Id",
+            "description": ""
+          },
+          "termination_token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Termination Token",
+            "description": "",
+            "default": "DONE!"
+          },
+          "max_turns": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Turns",
+            "description": ""
+          }
+        },
+        "type": "object",
+        "required": ["manager_agent_id"],
+        "title": "DynamicManagerSchema"
+      },
       "DynamicManagerUpdate": {
         "properties": {
           "manager_type": {
@@ -33993,16 +34037,11 @@
         "properties": {
           "agent_ids": {
             "items": {
-              "type": "string",
-              "maxLength": 42,
-              "minLength": 42,
-              "pattern": "^agent-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
-              "description": "The ID of the agent in the format 'agent-<uuid4>'",
-              "examples": ["agent-123e4567-e89b-42d3-8456-426614174000"]
+              "type": "string"
             },
             "type": "array",
             "title": "Agent Ids",
-            "description": ""
+            "description": "List of agent IDs in this group"
           },
           "description": {
             "type": "string",
@@ -34015,16 +34054,16 @@
                 "$ref": "#/components/schemas/RoundRobinManager"
               },
               {
-                "$ref": "#/components/schemas/SupervisorManager"
+                "$ref": "#/components/schemas/SupervisorManagerSchema"
               },
               {
-                "$ref": "#/components/schemas/DynamicManager"
+                "$ref": "#/components/schemas/DynamicManagerSchema"
               },
               {
-                "$ref": "#/components/schemas/SleeptimeManager"
+                "$ref": "#/components/schemas/SleeptimeManagerSchema"
               },
               {
-                "$ref": "#/components/schemas/VoiceSleeptimeManager"
+                "$ref": "#/components/schemas/VoiceSleeptimeManagerSchema"
               }
             ],
             "title": "Manager Config",
@@ -34035,11 +34074,11 @@
             "discriminator": {
               "propertyName": "manager_type",
               "mapping": {
-                "dynamic": "#/components/schemas/DynamicManager",
+                "dynamic": "#/components/schemas/DynamicManagerSchema",
                 "round_robin": "#/components/schemas/RoundRobinManager",
-                "sleeptime": "#/components/schemas/SleeptimeManager",
-                "supervisor": "#/components/schemas/SupervisorManager",
-                "voice_sleeptime": "#/components/schemas/VoiceSleeptimeManager"
+                "sleeptime": "#/components/schemas/SleeptimeManagerSchema",
+                "supervisor": "#/components/schemas/SupervisorManagerSchema",
+                "voice_sleeptime": "#/components/schemas/VoiceSleeptimeManagerSchema"
               }
             }
           },
@@ -34057,18 +34096,12 @@
           },
           "shared_block_ids": {
             "items": {
-              "type": "string",
-              "maxLength": 42,
-              "minLength": 42,
-              "pattern": "^block-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
-              "description": "The ID of the block in the format 'block-<uuid4>'",
-              "examples": ["block-123e4567-e89b-42d3-8456-426614174000"]
+              "type": "string"
             },
             "type": "array",
             "title": "Shared Block Ids",
-            "description": "",
-            "default": [],
-            "deprecated": true
+            "description": "List of shared block IDs",
+            "default": []
           },
           "hidden": {
             "anyOf": [
@@ -41711,6 +41744,37 @@
         "required": ["manager_agent_id"],
         "title": "SleeptimeManager"
       },
+      "SleeptimeManagerSchema": {
+        "properties": {
+          "manager_type": {
+            "type": "string",
+            "const": "sleeptime",
+            "title": "Manager Type",
+            "description": "",
+            "default": "sleeptime"
+          },
+          "manager_agent_id": {
+            "type": "string",
+            "title": "Manager Agent Id",
+            "description": ""
+          },
+          "sleeptime_agent_frequency": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sleeptime Agent Frequency",
+            "description": ""
+          }
+        },
+        "type": "object",
+        "required": ["manager_agent_id"],
+        "title": "SleeptimeManagerSchema"
+      },
       "SleeptimeManagerUpdate": {
         "properties": {
           "manager_type": {
@@ -43053,6 +43117,25 @@
         "type": "object",
         "required": ["manager_agent_id"],
         "title": "SupervisorManager"
+      },
+      "SupervisorManagerSchema": {
+        "properties": {
+          "manager_type": {
+            "type": "string",
+            "const": "supervisor",
+            "title": "Manager Type",
+            "description": "",
+            "default": "supervisor"
+          },
+          "manager_agent_id": {
+            "type": "string",
+            "title": "Manager Agent Id",
+            "description": ""
+          }
+        },
+        "type": "object",
+        "required": ["manager_agent_id"],
+        "title": "SupervisorManagerSchema"
       },
       "SupervisorManagerUpdate": {
         "properties": {
@@ -46070,6 +46153,49 @@
         "type": "object",
         "required": ["manager_agent_id"],
         "title": "VoiceSleeptimeManager"
+      },
+      "VoiceSleeptimeManagerSchema": {
+        "properties": {
+          "manager_type": {
+            "type": "string",
+            "const": "voice_sleeptime",
+            "title": "Manager Type",
+            "description": "",
+            "default": "voice_sleeptime"
+          },
+          "manager_agent_id": {
+            "type": "string",
+            "title": "Manager Agent Id",
+            "description": ""
+          },
+          "max_message_buffer_length": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Message Buffer Length",
+            "description": ""
+          },
+          "min_message_buffer_length": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Min Message Buffer Length",
+            "description": ""
+          }
+        },
+        "type": "object",
+        "required": ["manager_agent_id"],
+        "title": "VoiceSleeptimeManagerSchema"
       },
       "VoiceSleeptimeManagerUpdate": {
         "properties": {
