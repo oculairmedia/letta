@@ -1091,6 +1091,11 @@ class OpenAIClient(LLMClientBase):
         # General API error catch-all
         if isinstance(e, openai.APIStatusError):
             logger.warning(f"[OpenAI] API status error ({e.status_code}): {str(e)}")
+            # Handle 413 Request Entity Too Large - request payload exceeds size limits
+            if e.status_code == 413:
+                return ContextWindowExceededError(
+                    message=f"Request too large for OpenAI (413): {str(e)}",
+                )
             # Map based on status code potentially
             if e.status_code >= 500:
                 error_cls = LLMServerError
