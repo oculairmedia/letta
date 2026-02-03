@@ -470,29 +470,6 @@ async def compact_conversation(
     # Get the agent state
     agent = await server.agent_manager.get_agent_by_id_async(conversation.agent_id, actor, include_relationships=["multi_agent_group"])
 
-    # Check eligibility
-    agent_eligible = agent.multi_agent_group is None or agent.multi_agent_group.manager_type in ["sleeptime", "voice_sleeptime"]
-    model_compatible = agent.llm_config.model_endpoint_type in [
-        "anthropic",
-        "openai",
-        "together",
-        "google_ai",
-        "google_vertex",
-        "bedrock",
-        "ollama",
-        "azure",
-        "xai",
-        "zai",
-        "groq",
-        "deepseek",
-    ]
-
-    if not (agent_eligible and model_compatible):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Summarization is not currently supported for this agent configuration. Please contact Letta support.",
-        )
-
     # Get in-context messages for this conversation
     in_context_messages = await conversation_manager.get_messages_for_conversation(
         conversation_id=conversation_id,

@@ -1557,23 +1557,6 @@ async def send_message(
         # Create a copy of agent state with the overridden llm_config
         agent = agent.model_copy(update={"llm_config": override_llm_config})
 
-    agent_eligible = agent.multi_agent_group is None or agent.multi_agent_group.manager_type in ["sleeptime", "voice_sleeptime"]
-    model_compatible = agent.llm_config.model_endpoint_type in [
-        "anthropic",
-        "openai",
-        "together",
-        "google_ai",
-        "google_vertex",
-        "bedrock",
-        "ollama",
-        "azure",
-        "xai",
-        "zai",
-        "groq",
-        "deepseek",
-        "chatgpt_oauth",
-    ]
-
     # Create a new run for execution tracking
     if settings.track_agent_run:
         runs_manager = RunManager()
@@ -1597,32 +1580,17 @@ async def send_message(
 
     run_update_metadata = None
     try:
-        result = None
-        if agent_eligible and model_compatible:
-            agent_loop = AgentLoop.load(agent_state=agent, actor=actor)
-            result = await agent_loop.step(
-                request.messages,
-                max_steps=request.max_steps,
-                run_id=run.id if run else None,
-                use_assistant_message=request.use_assistant_message,
-                request_start_timestamp_ns=request_start_timestamp_ns,
-                include_return_message_types=request.include_return_message_types,
-                client_tools=request.client_tools,
-                include_compaction_messages=request.include_compaction_messages,
-            )
-        else:
-            result = await server.send_message_to_agent(
-                agent_id=agent_id,
-                actor=actor,
-                input_messages=request.messages,
-                stream_steps=False,
-                stream_tokens=False,
-                # Support for AssistantMessage
-                use_assistant_message=request.use_assistant_message,
-                assistant_message_tool_name=request.assistant_message_tool_name,
-                assistant_message_tool_kwarg=request.assistant_message_tool_kwarg,
-                include_return_message_types=request.include_return_message_types,
-            )
+        agent_loop = AgentLoop.load(agent_state=agent, actor=actor)
+        result = await agent_loop.step(
+            request.messages,
+            max_steps=request.max_steps,
+            run_id=run.id if run else None,
+            use_assistant_message=request.use_assistant_message,
+            request_start_timestamp_ns=request_start_timestamp_ns,
+            include_return_message_types=request.include_return_message_types,
+            client_tools=request.client_tools,
+            include_compaction_messages=request.include_compaction_messages,
+        )
         run_status = result.stop_reason.stop_reason.run_status
         return result
     except PendingApprovalError as e:
@@ -1844,47 +1812,16 @@ async def _process_message_background(
             # Create a copy of agent state with the overridden llm_config
             agent = agent.model_copy(update={"llm_config": override_llm_config})
 
-        agent_eligible = agent.multi_agent_group is None or agent.multi_agent_group.manager_type in ["sleeptime", "voice_sleeptime"]
-        model_compatible = agent.llm_config.model_endpoint_type in [
-            "anthropic",
-            "openai",
-            "together",
-            "google_ai",
-            "google_vertex",
-            "bedrock",
-            "ollama",
-            "azure",
-            "xai",
-            "zai",
-            "groq",
-            "deepseek",
-        ]
-        if agent_eligible and model_compatible:
-            agent_loop = AgentLoop.load(agent_state=agent, actor=actor)
-            result = await agent_loop.step(
-                messages,
-                max_steps=max_steps,
-                run_id=run_id,
-                use_assistant_message=use_assistant_message,
-                request_start_timestamp_ns=request_start_timestamp_ns,
-                include_return_message_types=include_return_message_types,
-                include_compaction_messages=include_compaction_messages,
-            )
-        else:
-            result = await server.send_message_to_agent(
-                agent_id=agent_id,
-                actor=actor,
-                input_messages=messages,
-                stream_steps=False,
-                stream_tokens=False,
-                metadata={"run_id": run_id},
-                # Support for AssistantMessage
-                use_assistant_message=use_assistant_message,
-                assistant_message_tool_name=assistant_message_tool_name,
-                assistant_message_tool_kwarg=assistant_message_tool_kwarg,
-                include_return_message_types=include_return_message_types,
-            )
-
+        agent_loop = AgentLoop.load(agent_state=agent, actor=actor)
+        result = await agent_loop.step(
+            messages,
+            max_steps=max_steps,
+            run_id=run_id,
+            use_assistant_message=use_assistant_message,
+            request_start_timestamp_ns=request_start_timestamp_ns,
+            include_return_message_types=include_return_message_types,
+            include_compaction_messages=include_compaction_messages,
+        )
         runs_manager = RunManager()
         from letta.schemas.enums import RunStatus
         from letta.schemas.letta_stop_reason import StopReasonType
@@ -2170,33 +2107,10 @@ async def preview_model_request(
     agent = await server.agent_manager.get_agent_by_id_async(
         agent_id, actor, include_relationships=["multi_agent_group", "memory", "sources"]
     )
-    agent_eligible = agent.multi_agent_group is None or agent.multi_agent_group.manager_type in ["sleeptime", "voice_sleeptime"]
-    model_compatible = agent.llm_config.model_endpoint_type in [
-        "anthropic",
-        "openai",
-        "together",
-        "google_ai",
-        "google_vertex",
-        "bedrock",
-        "ollama",
-        "azure",
-        "xai",
-        "zai",
-        "groq",
-        "deepseek",
-        "chatgpt_oauth",
-    ]
-
-    if agent_eligible and model_compatible:
-        agent_loop = AgentLoop.load(agent_state=agent, actor=actor)
-        return await agent_loop.build_request(
-            input_messages=request.messages,
-        )
-    else:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Payload inspection is not currently supported for this agent configuration.",
-        )
+    agent_loop = AgentLoop.load(agent_state=agent, actor=actor)
+    return await agent_loop.build_request(
+        input_messages=request.messages,
+    )
 
 
 class CompactionRequest(BaseModel):
@@ -2225,53 +2139,31 @@ async def summarize_messages(
 
     actor = await server.user_manager.get_actor_or_default_async(actor_id=headers.actor_id)
     agent = await server.agent_manager.get_agent_by_id_async(agent_id, actor, include_relationships=["multi_agent_group"])
-    agent_eligible = agent.multi_agent_group is None or agent.multi_agent_group.manager_type in ["sleeptime", "voice_sleeptime"]
-    model_compatible = agent.llm_config.model_endpoint_type in [
-        "anthropic",
-        "openai",
-        "together",
-        "google_ai",
-        "google_vertex",
-        "bedrock",
-        "ollama",
-        "azure",
-        "xai",
-        "zai",
-        "groq",
-        "deepseek",
-        "chatgpt_oauth",
-    ]
 
-    if agent_eligible and model_compatible:
-        agent_loop = LettaAgentV3(agent_state=agent, actor=actor)
-        in_context_messages = await server.message_manager.get_messages_by_ids_async(message_ids=agent.message_ids, actor=actor)
-        compaction_settings = request.compaction_settings if request else None
-        num_messages_before = len(in_context_messages)
-        summary_message, messages, summary = await agent_loop.compact(
-            messages=in_context_messages,
-            compaction_settings=compaction_settings,
-            use_summary_role=True,
-        )
-        num_messages_after = len(messages)
+    agent_loop = LettaAgentV3(agent_state=agent, actor=actor)
+    in_context_messages = await server.message_manager.get_messages_by_ids_async(message_ids=agent.message_ids, actor=actor)
+    compaction_settings = request.compaction_settings if request else None
+    num_messages_before = len(in_context_messages)
+    summary_message, messages, summary = await agent_loop.compact(
+        messages=in_context_messages,
+        compaction_settings=compaction_settings,
+        use_summary_role=True,
+    )
+    num_messages_after = len(messages)
 
-        # update the agent state
-        logger.info(f"Summarized {num_messages_before} messages to {num_messages_after}")
-        if num_messages_before <= num_messages_after:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Summarization failed to reduce the number of messages. You may need to use a different CompactionSettings (e.g. using `all` mode).",
-            )
-        await agent_loop._checkpoint_messages(run_id=None, step_id=None, new_messages=[summary_message], in_context_messages=messages)
-        return CompactionResponse(
-            summary=summary,
-            num_messages_before=num_messages_before,
-            num_messages_after=num_messages_after,
-        )
-    else:
+    # update the agent state
+    logger.info(f"Summarized {num_messages_before} messages to {num_messages_after}")
+    if num_messages_before <= num_messages_after:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Summarization is not currently supported for this agent configuration. Please contact Letta support.",
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Summarization failed to reduce the number of messages. You may need to use a different CompactionSettings (e.g. using `all` mode).",
         )
+    await agent_loop._checkpoint_messages(run_id=None, step_id=None, new_messages=[summary_message], in_context_messages=messages)
+    return CompactionResponse(
+        summary=summary,
+        num_messages_before=num_messages_before,
+        num_messages_after=num_messages_after,
+    )
 
 
 class CaptureMessagesRequest(BaseModel):

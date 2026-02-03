@@ -1,18 +1,15 @@
 import asyncio
-import json
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import TYPE_CHECKING, List
 
 from letta.functions.helpers import (
+    _send_message_to_agents_matching_tags_async,
     _send_message_to_all_agents_in_group_async,
     execute_send_message_to_agent,
-    extract_send_message_from_steps_messages,
     fire_and_forget_send_to_agent,
 )
 from letta.schemas.enums import MessageRole
 from letta.schemas.message import MessageCreate
 from letta.server.rest_api.dependencies import get_letta_server
-from letta.settings import settings
 
 
 def send_message_to_agent_and_wait_for_reply(self: "Agent", message: str, other_agent_id: str) -> str:
@@ -67,46 +64,11 @@ def send_message_to_agents_matching_tags(self: "Agent", message: str, match_all:
     if not matching_agents:
         return []
 
-    def process_agent(agent_id: str) -> str:
-        """Loads an agent, formats the message, and executes .step()"""
-        actor = self.user  # Ensure correct actor context
-        agent = server.load_agent(agent_id=agent_id, interface=None, actor=actor)
+    # Prepare the message
+    messages = [MessageCreate(role=MessageRole.system, content=augmented_message, name=self.agent_state.name)]
 
-        # Prepare the message
-        messages = [MessageCreate(role=MessageRole.system, content=augmented_message, name=self.agent_state.name)]
-
-        # Run .step() and return the response
-        usage_stats = agent.step(
-            input_messages=messages,
-            chaining=True,
-            max_chaining_steps=None,
-            stream=False,
-            skip_verify=True,
-            metadata=None,
-            put_inner_thoughts_first=True,
-        )
-
-        send_messages = extract_send_message_from_steps_messages(usage_stats.steps_messages, logger=agent.logger)
-        response_data = {
-            "agent_id": agent_id,
-            "response_messages": send_messages if send_messages else ["<no response>"],
-        }
-
-        return json.dumps(response_data, indent=2)
-
-    # Use ThreadPoolExecutor for parallel execution
-    results = []
-    with ThreadPoolExecutor(max_workers=settings.multi_agent_concurrent_sends) as executor:
-        future_to_agent = {executor.submit(process_agent, agent_state.id): agent_state for agent_state in matching_agents}
-
-        for future in as_completed(future_to_agent):
-            try:
-                results.append(future.result())  # Collect results
-            except Exception as e:
-                # Log or handle failure for specific agents if needed
-                self.logger.exception(f"Error processing agent {future_to_agent[future]}: {e}")
-
-    return results
+    # Use async helper for parallel message sending
+    return asyncio.run(_send_message_to_agents_matching_tags_async(self, server, messages, matching_agents))
 
 
 def send_message_to_all_agents_in_group(self: "Agent", message: str) -> List[str]:

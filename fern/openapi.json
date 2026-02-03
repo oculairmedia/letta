@@ -9559,12 +9559,12 @@
         }
       }
     },
-    "/v1/groups/{group_id}/messages": {
-      "post": {
+    "/v1/groups/{group_id}/messages/{message_id}": {
+      "patch": {
         "tags": ["groups"],
-        "summary": "Send Group Message",
-        "description": "Process a user message and return the group's response.\nThis endpoint accepts a message from a user and processes it through through agents in the group based on the specified pattern",
-        "operationId": "send_group_message",
+        "summary": "Modify Group Message",
+        "description": "Update the details of a message associated with an agent.",
+        "operationId": "modify_group_message",
         "deprecated": true,
         "parameters": [
           {
@@ -9581,6 +9581,21 @@
               "title": "Group Id"
             },
             "description": "The ID of the group in the format 'group-<uuid4>'"
+          },
+          {
+            "name": "message_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 44,
+              "maxLength": 44,
+              "pattern": "^message-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+              "description": "The ID of the message in the format 'message-<uuid4>'",
+              "examples": ["message-123e4567-e89b-42d3-8456-426614174000"],
+              "title": "Message Id"
+            },
+            "description": "The ID of the message in the format 'message-<uuid4>'"
           }
         ],
         "requestBody": {
@@ -9588,7 +9603,21 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/LettaRequest"
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/UpdateSystemMessage"
+                  },
+                  {
+                    "$ref": "#/components/schemas/UpdateUserMessage"
+                  },
+                  {
+                    "$ref": "#/components/schemas/UpdateReasoningMessage"
+                  },
+                  {
+                    "$ref": "#/components/schemas/UpdateAssistantMessage"
+                  }
+                ],
+                "title": "Request"
               }
             }
           }
@@ -9599,7 +9628,58 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/LettaResponse"
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/SystemMessage"
+                    },
+                    {
+                      "$ref": "#/components/schemas/UserMessage"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ReasoningMessage"
+                    },
+                    {
+                      "$ref": "#/components/schemas/HiddenReasoningMessage"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ToolCallMessage"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ToolReturnMessage"
+                    },
+                    {
+                      "$ref": "#/components/schemas/AssistantMessage"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ApprovalRequestMessage"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ApprovalResponseMessage"
+                    },
+                    {
+                      "$ref": "#/components/schemas/SummaryMessage"
+                    },
+                    {
+                      "$ref": "#/components/schemas/EventMessage"
+                    }
+                  ],
+                  "discriminator": {
+                    "propertyName": "message_type",
+                    "mapping": {
+                      "system_message": "#/components/schemas/SystemMessage",
+                      "user_message": "#/components/schemas/UserMessage",
+                      "reasoning_message": "#/components/schemas/ReasoningMessage",
+                      "hidden_reasoning_message": "#/components/schemas/HiddenReasoningMessage",
+                      "tool_call_message": "#/components/schemas/ToolCallMessage",
+                      "tool_return_message": "#/components/schemas/ToolReturnMessage",
+                      "assistant_message": "#/components/schemas/AssistantMessage",
+                      "approval_request_message": "#/components/schemas/ApprovalRequestMessage",
+                      "approval_response_message": "#/components/schemas/ApprovalResponseMessage",
+                      "summary_message": "#/components/schemas/SummaryMessage",
+                      "event_message": "#/components/schemas/EventMessage"
+                    }
+                  },
+                  "title": "Response Modify Group Message"
                 }
               }
             }
@@ -9615,7 +9695,9 @@
             }
           }
         }
-      },
+      }
+    },
+    "/v1/groups/{group_id}/messages": {
       "get": {
         "tags": ["groups"],
         "summary": "List Group Messages",
@@ -9773,203 +9855,6 @@
                     "$ref": "#/components/schemas/LettaMessageUnion"
                   },
                   "title": "Response List Group Messages"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1/groups/{group_id}/messages/stream": {
-      "post": {
-        "tags": ["groups"],
-        "summary": "Send Group Message Streaming",
-        "description": "Process a user message and return the group's responses.\nThis endpoint accepts a message from a user and processes it through agents in the group based on the specified pattern.\nIt will stream the steps of the response always, and stream the tokens if 'stream_tokens' is set to True.",
-        "operationId": "send_group_message_streaming",
-        "deprecated": true,
-        "parameters": [
-          {
-            "name": "group_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "minLength": 42,
-              "maxLength": 42,
-              "pattern": "^group-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
-              "description": "The ID of the group in the format 'group-<uuid4>'",
-              "examples": ["group-123e4567-e89b-42d3-8456-426614174000"],
-              "title": "Group Id"
-            },
-            "description": "The ID of the group in the format 'group-<uuid4>'"
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/LettaStreamingRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              },
-              "text/event-stream": {
-                "description": "Server-Sent Events stream"
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1/groups/{group_id}/messages/{message_id}": {
-      "patch": {
-        "tags": ["groups"],
-        "summary": "Modify Group Message",
-        "description": "Update the details of a message associated with an agent.",
-        "operationId": "modify_group_message",
-        "deprecated": true,
-        "parameters": [
-          {
-            "name": "group_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "minLength": 42,
-              "maxLength": 42,
-              "pattern": "^group-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
-              "description": "The ID of the group in the format 'group-<uuid4>'",
-              "examples": ["group-123e4567-e89b-42d3-8456-426614174000"],
-              "title": "Group Id"
-            },
-            "description": "The ID of the group in the format 'group-<uuid4>'"
-          },
-          {
-            "name": "message_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "minLength": 44,
-              "maxLength": 44,
-              "pattern": "^message-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
-              "description": "The ID of the message in the format 'message-<uuid4>'",
-              "examples": ["message-123e4567-e89b-42d3-8456-426614174000"],
-              "title": "Message Id"
-            },
-            "description": "The ID of the message in the format 'message-<uuid4>'"
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "anyOf": [
-                  {
-                    "$ref": "#/components/schemas/UpdateSystemMessage"
-                  },
-                  {
-                    "$ref": "#/components/schemas/UpdateUserMessage"
-                  },
-                  {
-                    "$ref": "#/components/schemas/UpdateReasoningMessage"
-                  },
-                  {
-                    "$ref": "#/components/schemas/UpdateAssistantMessage"
-                  }
-                ],
-                "title": "Request"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "oneOf": [
-                    {
-                      "$ref": "#/components/schemas/SystemMessage"
-                    },
-                    {
-                      "$ref": "#/components/schemas/UserMessage"
-                    },
-                    {
-                      "$ref": "#/components/schemas/ReasoningMessage"
-                    },
-                    {
-                      "$ref": "#/components/schemas/HiddenReasoningMessage"
-                    },
-                    {
-                      "$ref": "#/components/schemas/ToolCallMessage"
-                    },
-                    {
-                      "$ref": "#/components/schemas/ToolReturnMessage"
-                    },
-                    {
-                      "$ref": "#/components/schemas/AssistantMessage"
-                    },
-                    {
-                      "$ref": "#/components/schemas/ApprovalRequestMessage"
-                    },
-                    {
-                      "$ref": "#/components/schemas/ApprovalResponseMessage"
-                    },
-                    {
-                      "$ref": "#/components/schemas/SummaryMessage"
-                    },
-                    {
-                      "$ref": "#/components/schemas/EventMessage"
-                    }
-                  ],
-                  "discriminator": {
-                    "propertyName": "message_type",
-                    "mapping": {
-                      "system_message": "#/components/schemas/SystemMessage",
-                      "user_message": "#/components/schemas/UserMessage",
-                      "reasoning_message": "#/components/schemas/ReasoningMessage",
-                      "hidden_reasoning_message": "#/components/schemas/HiddenReasoningMessage",
-                      "tool_call_message": "#/components/schemas/ToolCallMessage",
-                      "tool_return_message": "#/components/schemas/ToolReturnMessage",
-                      "assistant_message": "#/components/schemas/AssistantMessage",
-                      "approval_request_message": "#/components/schemas/ApprovalRequestMessage",
-                      "approval_response_message": "#/components/schemas/ApprovalResponseMessage",
-                      "summary_message": "#/components/schemas/SummaryMessage",
-                      "event_message": "#/components/schemas/EventMessage"
-                    }
-                  },
-                  "title": "Response Modify Group Message"
                 }
               }
             }
