@@ -700,6 +700,109 @@ async def test_update_agent(server: SyncServer, comprehensive_test_agent_fixture
 
 
 @pytest.mark.asyncio
+async def test_create_agent_without_timezone_no_message_packing(server: SyncServer, default_user, default_block):
+    """Test that agent created without timezone has raw user messages (not JSON wrapped)."""
+    test_message = "hello world without timezone"
+    memory_blocks = [CreateBlock(label="human", value="TestUser"), CreateBlock(label="persona", value="I am a helpful assistant")]
+    create_agent_request = CreateAgent(
+        agent_type="memgpt_v2_agent",
+        system="test system",
+        memory_blocks=memory_blocks,
+        llm_config=LLMConfig.default_config("gpt-4o-mini"),
+        embedding_config=EmbeddingConfig.default_config(provider="openai"),
+        block_ids=[default_block.id],
+        initial_message_sequence=[MessageCreate(role=MessageRole.user, content=test_message)],
+        include_base_tools=False,
+        # No timezone specified - should be None
+    )
+    agent_state = await server.agent_manager.create_agent_async(
+        create_agent_request,
+        actor=default_user,
+    )
+
+    try:
+        # Verify timezone is None
+        assert agent_state.timezone is None, f"Expected timezone to be None, got {agent_state.timezone}"
+
+        # Get the messages
+        init_messages = await server.message_manager.get_messages_by_ids_async(message_ids=agent_state.message_ids, actor=default_user)
+
+        # Find the user message
+        user_messages = [m for m in init_messages if m.role == MessageRole.user]
+        assert len(user_messages) == 1, f"Expected 1 user message, got {len(user_messages)}"
+
+        # Check that the raw content is the plain text (not JSON wrapped)
+        raw_content = user_messages[0].content[0].text
+        assert raw_content == test_message, f"Expected raw message '{test_message}', got '{raw_content}'"
+
+        # Verify it's NOT JSON
+        try:
+            parsed = json.loads(raw_content)
+            # If we get here, the content is JSON - that's wrong for no-timezone case
+            assert False, f"Expected raw text but got JSON: {parsed}"
+        except json.JSONDecodeError:
+            # Expected - the content should not be valid JSON
+            pass
+    finally:
+        await server.agent_manager.delete_agent_async(agent_id=agent_state.id, actor=default_user)
+
+
+@pytest.mark.asyncio
+async def test_create_agent_with_timezone_message_packing(server: SyncServer, default_user, default_block):
+    """Test that agent created with timezone has JSON wrapped user messages with timestamp."""
+    test_message = "hello world with timezone"
+    memory_blocks = [CreateBlock(label="human", value="TestUser"), CreateBlock(label="persona", value="I am a helpful assistant")]
+    create_agent_request = CreateAgent(
+        agent_type="memgpt_v2_agent",
+        system="test system",
+        memory_blocks=memory_blocks,
+        llm_config=LLMConfig.default_config("gpt-4o-mini"),
+        embedding_config=EmbeddingConfig.default_config(provider="openai"),
+        block_ids=[default_block.id],
+        initial_message_sequence=[MessageCreate(role=MessageRole.user, content=test_message)],
+        include_base_tools=False,
+        timezone="America/Los_Angeles",
+    )
+    agent_state = await server.agent_manager.create_agent_async(
+        create_agent_request,
+        actor=default_user,
+    )
+
+    try:
+        # Verify timezone is set
+        assert agent_state.timezone == "America/Los_Angeles", f"Expected timezone 'America/Los_Angeles', got {agent_state.timezone}"
+
+        # Get the messages
+        init_messages = await server.message_manager.get_messages_by_ids_async(message_ids=agent_state.message_ids, actor=default_user)
+
+        # Find the user message
+        user_messages = [m for m in init_messages if m.role == MessageRole.user]
+        assert len(user_messages) == 1, f"Expected 1 user message, got {len(user_messages)}"
+
+        # Check that the raw content is JSON wrapped
+        raw_content = user_messages[0].content[0].text
+
+        # Verify it IS valid JSON with expected structure
+        parsed = json.loads(raw_content)
+        assert isinstance(parsed, dict), f"Expected JSON object, got {type(parsed)}"
+        assert "type" in parsed, "Expected 'type' field in packed message"
+        assert "message" in parsed, "Expected 'message' field in packed message"
+        assert "time" in parsed, "Expected 'time' field in packed message"
+
+        # Verify the inner message content
+        assert parsed["type"] == "user_message", f"Expected type 'user_message', got '{parsed['type']}'"
+        assert parsed["message"] == test_message, f"Expected inner message '{test_message}', got '{parsed['message']}'"
+
+        # Verify the time contains timezone info (PST or PDT for America/Los_Angeles)
+        time_str = parsed["time"]
+        assert any(tz in time_str for tz in ["PST", "PDT", "-0800", "-0700"]), (
+            f"Expected Pacific timezone indicator in time string '{time_str}'"
+        )
+    finally:
+        await server.agent_manager.delete_agent_async(agent_id=agent_state.id, actor=default_user)
+
+
+@pytest.mark.asyncio
 async def test_create_agent_with_compaction_settings(server: SyncServer, default_user, default_block):
     """Test that agents can be created with custom compaction_settings"""
     # Upsert base tools

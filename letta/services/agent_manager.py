@@ -521,7 +521,7 @@ class AgentManager:
                     response_format=agent_create.response_format,
                     created_by_id=actor.id,
                     last_updated_by_id=actor.id,
-                    timezone=agent_create.timezone if agent_create.timezone else DEFAULT_TIMEZONE,
+                    timezone=agent_create.timezone,
                     max_files_open=agent_create.max_files_open,
                     per_file_view_window_char_limit=agent_create.per_file_view_window_char_limit,
                 )

@@ -1,6 +1,7 @@
 import asyncio
 import base64
 import mimetypes
+from typing import Optional
 from urllib.parse import unquote, urlparse
 
 import httpx
@@ -63,7 +64,7 @@ async def _fetch_image_from_url(url: str, max_retries: int = 1, timeout_seconds:
 async def convert_message_creates_to_messages(
     message_creates: list[MessageCreate],
     agent_id: str,
-    timezone: str,
+    timezone: Optional[str],
     run_id: str,
     wrap_user_message: bool = True,
     wrap_system_message: bool = True,
@@ -86,7 +87,7 @@ async def convert_message_creates_to_messages(
 async def _convert_message_create_to_message(
     message_create: MessageCreate,
     agent_id: str,
-    timezone: str,
+    timezone: Optional[str],
     run_id: str,
     wrap_user_message: bool = True,
     wrap_system_message: bool = True,
