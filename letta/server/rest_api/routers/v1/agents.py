@@ -1580,7 +1580,7 @@ async def send_message(
 
     run_update_metadata = None
     result = None
-    run_status = None
+    run_status = RunStatus.failed  # Default to failed, updated on success
     try:
         agent_loop = AgentLoop.load(agent_state=agent, actor=actor)
         result = await agent_loop.step(
