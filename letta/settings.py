@@ -296,6 +296,24 @@ class Settings(BaseSettings):
 
     plugin_register: Optional[str] = None
 
+    # Object storage (used for git-backed memory repos)
+    #
+    # Prefer configuring a single URI rather than multiple provider-specific env vars.
+    # Example:
+    #   LETTA_OBJECT_STORE_URI="gs://my-bucket/repository?project=my-gcp-project"
+    object_store_uri: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("LETTA_OBJECT_STORE_URI"),
+        description="Object store URI for memory repositories (e.g., gs://bucket/prefix?project=...).",
+    )
+
+    # Optional overrides for URI query params. These are primarily useful for deployments
+    # where you want to keep the URI stable but inject environment-specific settings.
+    object_store_project: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("LETTA_OBJECT_STORE_PROJECT"),
+        description="Optional project override for object store clients (e.g., GCS project).",
+    )
     # multi agent settings
     multi_agent_send_message_max_retries: int = 3
     multi_agent_send_message_timeout: int = 20 * 60

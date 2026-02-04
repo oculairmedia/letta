@@ -129,8 +129,8 @@ logger = get_logger(__name__)
 class AgentManager:
     """Manager class to handle business logic related to Agents."""
 
-    def __init__(self):
-        self.block_manager = BlockManager()
+    def __init__(self, block_manager: Optional[BlockManager] = None):
+        self.block_manager = block_manager or BlockManager()
         self.tool_manager = ToolManager()
         self.source_manager = SourceManager()
         self.message_manager = MessageManager()
@@ -1985,6 +1985,9 @@ class AgentManager:
         actor: PydanticUser,
     ) -> PydanticBlock:
         """Modifies a block attached to an agent by its label."""
+
+        block_id_for_custom_manager: str | None = None
+
         async with db_registry.async_session() as session:
             matched_block = None
             agent = await AgentModel.read_async(db_session=session, identifier=agent_id, actor=actor)
@@ -1997,33 +2000,46 @@ class AgentManager:
 
             update_data = block_update.model_dump(to_orm=True, exclude_unset=True, exclude_none=True)
 
-            # Extract tags from update data (it's not a column on the block table)
-            new_tags = update_data.pop("tags", None)
-
             # Validate limit constraints before updating
             validate_block_limit_constraint(update_data, matched_block)
 
-            for key, value in update_data.items():
-                setattr(matched_block, key, value)
-
-            await matched_block.update_async(session, actor=actor)
-
-            if new_tags is not None:
-                await BlockManager._replace_block_pivot_rows_async(
-                    session,
-                    BlocksTags.__table__,
-                    matched_block.id,
-                    [{"block_id": matched_block.id, "tag": tag} for tag in new_tags],
-                )
-
-            pydantic_block = matched_block.to_pydantic()
-            if new_tags is not None:
-                pydantic_block.tags = new_tags
+            # If a custom block manager is injected (e.g. GitEnabledBlockManager), route
+            # through it so git-backed memory semantics apply.
+            if self.block_manager.__class__ is not BlockManager:
+                block_id_for_custom_manager = matched_block.id
             else:
-                tags_result = await session.execute(select(BlocksTags.tag).where(BlocksTags.block_id == matched_block.id))
-                pydantic_block.tags = [row[0] for row in tags_result.fetchall()]
+                # Extract tags from update data (it's not a column on the block table)
+                new_tags = update_data.pop("tags", None)
 
-            return pydantic_block
+                for key, value in update_data.items():
+                    setattr(matched_block, key, value)
+
+                await matched_block.update_async(session, actor=actor)
+
+                if new_tags is not None:
+                    await BlockManager._replace_block_pivot_rows_async(
+                        session,
+                        BlocksTags.__table__,
+                        matched_block.id,
+                        [{"block_id": matched_block.id, "tag": tag} for tag in new_tags],
+                    )
+
+                pydantic_block = matched_block.to_pydantic()
+                if new_tags is not None:
+                    pydantic_block.tags = new_tags
+                else:
+                    tags_result = await session.execute(select(BlocksTags.tag).where(BlocksTags.block_id == matched_block.id))
+                    pydantic_block.tags = [row[0] for row in tags_result.fetchall()]
+
+                return pydantic_block
+
+        # Route through block_manager which handles git integration if enabled
+        assert block_id_for_custom_manager is not None
+        return await self.block_manager.update_block_async(
+            block_id=block_id_for_custom_manager,
+            block_update=block_update,
+            actor=actor,
+        )
 
     @enforce_types
     @raise_on_invalid_id(param_name="agent_id", expected_prefix=PrimitiveType.AGENT)

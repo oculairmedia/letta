@@ -192,6 +192,17 @@ async def lifespan(app_: FastAPI):
     logger.info(f"[Worker {worker_id}] Starting scheduler with leader election")
     global server
     await server.init_async(init_with_default_org_and_user=not settings.no_default_actor)
+
+    # Set server instance for git HTTP endpoints and start dulwich sidecar
+    try:
+        from letta.server.rest_api.routers.v1.git_http import set_server_instance, start_dulwich_server
+
+        set_server_instance(server)
+        start_dulwich_server()
+        logger.info(f"[Worker {worker_id}] Git HTTP server instance set (dulwich sidecar started)")
+    except Exception as e:
+        logger.warning(f"[Worker {worker_id}] Failed to start git HTTP sidecar: {e}")
+
     try:
         await start_scheduler_with_leader_election(server)
         logger.info(f"[Worker {worker_id}] Scheduler initialization completed")
@@ -202,6 +213,15 @@ async def lifespan(app_: FastAPI):
 
     # Cleanup on shutdown
     logger.info(f"[Worker {worker_id}] Starting lifespan shutdown")
+
+    # Stop watchdog thread (important for clean test/worker shutdown)
+    try:
+        from letta.monitoring.event_loop_watchdog import stop_watchdog
+
+        stop_watchdog()
+        logger.info(f"[Worker {worker_id}] Event loop watchdog stopped")
+    except Exception as e:
+        logger.warning(f"[Worker {worker_id}] Failed to stop watchdog: {e}")
 
     try:
         from letta.jobs.scheduler import shutdown_scheduler_and_release_lock
@@ -220,17 +240,6 @@ async def lifespan(app_: FastAPI):
             logger.info(f"[Worker {worker_id}] SQLAlchemy instrumentation shutdown completed")
         except Exception as e:
             logger.warning(f"[Worker {worker_id}] SQLAlchemy instrumentation shutdown failed: {e}")
-
-    # Shutdown LLM raw trace writer (closes ClickHouse connection)
-    if settings.store_llm_traces:
-        try:
-            from letta.services.llm_trace_writer import get_llm_trace_writer
-
-            writer = get_llm_trace_writer()
-            await writer.shutdown_async()
-            logger.info(f"[Worker {worker_id}] LLM raw trace writer shutdown completed")
-        except Exception as e:
-            logger.warning(f"[Worker {worker_id}] LLM raw trace writer shutdown failed: {e}")
 
     logger.info(f"[Worker {worker_id}] Lifespan shutdown completed")
 
@@ -714,6 +723,8 @@ def create_application() -> "FastAPI":
 
     # /api/auth endpoints
     app.include_router(setup_auth_router(server, interface, random_password), prefix=API_PREFIX)
+
+    # Git smart HTTP is served by a dulwich sidecar and proxied by the /v1/git router.
 
     # / static files
     mount_static_files(app)

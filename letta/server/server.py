@@ -91,6 +91,7 @@ from letta.services.agent_manager import AgentManager
 from letta.services.agent_serialization_manager import AgentSerializationManager
 from letta.services.archive_manager import ArchiveManager
 from letta.services.block_manager import BlockManager
+from letta.services.block_manager_git import GIT_MEMORY_ENABLED_TAG, GitEnabledBlockManager
 from letta.services.file_manager import FileManager
 from letta.services.files_agents_manager import FileAgentManager
 from letta.services.group_manager import GroupManager
@@ -104,6 +105,8 @@ from letta.services.mcp.sse_client import MCP_CONFIG_TOPLEVEL_KEY
 from letta.services.mcp.stdio_client import AsyncStdioMCPClient
 from letta.services.mcp_manager import MCPManager
 from letta.services.mcp_server_manager import MCPServerManager
+from letta.services.memory_repo import MemoryRepoManager
+from letta.services.memory_repo.storage.gcs import GCSStorageBackend
 from letta.services.message_manager import MessageManager
 from letta.services.organization_manager import OrganizationManager
 from letta.services.passage_manager import PassageManager
@@ -165,13 +168,19 @@ class SyncServer(object):
         self.tool_manager = ToolManager()
         self.mcp_manager = MCPManager()
         self.mcp_server_manager = MCPServerManager()
-        self.block_manager = BlockManager()
+        self.memory_repo_manager = self._init_memory_repo_manager()
+        # Use git-enabled block manager if memory repo is configured
+        # It falls back to standard PostgreSQL behavior when git isn't enabled for an agent
+        if self.memory_repo_manager:
+            self.block_manager = GitEnabledBlockManager(memory_repo_manager=self.memory_repo_manager)
+        else:
+            self.block_manager = BlockManager()
         self.source_manager = SourceManager()
         self.sandbox_config_manager = SandboxConfigManager()
         self.message_manager = MessageManager()
         self.job_manager = JobManager()
         self.run_manager = RunManager()
-        self.agent_manager = AgentManager()
+        self.agent_manager = AgentManager(block_manager=self.block_manager)
         self.archive_manager = ArchiveManager()
         self.provider_manager = ProviderManager()
         self.step_manager = StepManager()
@@ -416,6 +425,55 @@ class SyncServer(object):
                         force_recreate=True,
                     )
 
+    def _init_memory_repo_manager(self) -> Optional[MemoryRepoManager]:
+        """Initialize the memory repository manager if configured.
+
+        Configure the object store via settings (recommended):
+
+            LETTA_OBJECT_STORE_URI="gs://my-bucket/repository?project=my-gcp-project"
+
+        Supported schemes:
+        - gs:// (or gcs://) -> Google Cloud Storage
+
+        Returns:
+            MemoryRepoManager if configured, None otherwise
+        """
+
+        # Keep import local to avoid import/circular issues during server bootstrap.
+        from urllib.parse import parse_qs, urlparse
+
+        from letta.settings import settings
+
+        uri = settings.object_store_uri
+        if not uri:
+            logger.debug("Memory repo manager not configured (object_store_uri not set)")
+            return None
+
+        try:
+            parsed = urlparse(uri)
+            scheme = (parsed.scheme or "").lower()
+
+            if scheme in {"gs", "gcs"}:
+                bucket = parsed.netloc
+                if not bucket:
+                    raise ValueError(f"Invalid GCS object store URI (missing bucket): {uri}")
+
+                # URI path is treated as the storage prefix
+                prefix = parsed.path.lstrip("/") or "repository"
+                qs = parse_qs(parsed.query)
+
+                # Allow settings-level overrides (handy for templated URIs).
+                project = settings.object_store_project or (qs.get("project") or [None])[0]
+
+                storage = GCSStorageBackend(bucket=bucket, prefix=prefix, project=project)
+                logger.info("Memory repo manager initialized with object store: %s", uri)
+                return MemoryRepoManager(storage=storage)
+
+            raise ValueError(f"Unsupported object store scheme '{scheme}' in URI: {uri}")
+        except Exception as e:
+            logger.warning(f"Failed to initialize memory repo manager: {e}")
+            return None
+
     def _get_enabled_provider(self, provider_name: str) -> Optional[Provider]:
         """Find and return an enabled provider by name.
 
@@ -571,12 +629,30 @@ class SyncServer(object):
                 request.embedding_config = await self.get_embedding_config_from_handle_async(actor=actor, **embedding_config_params)
                 log_event(name="end get_embedding_config_from_handle", attributes=embedding_config_params)
 
+        # If git-backed memory is requested on create, we enable it *after* agent creation.
+        # We strip the tag during creation so `enable_git_memory_for_agent` can be the
+        # single place that both creates the repo and writes the tag.
+        wants_git_memory = bool(request.tags and GIT_MEMORY_ENABLED_TAG in request.tags)
+        create_request = request
+        if wants_git_memory:
+            filtered_tags = [t for t in (request.tags or []) if t != GIT_MEMORY_ENABLED_TAG]
+            create_request = request.model_copy(update={"tags": filtered_tags})
+
         log_event(name="start create_agent db")
         main_agent = await self.agent_manager.create_agent_async(
-            agent_create=request,
+            agent_create=create_request,
             actor=actor,
         )
         log_event(name="end create_agent db")
+
+        # Enable git-backed memory (creates repo + commits initial blocks + adds tag)
+        if wants_git_memory and isinstance(self.block_manager, GitEnabledBlockManager):
+            await self.block_manager.enable_git_memory_for_agent(agent_id=main_agent.id, actor=actor)
+            # Preserve the user's requested tags in the response model.
+            try:
+                main_agent.tags = list(request.tags or [])
+            except Exception:
+                pass
 
         log_event(name="start insert_files_into_context_window db")
         # Use folder_ids if provided, otherwise fall back to deprecated source_ids for backwards compatibility
@@ -650,11 +726,25 @@ class SyncServer(object):
                 else:
                     await self.create_sleeptime_agent_async(main_agent=agent, actor=actor)
 
-        return await self.agent_manager.update_agent_async(
+        # If git-backed memory is requested via tag update, initialize/backfill the repo.
+        wants_git_memory = bool(request.tags and GIT_MEMORY_ENABLED_TAG in request.tags)
+
+        updated_agent = await self.agent_manager.update_agent_async(
             agent_id=agent_id,
             agent_update=request,
             actor=actor,
         )
+
+        # Ensure repo exists and initial blocks are committed when the tag is present.
+        if wants_git_memory and isinstance(self.block_manager, GitEnabledBlockManager):
+            await self.block_manager.enable_git_memory_for_agent(agent_id=agent_id, actor=actor)
+            # Preserve the user's requested tags in the response model.
+            try:
+                updated_agent.tags = list(request.tags or [])
+            except Exception:
+                pass
+
+        return updated_agent
 
     async def create_sleeptime_agent_async(self, main_agent: AgentState, actor: User) -> Optional[AgentState]:
         if main_agent.embedding_config is None:

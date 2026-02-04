@@ -566,6 +566,29 @@ class BlockManager:
             return pydantic_blocks
 
     @enforce_types
+    @trace_method
+    async def get_blocks_by_agent_async(self, agent_id: str, actor: PydanticUser) -> List[PydanticBlock]:
+        """Retrieve all blocks attached to a specific agent."""
+        async with db_registry.async_session() as session:
+            query = (
+                select(BlockModel)
+                .join(BlocksAgents, BlockModel.id == BlocksAgents.block_id)
+                .where(
+                    BlocksAgents.agent_id == agent_id,
+                    BlockModel.organization_id == actor.organization_id,
+                )
+                .options(
+                    noload(BlockModel.agents),
+                    noload(BlockModel.identities),
+                    noload(BlockModel.groups),
+                    noload(BlockModel.tags),
+                )
+            )
+            result = await session.execute(query)
+            blocks = result.scalars().all()
+            return [block.to_pydantic() for block in blocks]
+
+    @enforce_types
     @raise_on_invalid_id(param_name="block_id", expected_prefix=PrimitiveType.BLOCK)
     @trace_method
     async def get_agents_for_block_async(

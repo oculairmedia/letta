@@ -457,6 +457,10 @@ REDIS_RUN_ID_PREFIX = "agent:send_message:run_id"
 CONVERSATION_LOCK_PREFIX = "conversation:lock:"
 CONVERSATION_LOCK_TTL_SECONDS = 300  # 5 minutes
 
+# Memory repo locks - prevents concurrent modifications to git-based memory
+MEMORY_REPO_LOCK_PREFIX = "memory_repo:lock:"
+MEMORY_REPO_LOCK_TTL_SECONDS = 60  # 1 minute (git operations should be fast)
+
 # TODO: This is temporary, eventually use token-based eviction
 # File based controls
 DEFAULT_MAX_FILES_OPEN = 5

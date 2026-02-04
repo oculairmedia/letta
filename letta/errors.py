@@ -91,6 +91,22 @@ class ConversationBusyError(LettaError):
         super().__init__(message=message, code=code, details=details)
 
 
+class MemoryRepoBusyError(LettaError):
+    """Error raised when attempting to modify memory while another operation is in progress."""
+
+    def __init__(self, agent_id: str, lock_holder_token: Optional[str] = None):
+        self.agent_id = agent_id
+        self.lock_holder_token = lock_holder_token
+        message = "Cannot modify memory: Another operation is currently in progress for this agent's memory. Please wait for the current operation to complete."
+        code = ErrorCode.CONFLICT
+        details = {
+            "error_code": "MEMORY_REPO_BUSY",
+            "agent_id": agent_id,
+            "lock_holder_token": lock_holder_token,
+        }
+        super().__init__(message=message, code=code, details=details)
+
+
 class LettaToolCreateError(LettaError):
     """Error raised when a tool cannot be created."""
 
@@ -167,7 +183,9 @@ class LettaImageFetchError(LettaError):
     def __init__(self, url: str, reason: str):
         details = {"url": url, "reason": reason}
         super().__init__(
-            message=f"Failed to fetch image from {url}: {reason}", code=ErrorCode.INVALID_ARGUMENT, details=details,
+            message=f"Failed to fetch image from {url}: {reason}",
+            code=ErrorCode.INVALID_ARGUMENT,
+            details=details,
         )
 
 
@@ -308,7 +326,9 @@ class ContextWindowExceededError(LettaError):
     def __init__(self, message: str, details: dict = {}):
         error_message = f"{message} ({details})"
         super().__init__(
-            message=error_message, code=ErrorCode.CONTEXT_WINDOW_EXCEEDED, details=details,
+            message=error_message,
+            code=ErrorCode.CONTEXT_WINDOW_EXCEEDED,
+            details=details,
         )
 
 
@@ -328,7 +348,9 @@ class RateLimitExceededError(LettaError):
     def __init__(self, message: str, max_retries: int):
         error_message = f"{message} ({max_retries})"
         super().__init__(
-            message=error_message, code=ErrorCode.RATE_LIMIT_EXCEEDED, details={"max_retries": max_retries},
+            message=error_message,
+            code=ErrorCode.RATE_LIMIT_EXCEEDED,
+            details={"max_retries": max_retries},
         )
 
 
@@ -383,7 +405,8 @@ class HandleNotFoundError(LettaError):
 
     def __init__(self, handle: str, available_handles: List[str]):
         super().__init__(
-            message=f"Handle {handle} not found, must be one of {available_handles}", code=ErrorCode.NOT_FOUND,
+            message=f"Handle {handle} not found, must be one of {available_handles}",
+            code=ErrorCode.NOT_FOUND,
         )
 
 
