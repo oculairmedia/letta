@@ -192,6 +192,7 @@ async def compact_messages(
             summary, compacted_messages = await summarize_via_sliding_window(
                 actor=actor,
                 llm_config=summarizer_llm_config,
+                agent_llm_config=agent_llm_config,
                 summarizer_config=summarizer_config,
                 in_context_messages=messages,
                 agent_id=agent_id,
