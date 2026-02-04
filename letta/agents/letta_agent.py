@@ -311,6 +311,7 @@ class LettaAgent(BaseAgent):
                     step_id=step_id,
                     project_id=agent_state.project_id,
                     status=StepStatus.PENDING,
+                    model_handle=agent_state.llm_config.handle,
                 )
                 # Only use step_id in messages if step was actually created
                 effective_step_id = step_id if logged_step else None
@@ -645,6 +646,7 @@ class LettaAgent(BaseAgent):
                     step_id=step_id,
                     project_id=agent_state.project_id,
                     status=StepStatus.PENDING,
+                    model_handle=agent_state.llm_config.handle,
                 )
                 # Only use step_id in messages if step was actually created
                 effective_step_id = step_id if logged_step else None
@@ -981,6 +983,7 @@ class LettaAgent(BaseAgent):
                     step_id=step_id,
                     project_id=agent_state.project_id,
                     status=StepStatus.PENDING,
+                    model_handle=agent_state.llm_config.handle,
                 )
                 # Only use step_id in messages if step was actually created
                 effective_step_id = step_id if logged_step else None

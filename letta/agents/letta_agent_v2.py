@@ -873,6 +873,7 @@ class LettaAgentV2(BaseAgentV2):
             step_id=step_id,
             project_id=self.agent_state.project_id,
             status=StepStatus.PENDING,
+            model_handle=self.agent_state.llm_config.handle,
         )
 
         # Also create step metrics early and update at the end of the step

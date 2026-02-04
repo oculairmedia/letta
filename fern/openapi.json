@@ -42460,6 +42460,18 @@
             "title": "Model",
             "description": "The name of the model used for this step."
           },
+          "model_handle": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Handle",
+            "description": "The model handle (e.g., 'openai/gpt-4o-mini') used for this step."
+          },
           "model_endpoint": {
             "anyOf": [
               {
@@ -42519,6 +42531,42 @@
             ],
             "title": "Total Tokens",
             "description": "The total number of tokens processed by the agent during this step."
+          },
+          "cached_input_tokens": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cached Input Tokens",
+            "description": "The number of input tokens served from cache. None if not reported by provider."
+          },
+          "cache_write_tokens": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cache Write Tokens",
+            "description": "The number of input tokens written to cache (Anthropic only). None if not reported by provider."
+          },
+          "reasoning_tokens": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reasoning Tokens",
+            "description": "The number of reasoning/thinking tokens generated. None if not reported by provider."
           },
           "completion_tokens_details": {
             "anyOf": [
