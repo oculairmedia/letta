@@ -1,6 +1,6 @@
 services:
   letta_db:
-    image: ankane/pgvector:v0.5.1
+    image: ankane/pgvector:v0.8.1
     networks:
       default:
         aliases:
