@@ -542,7 +542,7 @@ async def simple_summary(
             )
 
             # AnthropicClient.stream_async sets request_data["stream"] = True internally.
-            stream = await llm_client.stream_async_with_telemetry(req_data, summarizer_llm_config)
+            stream = await llm_client.stream_async(req_data, summarizer_llm_config)
             async for _chunk in interface.process(stream):
                 # We don't emit anything; we just want the fully-accumulated content.
                 pass

@@ -1490,7 +1490,7 @@ class LettaAgent(BaseAgent):
                 # Attempt LLM request with telemetry wrapper
                 return (
                     request_data,
-                    await llm_client.stream_async_with_telemetry(request_data, agent_state.llm_config),
+                    await llm_client.stream_async(request_data, agent_state.llm_config),
                     current_in_context_messages,
                     new_in_context_messages,
                     valid_tool_names,

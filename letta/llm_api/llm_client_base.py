@@ -127,14 +127,6 @@ class LLMClientBase:
                     except Exception as e:
                         logger.warning(f"Failed to log telemetry: {e}")
 
-    async def stream_async_with_telemetry(self, request_data: dict, llm_config: LLMConfig):
-        """Returns raw stream. Caller should log telemetry after processing via log_provider_trace_async().
-
-        Call set_telemetry_context() first to set agent_id, run_id, etc.
-        After consuming the stream, call log_provider_trace_async() with the response data.
-        """
-        return await self.stream_async(request_data, llm_config)
-
     async def log_provider_trace_async(
         self,
         request_data: dict,
