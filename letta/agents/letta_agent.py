@@ -35,7 +35,7 @@ from letta.otel.context import get_ctx_attributes
 from letta.otel.metric_registry import MetricRegistry
 from letta.otel.tracing import log_event, trace_method, tracer
 from letta.schemas.agent import AgentState, UpdateAgent
-from letta.schemas.enums import JobStatus, ProviderType, StepStatus, ToolType
+from letta.schemas.enums import JobStatus, LLMCallType, ProviderType, StepStatus, ToolType
 from letta.schemas.letta_message import MessageType
 from letta.schemas.letta_message_content import OmittedReasoningContent, ReasoningContent, RedactedReasoningContent, TextContent
 from letta.schemas.letta_response import LettaResponse
@@ -420,7 +420,7 @@ class LettaAgent(BaseAgent):
                                 agent_id=self.agent_id,
                                 agent_tags=agent_state.tags,
                                 run_id=self.current_run_id,
-                                call_type="agent_step",
+                                call_type=LLMCallType.agent_step,
                                 org_id=self.actor.organization_id,
                                 user_id=self.actor.id,
                                 llm_config=self.agent_state.llm_config.model_dump() if self.agent_state.llm_config else None,
@@ -774,7 +774,7 @@ class LettaAgent(BaseAgent):
                                 agent_id=self.agent_id,
                                 agent_tags=agent_state.tags,
                                 run_id=self.current_run_id,
-                                call_type="agent_step",
+                                call_type=LLMCallType.agent_step,
                                 org_id=self.actor.organization_id,
                                 user_id=self.actor.id,
                                 llm_config=self.agent_state.llm_config.model_dump() if self.agent_state.llm_config else None,
@@ -1252,7 +1252,7 @@ class LettaAgent(BaseAgent):
                                 agent_id=self.agent_id,
                                 agent_tags=agent_state.tags,
                                 run_id=self.current_run_id,
-                                call_type="agent_step",
+                                call_type=LLMCallType.agent_step,
                                 org_id=self.actor.organization_id,
                                 user_id=self.actor.id,
                                 llm_config=self.agent_state.llm_config.model_dump() if self.agent_state.llm_config else None,
@@ -1486,7 +1486,7 @@ class LettaAgent(BaseAgent):
                         agent_tags=agent_state.tags,
                         run_id=self.current_run_id,
                         step_id=step_metrics.id,
-                        call_type="agent_step",
+                        call_type=LLMCallType.agent_step,
                     )
                     response = await llm_client.request_async_with_telemetry(request_data, agent_state.llm_config)
 
@@ -1559,7 +1559,7 @@ class LettaAgent(BaseAgent):
                     agent_tags=agent_state.tags,
                     run_id=self.current_run_id,
                     step_id=step_id,
-                    call_type="agent_step",
+                    call_type=LLMCallType.agent_step,
                 )
 
                 # Attempt LLM request with telemetry wrapper

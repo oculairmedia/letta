@@ -2,6 +2,7 @@ from typing import AsyncGenerator
 
 from letta.adapters.letta_llm_request_adapter import LettaLLMRequestAdapter
 from letta.helpers.datetime_helpers import get_utc_timestamp_ns
+from letta.schemas.enums import LLMCallType
 from letta.schemas.letta_message import LettaMessage
 from letta.schemas.letta_message_content import OmittedReasoningContent, ReasoningContent, TextContent
 from letta.schemas.usage import normalize_cache_tokens, normalize_reasoning_tokens
@@ -45,7 +46,7 @@ class SimpleLLMRequestAdapter(LettaLLMRequestAdapter):
             agent_id=self.agent_id,
             agent_tags=self.agent_tags,
             run_id=self.run_id,
-            call_type="agent_step",
+            call_type=LLMCallType.agent_step,
             org_id=self.org_id,
             user_id=self.user_id,
             llm_config=self.llm_config.model_dump() if self.llm_config else None,

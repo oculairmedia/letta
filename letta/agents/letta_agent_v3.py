@@ -28,7 +28,7 @@ from letta.helpers.tool_execution_helper import enable_strict_mode
 from letta.local_llm.constants import INNER_THOUGHTS_KWARG
 from letta.otel.tracing import trace_method
 from letta.schemas.agent import AgentState
-from letta.schemas.enums import MessageRole
+from letta.schemas.enums import LLMCallType, MessageRole
 from letta.schemas.letta_message import (
     ApprovalReturn,
     CompactionStats,
@@ -209,6 +209,7 @@ class LettaAgentV3(LettaAgentV2):
                 llm_adapter=SimpleLLMRequestAdapter(
                     llm_client=self.llm_client,
                     llm_config=self.agent_state.llm_config,
+                    call_type=LLMCallType.agent_step,
                     agent_id=self.agent_state.id,
                     agent_tags=self.agent_state.tags,
                     run_id=run_id,
@@ -356,6 +357,7 @@ class LettaAgentV3(LettaAgentV2):
             llm_adapter = SimpleLLMStreamAdapter(
                 llm_client=self.llm_client,
                 llm_config=self.agent_state.llm_config,
+                call_type=LLMCallType.agent_step,
                 agent_id=self.agent_state.id,
                 agent_tags=self.agent_state.tags,
                 run_id=run_id,
@@ -366,6 +368,7 @@ class LettaAgentV3(LettaAgentV2):
             llm_adapter = SimpleLLMRequestAdapter(
                 llm_client=self.llm_client,
                 llm_config=self.agent_state.llm_config,
+                call_type=LLMCallType.agent_step,
                 agent_id=self.agent_state.id,
                 agent_tags=self.agent_state.tags,
                 run_id=run_id,

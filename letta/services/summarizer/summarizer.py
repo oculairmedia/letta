@@ -16,7 +16,7 @@ from letta.llm_api.llm_client import LLMClient
 from letta.log import get_logger
 from letta.otel.tracing import trace_method
 from letta.prompts import gpt_summarize
-from letta.schemas.enums import AgentType, MessageRole, ProviderType
+from letta.schemas.enums import AgentType, LLMCallType, MessageRole, ProviderType
 from letta.schemas.letta_message_content import TextContent
 from letta.schemas.llm_config import LLMConfig
 from letta.schemas.message import Message, MessageCreate
@@ -482,7 +482,7 @@ async def simple_summary(
         agent_tags=agent_tags,
         run_id=run_id,
         step_id=step_id,
-        call_type="summarization",
+        call_type=LLMCallType.summarization,
         org_id=actor.organization_id if actor else None,
         user_id=actor.id if actor else None,
         compaction_settings=compaction_settings,

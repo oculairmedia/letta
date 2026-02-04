@@ -6,7 +6,7 @@ from letta.interfaces.anthropic_streaming_interface import AnthropicStreamingInt
 from letta.interfaces.openai_streaming_interface import OpenAIStreamingInterface
 from letta.llm_api.llm_client_base import LLMClientBase
 from letta.otel.tracing import log_attributes, safe_json_dumps, trace_method
-from letta.schemas.enums import ProviderType
+from letta.schemas.enums import LLMCallType, ProviderType
 from letta.schemas.letta_message import LettaMessage
 from letta.schemas.llm_config import LLMConfig
 from letta.schemas.provider_trace import ProviderTrace
@@ -30,13 +30,14 @@ class LettaLLMStreamAdapter(LettaLLMAdapter):
         self,
         llm_client: LLMClientBase,
         llm_config: LLMConfig,
+        call_type: LLMCallType,
         agent_id: str | None = None,
         agent_tags: list[str] | None = None,
         run_id: str | None = None,
         org_id: str | None = None,
         user_id: str | None = None,
     ) -> None:
-        super().__init__(llm_client, llm_config, agent_id=agent_id, agent_tags=agent_tags, run_id=run_id, org_id=org_id, user_id=user_id)
+        super().__init__(llm_client, llm_config, call_type=call_type, agent_id=agent_id, agent_tags=agent_tags, run_id=run_id, org_id=org_id, user_id=user_id)
         self.interface: OpenAIStreamingInterface | AnthropicStreamingInterface | None = None
 
     async def invoke_llm(
@@ -205,7 +206,7 @@ class LettaLLMStreamAdapter(LettaLLMAdapter):
                         agent_id=self.agent_id,
                         agent_tags=self.agent_tags,
                         run_id=self.run_id,
-                        call_type="agent_step",
+                        call_type=self.call_type,
                         org_id=self.org_id,
                         user_id=self.user_id,
                         llm_config=self.llm_config.model_dump() if self.llm_config else None,

@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from typing import AsyncGenerator
 
 from letta.llm_api.llm_client_base import LLMClientBase
+from letta.schemas.enums import LLMCallType
 from letta.schemas.letta_message import LettaMessage
 from letta.schemas.letta_message_content import ReasoningContent, RedactedReasoningContent, TextContent
 from letta.schemas.llm_config import LLMConfig
@@ -24,6 +25,7 @@ class LettaLLMAdapter(ABC):
         self,
         llm_client: LLMClientBase,
         llm_config: LLMConfig,
+        call_type: LLMCallType,
         agent_id: str | None = None,
         agent_tags: list[str] | None = None,
         run_id: str | None = None,
@@ -32,6 +34,7 @@ class LettaLLMAdapter(ABC):
     ) -> None:
         self.llm_client: LLMClientBase = llm_client
         self.llm_config: LLMConfig = llm_config
+        self.call_type: LLMCallType = call_type
         self.agent_id: str | None = agent_id
         self.agent_tags: list[str] | None = agent_tags
         self.run_id: str | None = run_id

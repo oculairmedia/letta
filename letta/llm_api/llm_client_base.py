@@ -10,7 +10,7 @@ from openai.types.chat.chat_completion_chunk import ChatCompletionChunk
 from letta.errors import ErrorCode, LLMConnectionError, LLMError
 from letta.otel.tracing import log_event, trace_method
 from letta.schemas.embedding_config import EmbeddingConfig
-from letta.schemas.enums import AgentType, ProviderCategory
+from letta.schemas.enums import AgentType, LLMCallType, ProviderCategory
 from letta.schemas.llm_config import LLMConfig
 from letta.schemas.message import Message
 from letta.schemas.openai.chat_completion_response import ChatCompletionResponse
@@ -229,6 +229,7 @@ class LLMClientBase:
                         request_json=request_data,
                         response_json=response_data,
                         step_id=step_id,
+                        call_type=LLMCallType.agent_step,
                     ),
                 )
             log_event(name="llm_response_received", attributes=response_data)
@@ -262,6 +263,7 @@ class LLMClientBase:
                         request_json=request_data,
                         response_json=response_data,
                         step_id=step_id,
+                        call_type=LLMCallType.agent_step,
                     ),
                 )
 

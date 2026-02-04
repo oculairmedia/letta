@@ -31,7 +31,7 @@ from letta.log import get_logger
 from letta.otel.tracing import log_event, trace_method, tracer
 from letta.prompts.prompt_generator import PromptGenerator
 from letta.schemas.agent import AgentState, UpdateAgent
-from letta.schemas.enums import AgentType, MessageStreamStatus, RunStatus, StepStatus
+from letta.schemas.enums import AgentType, LLMCallType, MessageStreamStatus, RunStatus, StepStatus
 from letta.schemas.letta_message import LettaMessage, MessageType
 from letta.schemas.letta_message_content import OmittedReasoningContent, ReasoningContent, RedactedReasoningContent, TextContent
 from letta.schemas.letta_request import ClientToolSchema
@@ -158,6 +158,8 @@ class LettaAgentV2(BaseAgentV2):
             llm_adapter=LettaLLMRequestAdapter(
                 llm_client=self.llm_client,
                 llm_config=self.agent_state.llm_config,
+                call_type=LLMCallType.agent_step,
+                agent_id=self.agent_state.id,
                 agent_tags=self.agent_state.tags,
                 org_id=self.actor.organization_id,
                 user_id=self.actor.id,
@@ -216,6 +218,7 @@ class LettaAgentV2(BaseAgentV2):
                 llm_adapter=LettaLLMRequestAdapter(
                     llm_client=self.llm_client,
                     llm_config=self.agent_state.llm_config,
+                    call_type=LLMCallType.agent_step,
                     agent_id=self.agent_state.id,
                     agent_tags=self.agent_state.tags,
                     run_id=run_id,
@@ -305,6 +308,7 @@ class LettaAgentV2(BaseAgentV2):
             llm_adapter = LettaLLMStreamAdapter(
                 llm_client=self.llm_client,
                 llm_config=self.agent_state.llm_config,
+                call_type=LLMCallType.agent_step,
                 agent_id=self.agent_state.id,
                 agent_tags=self.agent_state.tags,
                 run_id=run_id,
@@ -315,6 +319,7 @@ class LettaAgentV2(BaseAgentV2):
             llm_adapter = LettaLLMRequestAdapter(
                 llm_client=self.llm_client,
                 llm_config=self.agent_state.llm_config,
+                call_type=LLMCallType.agent_step,
                 agent_id=self.agent_state.id,
                 agent_tags=self.agent_state.tags,
                 run_id=run_id,

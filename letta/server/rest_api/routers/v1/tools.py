@@ -26,7 +26,7 @@ from letta.log import get_logger
 from letta.orm.errors import UniqueConstraintViolationError
 from letta.orm.mcp_oauth import OAuthSessionStatus
 from letta.prompts.gpt_system import get_system_text
-from letta.schemas.enums import AgentType, MessageRole, ToolType
+from letta.schemas.enums import AgentType, LLMCallType, MessageRole, ToolType
 from letta.schemas.letta_message import ToolReturnMessage
 from letta.schemas.letta_message_content import TextContent
 from letta.schemas.mcp import UpdateSSEMCPServer, UpdateStdioMCPServer, UpdateStreamableHTTPMCPServer
@@ -956,7 +956,7 @@ async def generate_tool_from_prompt(
 
     llm_client.set_telemetry_context(
         telemetry_manager=TelemetryManager(),
-        call_type="tool_generation",
+        call_type=LLMCallType.tool_generation,
     )
     response_data = await llm_client.request_async_with_telemetry(request_data, llm_config)
     response = await llm_client.convert_response_to_chat_completion(response_data, input_messages, llm_config)
