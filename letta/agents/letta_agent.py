@@ -49,7 +49,6 @@ from letta.schemas.openai.chat_completion_response import (
     UsageStatisticsCompletionTokenDetails,
     UsageStatisticsPromptTokenDetails,
 )
-from letta.schemas.provider_trace import ProviderTrace
 from letta.schemas.step import StepProgression
 from letta.schemas.step_metrics import StepMetrics
 from letta.schemas.tool_execution_result import ToolExecutionResult
@@ -409,25 +408,6 @@ class LettaAgent(BaseAgent):
                     agent_step_span.add_event(name="step_ms", attributes={"duration_ms": ns_to_ms(step_ns)})
                     agent_step_span.end()
 
-                    # Log LLM Trace
-                    if settings.track_provider_trace:
-                        await self.telemetry_manager.create_provider_trace_async(
-                            actor=self.actor,
-                            provider_trace=ProviderTrace(
-                                request_json=request_data,
-                                response_json=response_data,
-                                step_id=step_id,
-                                agent_id=self.agent_id,
-                                agent_tags=agent_state.tags,
-                                run_id=self.current_run_id,
-                                call_type=LLMCallType.agent_step,
-                                org_id=self.actor.organization_id,
-                                user_id=self.actor.id,
-                                llm_config=self.agent_state.llm_config.model_dump() if self.agent_state.llm_config else None,
-                            ),
-                        )
-                        step_progression = StepProgression.LOGGED_TRACE
-
                     # stream step
                     # TODO: improve TTFT
                     filter_user_messages = [m for m in persisted_messages if m.role != "user"]
@@ -762,25 +742,6 @@ class LettaAgent(BaseAgent):
                     step_ns = now - step_start
                     agent_step_span.add_event(name="step_ms", attributes={"duration_ms": ns_to_ms(step_ns)})
                     agent_step_span.end()
-
-                    # Log LLM Trace
-                    if settings.track_provider_trace:
-                        await self.telemetry_manager.create_provider_trace_async(
-                            actor=self.actor,
-                            provider_trace=ProviderTrace(
-                                request_json=request_data,
-                                response_json=response_data,
-                                step_id=step_id,
-                                agent_id=self.agent_id,
-                                agent_tags=agent_state.tags,
-                                run_id=self.current_run_id,
-                                call_type=LLMCallType.agent_step,
-                                org_id=self.actor.organization_id,
-                                user_id=self.actor.id,
-                                llm_config=self.agent_state.llm_config.model_dump() if self.agent_state.llm_config else None,
-                            ),
-                        )
-                        step_progression = StepProgression.LOGGED_TRACE
 
                     MetricRegistry().step_execution_time_ms_histogram.record(get_utc_timestamp_ns() - step_start, get_ctx_attributes())
                     step_progression = StepProgression.FINISHED
@@ -1223,42 +1184,6 @@ class LettaAgent(BaseAgent):
 
                     # TODO (cliandy): the stream POST request span has ended at this point, we should tie this to the stream
                     # log_event("agent.stream.llm_response.processed") # [4^]
-
-                    # Log LLM Trace
-                    # We are piecing together the streamed response here.
-                    # Content here does not match the actual response schema as streams come in chunks.
-                    if settings.track_provider_trace:
-                        await self.telemetry_manager.create_provider_trace_async(
-                            actor=self.actor,
-                            provider_trace=ProviderTrace(
-                                request_json=request_data,
-                                response_json={
-                                    "content": {
-                                        "tool_call": tool_call.model_dump_json(),
-                                        "reasoning": [content.model_dump_json() for content in reasoning_content],
-                                    },
-                                    "id": interface.message_id,
-                                    "model": interface.model,
-                                    "role": "assistant",
-                                    # "stop_reason": "",
-                                    # "stop_sequence": None,
-                                    "type": "message",
-                                    "usage": {
-                                        "input_tokens": usage.prompt_tokens,
-                                        "output_tokens": usage.completion_tokens,
-                                    },
-                                },
-                                step_id=step_id,
-                                agent_id=self.agent_id,
-                                agent_tags=agent_state.tags,
-                                run_id=self.current_run_id,
-                                call_type=LLMCallType.agent_step,
-                                org_id=self.actor.organization_id,
-                                user_id=self.actor.id,
-                                llm_config=self.agent_state.llm_config.model_dump() if self.agent_state.llm_config else None,
-                            ),
-                        )
-                        step_progression = StepProgression.LOGGED_TRACE
 
                     if persisted_messages[-1].role != "approval":
                         # yields tool response as this is handled from Letta and not the response from the LLM provider
