@@ -34,6 +34,11 @@ class GroqClient(OpenAIClient):
     ) -> dict:
         data = super().build_request_data(agent_type, messages, llm_config, tools, force_tool_call, requires_subsequent_tool_call)
 
+        # Groq only supports string values for tool_choice: "none", "auto", "required"
+        # Convert object-format tool_choice (used for force_tool_call) to "required"
+        if "tool_choice" in data and isinstance(data["tool_choice"], dict):
+            data["tool_choice"] = "required"
+
         # Groq validation - these fields are not supported and will cause 400 errors
         # https://console.groq.com/docs/openai
         if "top_logprobs" in data:

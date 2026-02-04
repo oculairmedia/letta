@@ -468,7 +468,12 @@ class OpenAIClient(LLMClientBase):
         tool_choice = None
         if tools:  # only set tool_choice if tools exist
             if force_tool_call is not None:
-                tool_choice = ToolFunctionChoice(type="function", function=ToolFunctionChoiceFunctionCall(name=force_tool_call))
+                # OpenRouter proxies to providers that may not support object-format tool_choice
+                # Use "required" instead which achieves similar effect
+                if is_openrouter:
+                    tool_choice = "required"
+                else:
+                    tool_choice = ToolFunctionChoice(type="function", function=ToolFunctionChoiceFunctionCall(name=force_tool_call))
             elif requires_subsequent_tool_call:
                 tool_choice = "required"
             elif self.requires_auto_tool_choice(llm_config) or agent_type == AgentType.letta_v1_agent:
