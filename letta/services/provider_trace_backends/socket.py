@@ -121,7 +121,7 @@ class SocketProviderTraceBackend(ProviderTraceBackendClient):
                     return
 
                 with socket_module.socket(socket_module.AF_UNIX, socket_module.SOCK_STREAM) as sock:
-                    sock.settimeout(5.0)
+                    sock.settimeout(60.0)  # Match crouton's connectionTimeout for large payloads
                     sock.connect(self.socket_path)
                     payload = json.dumps(record, default=str) + "\n"
                     sock.sendall(payload.encode())
