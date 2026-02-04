@@ -288,8 +288,8 @@ class TestSocketProviderTraceBackend:
         assert captured_records[0]["error"] == "Rate limit exceeded"
         assert captured_records[0]["response"] is None
 
-    def test_record_includes_v2_protocol_fields(self):
-        """Test that v2 protocol fields are included in the socket record."""
+    def test_record_includes_v3_protocol_fields(self):
+        """Test that v3 protocol fields are included in the socket record."""
         trace = ProviderTrace(
             request_json={"model": "gpt-4"},
             response_json={"id": "test"},
@@ -312,7 +312,7 @@ class TestSocketProviderTraceBackend:
 
         assert len(captured_records) == 1
         record = captured_records[0]
-        assert record["protocol_version"] == 2
+        assert record["protocol_version"] == 3
         assert record["org_id"] == "org-456"
         assert record["user_id"] == "user-456"
         assert record["compaction_settings"] == {"mode": "sliding_window"}
