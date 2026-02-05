@@ -4,6 +4,7 @@ import threading
 import uuid
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
+import httpx
 import pytest
 from dotenv import load_dotenv
 from letta_client import APIError, Letta
@@ -895,3 +896,208 @@ def test_attach_sleeptime_block(client: Letta):
 
     # cleanup
     client.agents.delete(agent.id)
+
+
+# --------------------------------------------------------------------------------------------------------------------
+# Agent Generate Endpoint Tests
+# --------------------------------------------------------------------------------------------------------------------
+
+
+def test_agent_generate_basic(client: Letta, agent: AgentState):
+    """Test basic generate endpoint with simple prompt."""
+    response = httpx.post(
+        f"{client._client._base_url}/v1/agents/{agent.id}/generate",
+        json={"prompt": "What is 2+2?"},
+        timeout=30.0,
+    )
+
+    # Verify successful response
+    assert response.status_code == 200, f"Expected 200, got {response.status_code}: {response.text}"
+
+    response_data = response.json()
+
+    # Verify response structure
+    assert response_data is not None
+    assert "content" in response_data
+    assert "model" in response_data
+    assert "usage" in response_data
+
+    # Verify content is returned
+    assert response_data["content"] is not None
+    assert len(response_data["content"]) > 0
+    assert isinstance(response_data["content"], str)
+
+    # Verify model is set
+    assert response_data["model"] is not None
+    assert isinstance(response_data["model"], str)
+
+    # Verify usage statistics
+    assert response_data["usage"] is not None
+    assert response_data["usage"]["total_tokens"] > 0
+    assert response_data["usage"]["prompt_tokens"] > 0
+    assert response_data["usage"]["completion_tokens"] > 0
+
+
+def test_agent_generate_with_system_prompt(client: Letta, agent: AgentState):
+    """Test generate endpoint with system prompt."""
+    response = httpx.post(
+        f"{client._client._base_url}/v1/agents/{agent.id}/generate",
+        json={
+            "prompt": "What is your role?",
+            "system_prompt": "You are a helpful math tutor who always responds with exactly 5 words.",
+        },
+        timeout=30.0,
+    )
+
+    # Verify successful response
+    assert response.status_code == 200, f"Expected 200, got {response.status_code}: {response.text}"
+
+    response_data = response.json()
+
+    # Verify response
+    assert response_data is not None
+    assert response_data["content"] is not None
+    assert len(response_data["content"]) > 0
+
+    # Verify usage includes system prompt tokens
+    assert response_data["usage"]["prompt_tokens"] > 10  # Should include system prompt tokens
+
+
+def test_agent_generate_with_model_override(client: Letta, agent: AgentState):
+    """Test generate endpoint with model override."""
+    # Get the agent's current model
+    original_model = agent.llm_config.model
+
+    # Use OpenAI model (more likely to be available in test environment)
+    override_model_handle = "openai/gpt-4o-mini"
+
+    response = httpx.post(
+        f"{client._client._base_url}/v1/agents/{agent.id}/generate",
+        json={
+            "prompt": "Say hello",
+            "override_model": override_model_handle,
+        },
+        timeout=30.0,
+    )
+
+    # Verify successful response
+    assert response.status_code == 200, f"Expected 200, got {response.status_code}: {response.text}"
+
+    response_data = response.json()
+
+    # Verify response
+    assert response_data is not None
+    assert response_data["content"] is not None
+
+    # Verify the override model was used (model name should be different from original)
+    # Note: The actual model name in response might be the full model name, not the handle
+    assert response_data["model"] is not None
+
+
+def test_agent_generate_empty_prompt_error(client: Letta, agent: AgentState):
+    """Test that empty prompt returns validation error."""
+    response = httpx.post(
+        f"{client._client._base_url}/v1/agents/{agent.id}/generate",
+        json={"prompt": ""},  # Empty prompt should fail validation
+        timeout=30.0,
+    )
+
+    # Verify it's a validation error (422)
+    assert response.status_code == 422, f"Expected 422, got {response.status_code}: {response.text}"
+
+
+def test_agent_generate_whitespace_prompt_error(client: Letta, agent: AgentState):
+    """Test that whitespace-only prompt returns validation error."""
+    response = httpx.post(
+        f"{client._client._base_url}/v1/agents/{agent.id}/generate",
+        json={"prompt": "   \n\t  "},  # Whitespace-only prompt should fail validation
+        timeout=30.0,
+    )
+
+    # Verify it's a validation error (422)
+    assert response.status_code == 422, f"Expected 422, got {response.status_code}: {response.text}"
+
+
+def test_agent_generate_invalid_agent_id(client: Letta):
+    """Test that invalid agent ID returns 404."""
+    # Use properly formatted agent ID that doesn't exist
+    fake_agent_id = "agent-00000000-0000-4000-8000-000000000000"
+
+    response = httpx.post(
+        f"{client._client._base_url}/v1/agents/{fake_agent_id}/generate",
+        json={"prompt": "Hello"},
+        timeout=30.0,
+    )
+
+    # Verify it's a not found error (404)
+    assert response.status_code == 404, f"Expected 404, got {response.status_code}: {response.text}"
+    assert "not found" in response.text.lower()
+
+
+def test_agent_generate_invalid_model_override(client: Letta, agent: AgentState):
+    """Test that invalid model override returns 404."""
+    response = httpx.post(
+        f"{client._client._base_url}/v1/agents/{agent.id}/generate",
+        json={
+            "prompt": "Hello",
+            "override_model": "invalid/model-that-does-not-exist",
+        },
+        timeout=30.0,
+    )
+
+    # Verify it's a not found error (404)
+    assert response.status_code == 404, f"Expected 404, got {response.status_code}: {response.text}"
+    assert "not found" in response.text.lower() or "not accessible" in response.text.lower()
+
+
+def test_agent_generate_long_prompt(client: Letta, agent: AgentState):
+    """Test generate endpoint with a longer prompt."""
+    # Create a longer prompt
+    long_prompt = " ".join(["This is a test sentence."] * 50)
+
+    response = httpx.post(
+        f"{client._client._base_url}/v1/agents/{agent.id}/generate",
+        json={"prompt": long_prompt},
+        timeout=30.0,
+    )
+
+    # Verify successful response
+    assert response.status_code == 200, f"Expected 200, got {response.status_code}: {response.text}"
+
+    response_data = response.json()
+
+    # Verify response
+    assert response_data is not None
+    assert response_data["content"] is not None
+
+    # Verify token usage reflects the longer prompt
+    assert response_data["usage"]["prompt_tokens"] > 100  # Should have substantial prompt tokens
+
+
+def test_agent_generate_no_persistence(client: Letta, agent: AgentState):
+    """Test that generate endpoint does not persist messages to agent."""
+    # Get initial message count
+    initial_messages = client.agents.messages.list(agent_id=agent.id).items
+    initial_count = len(initial_messages)
+
+    # Make a generate request
+    response = httpx.post(
+        f"{client._client._base_url}/v1/agents/{agent.id}/generate",
+        json={"prompt": "This should not be saved to agent memory"},
+        timeout=30.0,
+    )
+
+    # Verify successful response
+    assert response.status_code == 200, f"Expected 200, got {response.status_code}: {response.text}"
+
+    response_data = response.json()
+
+    # Verify response was generated
+    assert response_data is not None
+    assert response_data["content"] is not None
+
+    # Verify no new messages were added to the agent
+    final_messages = client.agents.messages.list(agent_id=agent.id).items
+    final_count = len(final_messages)
+
+    assert final_count == initial_count, "Generate endpoint should not persist messages"

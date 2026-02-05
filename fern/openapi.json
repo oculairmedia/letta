@@ -8003,6 +8003,62 @@
         }
       }
     },
+    "/v1/agents/{agent_id}/generate": {
+      "post": {
+        "tags": ["agents"],
+        "summary": "Generate Completion",
+        "description": "Generate a completion directly from the LLM provider using the agent's configuration.\n\nThis endpoint makes a direct request to the LLM provider without any agent processing:\n- No memory or context retrieval\n- No tool calling\n- No message persistence\n- No agent state modification\n\nSimply provide a prompt, and the endpoint formats it as a user message.\nOptionally include a system_prompt for context/instructions.\n\nThe agent's LLM configuration (model, credentials, settings) is used by default.\nUse override_model to switch to a different model/provider while still using\nthe organization's configured providers.\n\nExample use cases:\n- Quick LLM queries without agent overhead\n- Testing different models with the same prompt\n- Simple chat completions using agent's credentials\n- Comparing model outputs on identical prompts",
+        "operationId": "generate_completion",
+        "parameters": [
+          {
+            "name": "agent_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 42,
+              "maxLength": 42,
+              "pattern": "^agent-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+              "description": "The ID of the agent in the format 'agent-<uuid4>'",
+              "examples": ["agent-123e4567-e89b-42d3-8456-426614174000"],
+              "title": "Agent Id"
+            },
+            "description": "The ID of the agent in the format 'agent-<uuid4>'"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GenerateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful generation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GenerateResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Agent not found"
+          },
+          "422": {
+            "description": "Invalid request parameters"
+          },
+          "502": {
+            "description": "LLM provider error"
+          }
+        }
+      }
+    },
     "/v1/agents/messages/search": {
       "post": {
         "tags": ["agents"],
@@ -33583,6 +33639,66 @@
         },
         "type": "object",
         "title": "GeminiThinkingConfig"
+      },
+      "GenerateRequest": {
+        "properties": {
+          "prompt": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Prompt",
+            "description": "The prompt/message to send to the LLM"
+          },
+          "system_prompt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "System Prompt",
+            "description": "Optional system prompt to prepend to the conversation"
+          },
+          "override_model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Override Model",
+            "description": "Model handle to use instead of agent's default (e.g., 'openai/gpt-4', 'anthropic/claude-3-5-sonnet')"
+          }
+        },
+        "type": "object",
+        "required": ["prompt"],
+        "title": "GenerateRequest",
+        "description": "Request for direct LLM generation without agent processing."
+      },
+      "GenerateResponse": {
+        "properties": {
+          "content": {
+            "type": "string",
+            "title": "Content",
+            "description": "The LLM's response text"
+          },
+          "model": {
+            "type": "string",
+            "title": "Model",
+            "description": "The model that generated this response"
+          },
+          "usage": {
+            "$ref": "#/components/schemas/LettaUsageStatistics",
+            "description": "Token usage statistics"
+          }
+        },
+        "type": "object",
+        "required": ["content", "model", "usage"],
+        "title": "GenerateResponse",
+        "description": "Response from direct LLM generation."
       },
       "GenerateToolInput": {
         "properties": {

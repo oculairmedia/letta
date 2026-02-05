@@ -191,6 +191,11 @@ class SyncServer(object):
         self.file_agent_manager = FileAgentManager()
         self.file_manager = FileManager()
 
+        # Import and initialize the agent generate completion manager
+        from letta.services.agent_generate_completion_manager import AgentGenerateCompletionManager
+
+        self.agent_generate_completion_manager = AgentGenerateCompletionManager(server=self)
+
         self.agent_serialization_manager = AgentSerializationManager(
             agent_manager=self.agent_manager,
             tool_manager=self.tool_manager,

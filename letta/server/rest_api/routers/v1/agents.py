@@ -8,7 +8,7 @@ from fastapi import APIRouter, Body, Depends, File, Form, Header, HTTPException,
 from fastapi.responses import JSONResponse
 from marshmallow import ValidationError
 from orjson import orjson
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy.exc import IntegrityError, OperationalError
 from starlette.responses import Response, StreamingResponse
 
@@ -24,11 +24,14 @@ from letta.errors import (
     AgentExportProcessingError,
     AgentFileImportError,
     AgentNotFoundForExportError,
+    HandleNotFoundError,
+    LLMError,
     NoActiveRunsToCancelError,
     PendingApprovalError,
 )
 from letta.groups.sleeptime_multi_agent_v4 import SleeptimeMultiAgentV4
 from letta.helpers.datetime_helpers import get_utc_time, get_utc_timestamp_ns
+from letta.llm_api.llm_client import LLMClient
 from letta.log import get_logger
 from letta.orm.errors import NoResultFound
 from letta.otel.context import get_ctx_attributes
@@ -59,6 +62,7 @@ from letta.schemas.run import Run as PydanticRun, RunUpdate
 from letta.schemas.source import BaseSource, Source
 from letta.schemas.tool import BaseTool, Tool
 from letta.schemas.tool_execution_result import ToolExecutionResult
+from letta.schemas.usage import LettaUsageStatistics
 from letta.schemas.user import User
 from letta.serialize_schemas.pydantic_agent_schema import AgentSchema
 from letta.server.rest_api.dependencies import HeaderParams, get_headers, get_letta_server
@@ -77,6 +81,43 @@ from letta.validators import AgentId, BlockId, FileId, MessageId, SourceId, Tool
 router = APIRouter(prefix="/agents", tags=["agents"])
 
 logger = get_logger(__name__)
+
+
+# Schemas for direct LLM generation endpoint
+class GenerateRequest(BaseModel):
+    """Request for direct LLM generation without agent processing."""
+
+    prompt: str = Field(
+        ...,
+        description="The prompt/message to send to the LLM",
+        min_length=1,
+    )
+
+    system_prompt: Optional[str] = Field(
+        None,
+        description="Optional system prompt to prepend to the conversation",
+    )
+
+    override_model: Optional[str] = Field(
+        None,
+        description="Model handle to use instead of agent's default (e.g., 'openai/gpt-4', 'anthropic/claude-3-5-sonnet')",
+    )
+
+    @field_validator("prompt")
+    @classmethod
+    def validate_prompt_not_empty(cls, v: str) -> str:
+        """Ensure prompt is not empty or whitespace-only."""
+        if not v or not v.strip():
+            raise ValueError("prompt cannot be empty or whitespace-only")
+        return v
+
+
+class GenerateResponse(BaseModel):
+    """Response from direct LLM generation."""
+
+    content: str = Field(..., description="The LLM's response text")
+    model: str = Field(..., description="The model that generated this response")
+    usage: LettaUsageStatistics = Field(..., description="Token usage statistics")
 
 
 @router.get("/", response_model=list[AgentState], operation_id="list_agents")
@@ -1783,6 +1824,75 @@ async def cancel_message(
         results[run_id] = "cancelled"
         logger.info(f"Cancelled run {run_id}")
     return results
+
+
+@router.post(
+    "/{agent_id}/generate",
+    response_model=GenerateResponse,
+    operation_id="generate_completion",
+    responses={
+        200: {"description": "Successful generation"},
+        404: {"description": "Agent not found"},
+        422: {"description": "Invalid request parameters"},
+        502: {"description": "LLM provider error"},
+    },
+)
+async def generate_completion(
+    agent_id: AgentId,
+    server: SyncServer = Depends(get_letta_server),
+    request: GenerateRequest = Body(...),
+    headers: HeaderParams = Depends(get_headers),
+) -> GenerateResponse:
+    """
+    Generate a completion directly from the LLM provider using the agent's configuration.
+
+    This endpoint makes a direct request to the LLM provider without any agent processing:
+    - No memory or context retrieval
+    - No tool calling
+    - No message persistence
+    - No agent state modification
+
+    Simply provide a prompt, and the endpoint formats it as a user message.
+    Optionally include a system_prompt for context/instructions.
+
+    The agent's LLM configuration (model, credentials, settings) is used by default.
+    Use override_model to switch to a different model/provider while still using
+    the organization's configured providers.
+
+    Example use cases:
+    - Quick LLM queries without agent overhead
+    - Testing different models with the same prompt
+    - Simple chat completions using agent's credentials
+    - Comparing model outputs on identical prompts
+    """
+    # Get actor for permissions
+    actor = await server.user_manager.get_actor_or_default_async(actor_id=headers.actor_id)
+
+    # Call the manager to generate the completion
+    try:
+        service_response = await server.agent_generate_completion_manager.generate_completion_with_agent_config_async(
+            agent_id=str(agent_id),
+            prompt=request.prompt,
+            system_prompt=request.system_prompt,
+            actor=actor,
+            override_model=request.override_model,
+        )
+    except NoResultFound:
+        raise HTTPException(status_code=404, detail=f"Agent with ID {agent_id} not found")
+    except HandleNotFoundError:
+        raise HTTPException(status_code=404, detail=f"Model '{request.override_model}' not found or not accessible")
+    except LLMError as e:
+        raise HTTPException(status_code=502, detail=f"LLM provider error: {str(e)}")
+    except Exception as e:
+        logger.error(f"Failed to process LLM response: {str(e)}")
+        raise HTTPException(status_code=502, detail=f"Failed to process LLM response: {str(e)}")
+
+    # Convert service response to API response model
+    return GenerateResponse(
+        content=service_response.content,
+        model=service_response.model,
+        usage=service_response.usage,
+    )
 
 
 @router.post("/messages/search", response_model=List[MessageSearchResult], operation_id="search_messages")
