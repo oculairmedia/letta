@@ -472,19 +472,16 @@ async def initialize_message_sequence_async(
 
 
 def package_initial_message_sequence(
-    agent_id: str, initial_message_sequence: List[MessageCreate], model: str, timezone: Optional[str], actor: User
+    agent_id: str, initial_message_sequence: List[MessageCreate], model: str, timezone: str, actor: User
 ) -> List[Message]:
     # create the agent object
     init_messages = []
     for message_create in initial_message_sequence:
         if message_create.role == MessageRole.user:
-            if timezone is not None:
-                packed_message = system.package_user_message(
-                    user_message=message_create.content,
-                    timezone=timezone,
-                )
-            else:
-                packed_message = message_create.content
+            packed_message = system.package_user_message(
+                user_message=message_create.content,
+                timezone=timezone,
+            )
             init_messages.append(
                 Message(
                     role=message_create.role,

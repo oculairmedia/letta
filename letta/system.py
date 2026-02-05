@@ -125,7 +125,7 @@ def get_login_event(timezone, last_login="Never (first login)", include_location
 
 def package_user_message(
     user_message: str,
-    timezone: Optional[str],
+    timezone: str,
     include_location: bool = False,
     location_name: Optional[str] = "San Francisco, CA, USA",
     name: Optional[str] = None,

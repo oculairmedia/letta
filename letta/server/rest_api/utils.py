@@ -156,7 +156,7 @@ def capture_sentry_exception(e: BaseException):
 
 
 async def create_input_messages(
-    input_messages: List[MessageCreate], agent_id: str, timezone: Optional[str], run_id: str, actor: User
+    input_messages: List[MessageCreate], agent_id: str, timezone: str, run_id: str, actor: User
 ) -> List[Message]:
     """
     Converts a user input message into the internal structured format.
@@ -164,9 +164,9 @@ async def create_input_messages(
     TODO (cliandy): this effectively duplicates the functionality of `convert_message_creates_to_messages`,
     we should unify this when it's clear what message attributes we need.
     """
-    wrap_user_message = timezone is not None
+
     messages = await convert_message_creates_to_messages(
-        input_messages, agent_id, timezone, run_id, wrap_user_message=wrap_user_message, wrap_system_message=False
+        input_messages, agent_id, timezone, run_id, wrap_user_message=False, wrap_system_message=False
     )
     return messages
 
