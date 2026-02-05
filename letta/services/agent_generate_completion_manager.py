@@ -1,15 +1,19 @@
 """Manager for handling direct LLM completions using agent configuration."""
 
-from typing import TYPE_CHECKING, Optional
+import json
+from typing import TYPE_CHECKING, Any, Dict, Optional
 
 from letta.errors import HandleNotFoundError, LLMError
 from letta.llm_api.llm_client import LLMClient
 from letta.log import get_logger
 from letta.orm.errors import NoResultFound
-from letta.schemas.enums import MessageRole
+from letta.schemas.enums import AgentType, MessageRole
 from letta.schemas.letta_message_content import TextContent
 from letta.schemas.message import Message
 from letta.schemas.usage import LettaUsageStatistics
+
+# Tool name used for structured output via tool forcing
+STRUCTURED_OUTPUT_TOOL_NAME = "structured_output"
 
 if TYPE_CHECKING:
     from letta.orm import User
@@ -17,6 +21,27 @@ if TYPE_CHECKING:
     from letta.server.server import SyncServer
 
 logger = get_logger(__name__)
+
+
+def _schema_to_tool_definition(schema: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Convert a JSON schema into a tool definition for forced tool calling.
+
+    Args:
+        schema: JSON schema object with 'properties' and optionally 'required'
+
+    Returns:
+        Tool definition dict compatible with OpenAI/Anthropic function calling format
+    """
+    return {
+        "name": STRUCTURED_OUTPUT_TOOL_NAME,
+        "description": "Returns a structured response matching the requested schema.",
+        "parameters": {
+            "type": "object",
+            "properties": schema.get("properties", {}),
+            "required": schema.get("required", list(schema.get("properties", {}).keys())),
+        },
+    }
 
 
 class GenerateResponse:
@@ -49,13 +74,14 @@ class AgentGenerateCompletionManager:
         actor: "User",
         system_prompt: Optional[str] = None,
         override_model: Optional[str] = None,
+        response_schema: Optional[Dict[str, Any]] = None,
     ) -> GenerateResponse:
         """
         Generate a completion directly from the LLM provider using the agent's configuration.
 
         This method makes a direct request to the LLM provider without any agent processing:
         - No memory or context retrieval
-        - No tool calling
+        - No tool calling (unless response_schema is provided)
         - No message persistence
         - No agent state modification
 
@@ -66,9 +92,14 @@ class AgentGenerateCompletionManager:
             system_prompt: Optional system prompt to prepend to the conversation
             override_model: Optional model handle to override the agent's default
                           (e.g., 'openai/gpt-4', 'anthropic/claude-3-5-sonnet')
+            response_schema: Optional JSON schema for structured output. When provided,
+                           the LLM will be forced to return a response matching this
+                           schema via tool calling.
 
         Returns:
-            GenerateResponse with content, model, and usage statistics
+            GenerateResponse with content, model, and usage statistics.
+            When response_schema is provided, content will be the JSON string
+            matching the schema.
 
         Raises:
             NoResultFound: If agent not found
@@ -99,6 +130,7 @@ class AgentGenerateCompletionManager:
                 "override_model": override_model,
                 "prompt_length": len(prompt),
                 "has_system_prompt": system_prompt is not None,
+                "has_response_schema": response_schema is not None,
                 "model": llm_config.model,
             },
         )
@@ -132,13 +164,23 @@ class AgentGenerateCompletionManager:
         if llm_client is None:
             raise LLMError(f"Unsupported provider type: {llm_config.model_endpoint_type}")
 
-        # 5. Build request data (no tools, no function calling)
+        # 5. Build request data
+        # If response_schema is provided, create a tool and force the model to call it
+        tools = None
+        force_tool_call = None
+        if response_schema:
+            tools = [_schema_to_tool_definition(response_schema)]
+            force_tool_call = STRUCTURED_OUTPUT_TOOL_NAME
+
+        # TODO: create a separate agent type
+        effective_agent_type = AgentType.split_thread_agent if response_schema else agent.agent_type
+
         request_data = llm_client.build_request_data(
-            agent_type=agent.agent_type,
+            agent_type=effective_agent_type,
             messages=letta_messages,
             llm_config=llm_config,
-            tools=None,  # No tools for direct generation
-            force_tool_call=None,
+            tools=tools,
+            force_tool_call=force_tool_call,
         )
 
         # 6. Make direct LLM request
@@ -155,7 +197,21 @@ class AgentGenerateCompletionManager:
         content = ""
         if chat_completion.choices and len(chat_completion.choices) > 0:
             message = chat_completion.choices[0].message
-            content = message.content or ""
+
+            if response_schema:
+                # When using structured output, extract from tool call arguments
+                if message.tool_calls and len(message.tool_calls) > 0:
+                    # The tool call arguments contain the structured output as JSON string
+                    content = message.tool_calls[0].function.arguments
+                else:
+                    # Fallback: some providers may return in content even with tool forcing
+                    content = message.content or ""
+                    logger.warning(
+                        "Expected tool call for structured output but got content response",
+                        extra={"agent_id": str(agent_id), "content_length": len(content)},
+                    )
+            else:
+                content = message.content or ""
 
         # 9. Extract usage statistics
         usage = llm_client.extract_usage_statistics(response_data, llm_config)

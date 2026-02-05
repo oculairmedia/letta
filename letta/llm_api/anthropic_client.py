@@ -62,7 +62,7 @@ class AnthropicClient(LLMClientBase):
     def request(self, request_data: dict, llm_config: LLMConfig) -> dict:
         client = self._get_anthropic_client(llm_config, async_client=False)
         betas: list[str] = []
-        
+
         # Opus 4.6 Auto Thinking
         if llm_config.enable_reasoner:
             if llm_config.model.startswith("claude-opus-4-6"):
@@ -496,7 +496,14 @@ class AnthropicClient(LLMClientBase):
         }
 
         # Extended Thinking
-        if self.is_reasoning_model(llm_config) and llm_config.enable_reasoner:
+        # Note: Anthropic does not allow thinking when forcing tool use with split_thread_agent
+        should_enable_thinking = (
+            self.is_reasoning_model(llm_config)
+            and llm_config.enable_reasoner
+            and not (agent_type == AgentType.split_thread_agent and force_tool_call is not None)
+        )
+
+        if should_enable_thinking:
             # Opus 4.6 uses Auto Thinking (no budget tokens)
             if llm_config.model.startswith("claude-opus-4-6"):
                 data["thinking"] = {
@@ -556,9 +563,14 @@ class AnthropicClient(LLMClientBase):
             tool_choice = None
         elif self.is_reasoning_model(llm_config) and llm_config.enable_reasoner or agent_type == AgentType.letta_v1_agent:
             # NOTE: reasoning models currently do not allow for `any`
-            # NOTE: react agents should always have auto on, since the precense/absense of tool calls controls chaining
-            tool_choice = {"type": "auto", "disable_parallel_tool_use": True}
-            tools_for_request = [OpenAITool(function=f) for f in tools]
+            # NOTE: react agents should always have at least auto on, since the precense/absense of tool calls controls chaining
+            if agent_type == AgentType.split_thread_agent and force_tool_call is not None:
+                tool_choice = {"type": "tool", "name": force_tool_call, "disable_parallel_tool_use": True}
+                # When forcing a specific tool, only include that tool
+                tools_for_request = [OpenAITool(function=f) for f in tools if f["name"] == force_tool_call]
+            else:
+                tool_choice = {"type": "auto", "disable_parallel_tool_use": True}
+                tools_for_request = [OpenAITool(function=f) for f in tools]
         elif force_tool_call is not None:
             tool_choice = {"type": "tool", "name": force_tool_call, "disable_parallel_tool_use": True}
             tools_for_request = [OpenAITool(function=f) for f in tools if f["name"] == force_tool_call]

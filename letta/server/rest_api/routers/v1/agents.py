@@ -103,6 +103,15 @@ class GenerateRequest(BaseModel):
         description="Model handle to use instead of agent's default (e.g., 'openai/gpt-4', 'anthropic/claude-3-5-sonnet')",
     )
 
+    response_schema: Optional[Dict[str, Any]] = Field(
+        None,
+        description=(
+            "JSON schema for structured output. When provided, the LLM will be forced to return "
+            "a response matching this schema via tool calling. The schema should follow JSON Schema "
+            "format with 'properties' and optionally 'required' fields."
+        ),
+    )
+
     @field_validator("prompt")
     @classmethod
     def validate_prompt_not_empty(cls, v: str) -> str:
@@ -1876,6 +1885,7 @@ async def generate_completion(
             system_prompt=request.system_prompt,
             actor=actor,
             override_model=request.override_model,
+            response_schema=request.response_schema,
         )
     except NoResultFound:
         raise HTTPException(status_code=404, detail=f"Agent with ID {agent_id} not found")
