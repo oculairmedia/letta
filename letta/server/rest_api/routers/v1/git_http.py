@@ -465,12 +465,14 @@ async def _sync_after_push(actor_id: str, agent_id: str) -> None:
             logger.exception("Failed to read repo files from storage for post-push block sync (agent=%s)", agent_id)
             files = {}
 
+        expected_labels = set()
         synced = 0
         for file_path, content in files.items():
             if not file_path.startswith("blocks/") or not file_path.endswith(".md"):
                 continue
 
             label = file_path[len("blocks/") : -3]
+            expected_labels.add(label)
             await _server_instance.block_manager._sync_block_to_postgres(
                 agent_id=agent_id,
                 label=label,
@@ -482,6 +484,36 @@ async def _sync_after_push(actor_id: str, agent_id: str) -> None:
 
         if synced == 0:
             logger.warning("No blocks/*.md files found in repo HEAD during post-push sync (agent=%s)", agent_id)
+        else:
+            # Detach blocks that were removed in git.
+            #
+            # We treat git as the source of truth for which blocks are attached to
+            # this agent. If a blocks/*.md file disappears from HEAD, detach the
+            # corresponding block from the agent in Postgres.
+            try:
+                existing_blocks = await _server_instance.agent_manager.list_agent_blocks_async(
+                    agent_id=agent_id,
+                    actor=actor,
+                    before=None,
+                    after=None,
+                    limit=1000,
+                    ascending=True,
+                )
+                existing_by_label = {b.label: b for b in existing_blocks}
+                removed_labels = set(existing_by_label.keys()) - expected_labels
+
+                for label in sorted(removed_labels):
+                    block = existing_by_label.get(label)
+                    if not block:
+                        continue
+                    await _server_instance.agent_manager.detach_block_async(
+                        agent_id=agent_id,
+                        block_id=block.id,
+                        actor=actor,
+                    )
+                    logger.info("Detached block %s from agent (removed from git)", label)
+            except Exception:
+                logger.exception("Failed detaching removed blocks during post-push sync (agent=%s)", agent_id)
 
     # Cleanup local cache
     _repo_cache.pop(cache_key, None)
