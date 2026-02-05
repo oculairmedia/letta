@@ -290,6 +290,8 @@ class LettaAgentV3(LettaAgentV2):
         )
         if include_return_message_types:
             response_letta_messages = [m for m in response_letta_messages if m.message_type in include_return_message_types]
+        # Set context_tokens to expose actual context window usage (vs accumulated prompt_tokens)
+        self.usage.context_tokens = self.context_token_estimate
         result = LettaResponse(messages=response_letta_messages, stop_reason=self.stop_reason, usage=self.usage)
         if run_id:
             if self.job_update_metadata is None:
@@ -480,6 +482,9 @@ class LettaAgentV3(LettaAgentV2):
 
         # Cleanup and finalize (only runs if no exception occurred)
         try:
+            # Set context_tokens to expose actual context window usage (vs accumulated prompt_tokens)
+            self.usage.context_tokens = self.context_token_estimate
+
             if run_id:
                 # Filter out LettaStopReason from messages (only valid in LettaStreamingResponse, not LettaResponse)
                 filtered_messages = [m for m in response_letta_messages if not isinstance(m, LettaStopReason)]

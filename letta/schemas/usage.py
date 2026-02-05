@@ -127,6 +127,12 @@ class LettaUsageStatistics(BaseModel):
         None, description="The number of reasoning/thinking tokens generated. None if not reported by provider."
     )
 
+    # Context window tracking
+    context_tokens: Optional[int] = Field(
+        None,
+        description="Estimate of tokens currently in the context window.",
+    )
+
     def to_usage(self, provider_type: Optional["ProviderType"] = None) -> "UsageStatistics":
         """Convert to UsageStatistics (OpenAI-compatible format).
 

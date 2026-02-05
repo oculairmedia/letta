@@ -37646,6 +37646,18 @@
             ],
             "title": "Reasoning Tokens",
             "description": "The number of reasoning/thinking tokens generated. None if not reported by provider."
+          },
+          "context_tokens": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Context Tokens",
+            "description": "Estimate of tokens currently in the context window."
           }
         },
         "type": "object",
