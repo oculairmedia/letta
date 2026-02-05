@@ -191,7 +191,14 @@ class AgentSchema(CreateAgent):
             per_file_view_window_char_limit=agent_state.per_file_view_window_char_limit,
         )
 
-        messages = await message_manager.list_messages(agent_id=agent_state.id, actor=actor, limit=50)  # TODO: Expand to get more messages
+        # If agent_state.message_ids is set (e.g., from conversation export), fetch those specific messages
+        # Otherwise fall back to listing messages by agent_id
+        if agent_state.message_ids:
+            messages = await message_manager.get_messages_by_ids_async(message_ids=agent_state.message_ids, actor=actor)
+        else:
+            messages = await message_manager.list_messages(
+                agent_id=agent_state.id, actor=actor, limit=50
+            )  # TODO: Expand to get more messages
 
         # Convert messages to MessageSchema objects
         message_schemas = [MessageSchema.from_message(msg) for msg in messages]
