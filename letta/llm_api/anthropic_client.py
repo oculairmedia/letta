@@ -71,13 +71,15 @@ class AnthropicClient(LLMClientBase):
             else:
                 betas.append("interleaved-thinking-2025-05-14")
 
-        # 1M context beta for Sonnet 4/4.5 when enabled
+        # 1M context beta for Sonnet 4/4.5 or Opus 4.6 when enabled
         try:
             from letta.settings import model_settings
 
             if model_settings.anthropic_sonnet_1m and (
                 llm_config.model.startswith("claude-sonnet-4") or llm_config.model.startswith("claude-sonnet-4-5")
             ):
+                betas.append("context-1m-2025-08-07")
+            elif model_settings.anthropic_opus_1m and llm_config.model.startswith("claude-opus-4-6"):
                 betas.append("context-1m-2025-08-07")
         except Exception:
             pass
@@ -118,13 +120,15 @@ class AnthropicClient(LLMClientBase):
             else:
                 betas.append("interleaved-thinking-2025-05-14")
 
-        # 1M context beta for Sonnet 4/4.5 when enabled
+        # 1M context beta for Sonnet 4/4.5 or Opus 4.6 when enabled
         try:
             from letta.settings import model_settings
 
             if model_settings.anthropic_sonnet_1m and (
                 llm_config.model.startswith("claude-sonnet-4") or llm_config.model.startswith("claude-sonnet-4-5")
             ):
+                betas.append("context-1m-2025-08-07")
+            elif model_settings.anthropic_opus_1m and llm_config.model.startswith("claude-opus-4-6"):
                 betas.append("context-1m-2025-08-07")
         except Exception:
             pass
@@ -291,13 +295,15 @@ class AnthropicClient(LLMClientBase):
             else:
                 betas.append("interleaved-thinking-2025-05-14")
 
-        # 1M context beta for Sonnet 4/4.5 when enabled
+        # 1M context beta for Sonnet 4/4.5 or Opus 4.6 when enabled
         try:
             from letta.settings import model_settings
 
             if model_settings.anthropic_sonnet_1m and (
                 llm_config.model.startswith("claude-sonnet-4") or llm_config.model.startswith("claude-sonnet-4-5")
             ):
+                betas.append("context-1m-2025-08-07")
+            elif model_settings.anthropic_opus_1m and llm_config.model.startswith("claude-opus-4-6"):
                 betas.append("context-1m-2025-08-07")
         except Exception:
             pass
@@ -848,6 +854,8 @@ class AnthropicClient(LLMClientBase):
                     and model_settings.anthropic_sonnet_1m
                     and (model.startswith("claude-sonnet-4") or model.startswith("claude-sonnet-4-5"))
                 ):
+                    betas.append("context-1m-2025-08-07")
+                elif model and model_settings.anthropic_opus_1m and model.startswith("claude-opus-4-6"):
                     betas.append("context-1m-2025-08-07")
             except Exception:
                 pass

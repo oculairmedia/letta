@@ -201,13 +201,15 @@ class AnthropicProvider(Provider):
                     logger.warning(f"Couldn't find context window size for model {model['id']}, defaulting to 200,000")
                     model["context_window"] = 200000
 
-            # Optional override: enable 1M context for Sonnet 4/4.5 when flag is set
+            # Optional override: enable 1M context for Sonnet 4/4.5 or Opus 4.6 when flag is set
             try:
                 from letta.settings import model_settings
 
                 if model_settings.anthropic_sonnet_1m and (
                     model["id"].startswith("claude-sonnet-4") or model["id"].startswith("claude-sonnet-4-5")
                 ):
+                    model["context_window"] = 1_000_000
+                elif model_settings.anthropic_opus_1m and model["id"].startswith("claude-opus-4-6"):
                     model["context_window"] = 1_000_000
             except Exception:
                 pass
