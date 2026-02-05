@@ -36592,14 +36592,14 @@
             "anyOf": [
               {
                 "type": "string",
-                "enum": ["low", "medium", "high"]
+                "enum": ["low", "medium", "high", "max"]
               },
               {
                 "type": "null"
               }
             ],
             "title": "Effort",
-            "description": "The effort level for Anthropic Opus 4.5 model (controls token spending). Not setting this gives similar performance to 'high'."
+            "description": "The effort level for Anthropic models that support it (Opus 4.5, Opus 4.6). Controls token spending and thinking behavior. Not setting this gives similar performance to 'high'."
           },
           "frequency_penalty": {
             "anyOf": [
@@ -39118,14 +39118,14 @@
             "anyOf": [
               {
                 "type": "string",
-                "enum": ["low", "medium", "high"]
+                "enum": ["low", "medium", "high", "max"]
               },
               {
                 "type": "null"
               }
             ],
             "title": "Effort",
-            "description": "The effort level for Anthropic Opus 4.5 model (controls token spending). Not setting this gives similar performance to 'high'."
+            "description": "The effort level for Anthropic models that support it (Opus 4.5, Opus 4.6). Controls token spending and thinking behavior. Not setting this gives similar performance to 'high'."
           },
           "frequency_penalty": {
             "anyOf": [

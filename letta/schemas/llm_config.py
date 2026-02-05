@@ -82,9 +82,9 @@ class LLMConfig(BaseModel):
         0,
         description="Configurable thinking budget for extended thinking. Used for enable_reasoner and also for Google Vertex models like Gemini 2.5 Flash. Minimum value is 1024 when used with enable_reasoner.",
     )
-    effort: Optional[Literal["low", "medium", "high"]] = Field(
+    effort: Optional[Literal["low", "medium", "high", "max"]] = Field(
         None,
-        description="The effort level for Anthropic Opus 4.5 model (controls token spending). Not setting this gives similar performance to 'high'.",
+        description="The effort level for Anthropic models that support it (Opus 4.5, Opus 4.6). Controls token spending and thinking behavior. Not setting this gives similar performance to 'high'.",
     )
     frequency_penalty: Optional[float] = Field(
         None,  # Can also deafult to 0.0?
@@ -190,6 +190,7 @@ class LLMConfig(BaseModel):
             or model.startswith("claude-opus-4")
             or model.startswith("claude-haiku-4-5")
             or model.startswith("claude-opus-4-5")
+            or model.startswith("claude-opus-4-6")
         ):
             values["put_inner_thoughts_in_kwargs"] = False
 
@@ -441,6 +442,7 @@ class LLMConfig(BaseModel):
             or config.model.startswith("claude-3-7-sonnet")
             or config.model.startswith("claude-haiku-4-5")
             or config.model.startswith("claude-opus-4-5")
+            or config.model.startswith("claude-opus-4-6")
         )
 
     @classmethod
@@ -543,8 +545,8 @@ class LLMConfig(BaseModel):
                 config.put_inner_thoughts_in_kwargs = False
                 if config.enable_reasoner and config.max_reasoning_tokens == 0:
                     config.max_reasoning_tokens = 1024
-                # Set default effort level for Claude Opus 4.5
-                if config.model.startswith("claude-opus-4-5") and config.effort is None:
+                # Set default effort level for Claude Opus 4.5 and Opus 4.6
+                if (config.model.startswith("claude-opus-4-5") or config.model.startswith("claude-opus-4-6")) and config.effort is None:
                     config.effort = "medium"
                 return config
 
@@ -612,8 +614,8 @@ class LLMConfig(BaseModel):
                 config.put_inner_thoughts_in_kwargs = False
                 if config.max_reasoning_tokens == 0:
                     config.max_reasoning_tokens = 1024
-                # Set default effort level for Claude Opus 4.5
-                if config.model.startswith("claude-opus-4-5") and config.effort is None:
+                # Set default effort level for Claude Opus 4.5 and Opus 4.6
+                if (config.model.startswith("claude-opus-4-5") or config.model.startswith("claude-opus-4-6")) and config.effort is None:
                     config.effort = "medium"
             elif cls.is_google_vertex_reasoning_model(config) or cls.is_google_ai_reasoning_model(config):
                 # Handle as non-reasoner until we support summary
