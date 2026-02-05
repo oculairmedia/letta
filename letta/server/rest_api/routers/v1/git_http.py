@@ -473,8 +473,10 @@ async def proxy_git_http(
     agent_id = _parse_agent_id_from_repo_path(path)
     if agent_id is not None:
         actor = await server.user_manager.get_actor_or_default_async(actor_id=headers.actor_id)
-        agent = await server.agent_manager.get_agent_by_id_async(agent_id=agent_id, actor=actor, include_relationships=[])
-        req_headers["x-organization-id"] = agent.organization_id
+        # Authorization check: ensure the actor can access this agent.
+        await server.agent_manager.get_agent_by_id_async(agent_id=agent_id, actor=actor, include_relationships=[])
+        # Use the authenticated actor's org; AgentState may not carry an organization field.
+        req_headers["x-organization-id"] = actor.organization_id
 
     async def _body_iter():
         async for chunk in request.stream():
@@ -498,9 +500,10 @@ async def proxy_git_http(
         if agent_id is not None:
             try:
                 actor = await server.user_manager.get_actor_or_default_async(actor_id=headers.actor_id)
-                agent = await server.agent_manager.get_agent_by_id_async(agent_id=agent_id, actor=actor, include_relationships=[])
+                # Authorization check: ensure the actor can access this agent.
+                await server.agent_manager.get_agent_by_id_async(agent_id=agent_id, actor=actor, include_relationships=[])
                 # Fire-and-forget; do not block git client response.
-                asyncio.create_task(_sync_after_push(agent.organization_id, agent_id))
+                asyncio.create_task(_sync_after_push(actor.organization_id, agent_id))
             except Exception:
                 logger.exception("Failed to trigger post-push sync (agent_id=%s)", agent_id)
 
