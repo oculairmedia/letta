@@ -34,7 +34,7 @@ from letta.orm.errors import NoResultFound
 from letta.otel.context import get_ctx_attributes
 from letta.otel.metric_registry import MetricRegistry
 from letta.schemas.agent import AgentRelationships, AgentState, CreateAgent, UpdateAgent
-from letta.schemas.agent_file import AgentFileSchema
+from letta.schemas.agent_file import AgentFileSchema, SkillSchema
 from letta.schemas.block import BaseBlock, Block, BlockResponse, BlockUpdate
 from letta.schemas.enums import AgentType, MessageRole, RunStatus
 from letta.schemas.file import AgentFileAttachment, FileMetadataBase, PaginatedAgentFiles
@@ -259,6 +259,47 @@ async def export_agent(
         raise HTTPException(status_code=400, detail="Legacy format is not supported")
     actor = await server.user_manager.get_actor_or_default_async(actor_id=headers.actor_id)
     agent_file_schema = await server.agent_serialization_manager.export(agent_ids=[agent_id], actor=actor, conversation_id=conversation_id)
+    return agent_file_schema.model_dump()
+
+
+class ExportAgentRequest(BaseModel):
+    """Request body for POST /export endpoint."""
+
+    skills: List[SkillSchema] = Field(
+        default_factory=list,
+        description="Skills to include in the export. Each skill must have a name and files (including SKILL.md).",
+    )
+    conversation_id: Optional[str] = Field(
+        None,
+        description="Conversation ID to export. If provided, uses messages from this conversation instead of the agent's global message history.",
+    )
+
+
+@router.post("/{agent_id}/export", response_class=IndentedORJSONResponse, operation_id="export_agent_with_skills")
+async def export_agent_with_skills(
+    agent_id: str = AgentId,
+    request: Optional[ExportAgentRequest] = Body(default=None),
+    server: "SyncServer" = Depends(get_letta_server),
+    headers: HeaderParams = Depends(get_headers),
+) -> JSONResponse:
+    """
+    Export the serialized JSON representation of an agent with optional skills.
+
+    This POST endpoint allows including skills in the export by providing them in the request body.
+    Skills are resolved client-side and passed as SkillSchema objects containing the skill files.
+    """
+    actor = await server.user_manager.get_actor_or_default_async(actor_id=headers.actor_id)
+
+    # Use defaults if no request body provided
+    skills = request.skills if request else []
+    conversation_id = request.conversation_id if request else None
+
+    agent_file_schema = await server.agent_serialization_manager.export(
+        agent_ids=[agent_id],
+        actor=actor,
+        conversation_id=conversation_id,
+        skills=skills,
+    )
     return agent_file_schema.model_dump()
 
 

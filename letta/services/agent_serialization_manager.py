@@ -25,6 +25,7 @@ from letta.schemas.agent_file import (
     ImportResult,
     MCPServerSchema,
     MessageSchema,
+    SkillSchema,
     SourceSchema,
     ToolSchema,
 )
@@ -359,7 +360,13 @@ class AgentSerializationManager:
             logger.error(f"Failed to convert group {group.id}: {e}")
             raise
 
-    async def export(self, agent_ids: List[str], actor: User, conversation_id: Optional[str] = None) -> AgentFileSchema:
+    async def export(
+        self,
+        agent_ids: List[str],
+        actor: User,
+        conversation_id: Optional[str] = None,
+        skills: Optional[List[SkillSchema]] = None,
+    ) -> AgentFileSchema:
         """
         Export agents and their related entities to AgentFileSchema format.
 
@@ -367,6 +374,8 @@ class AgentSerializationManager:
             agent_ids: List of agent UUIDs to export
             conversation_id: Optional conversation ID. If provided, uses the conversation's
                            in-context message_ids instead of the agent's global message_ids.
+            skills: Optional list of skills to include in the export. Skills are resolved
+                   client-side and passed as SkillSchema objects.
 
         Returns:
             AgentFileSchema with all related entities
@@ -455,6 +464,7 @@ class AgentSerializationManager:
                 sources=source_schemas,
                 tools=tool_schemas,
                 mcp_servers=mcp_server_schemas,
+                skills=skills or [],
                 metadata={"revision_id": await get_latest_alembic_revision()},
                 created_at=datetime.now(timezone.utc),
             )

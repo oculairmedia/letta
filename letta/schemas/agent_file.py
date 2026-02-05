@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Annotated, Any, Dict, List, Literal, Optional, Union
 
 from openai.types.chat.chat_completion_message_tool_call import ChatCompletionMessageToolCall as OpenAIToolCall
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from letta.helpers.datetime_helpers import get_utc_time
 from letta.schemas.agent import AgentState, CreateAgent
@@ -367,6 +367,37 @@ class ToolSchema(Tool):
         return cls(**tool.model_dump())
 
 
+class SkillSchema(BaseModel):
+    """Skill schema for agent files.
+
+    Skills are folders of instructions, scripts, and resources that agents can load.
+    Either files (with SKILL.md) or source_url must be provided:
+    - files with SKILL.md: inline skill content
+    - source_url: reference to resolve later (e.g., 'letta:slack')
+    - both: inline content with provenance tracking
+    """
+
+    name: str = Field(..., description="Skill name, also serves as unique identifier (e.g., 'slack', 'pdf')")
+    files: Optional[Dict[str, str]] = Field(
+        default=None,
+        description="Skill files as path -> content mapping. Must include 'SKILL.md' key if provided.",
+    )
+    source_url: Optional[str] = Field(
+        default=None,
+        description="Source URL for skill resolution (e.g., 'letta:slack', 'anthropic:pdf', 'owner/repo/path')",
+    )
+
+    @model_validator(mode="after")
+    def check_files_or_source_url(self) -> "SkillSchema":
+        """Ensure either files (with SKILL.md) or source_url is provided."""
+        has_files = self.files and "SKILL.md" in self.files
+        has_source_url = self.source_url is not None
+
+        if not has_files and not has_source_url:
+            raise ValueError("Either files (with 'SKILL.md') or source_url must be provided")
+        return self
+
+
 class MCPServerSchema(BaseModel):
     """MCP server schema for agent files with remapped ID."""
 
@@ -407,6 +438,7 @@ class AgentFileSchema(BaseModel):
     sources: List[SourceSchema] = Field(..., description="List of sources in this agent file")
     tools: List[ToolSchema] = Field(..., description="List of tools in this agent file")
     mcp_servers: List[MCPServerSchema] = Field(..., description="List of MCP servers in this agent file")
+    skills: List[SkillSchema] = Field(default_factory=list, description="List of skills in this agent file")
     metadata: Dict[str, str] = Field(
         default_factory=dict, description="Metadata for this agent file, including revision_id and other export information."
     )

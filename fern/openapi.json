@@ -4727,6 +4727,62 @@
             }
           }
         }
+      },
+      "post": {
+        "tags": ["agents"],
+        "summary": "Export Agent With Skills",
+        "description": "Export the serialized JSON representation of an agent with optional skills.\n\nThis POST endpoint allows including skills in the export by providing them in the request body.\nSkills are resolved client-side and passed as SkillSchema objects containing the skill files.",
+        "operationId": "export_agent_with_skills",
+        "parameters": [
+          {
+            "name": "agent_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Agent Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/ExportAgentRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Request"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/v1/agents/import": {
@@ -25279,6 +25335,14 @@
             "title": "Mcp Servers",
             "description": "List of MCP servers in this agent file"
           },
+          "skills": {
+            "items": {
+              "$ref": "#/components/schemas/SkillSchema"
+            },
+            "type": "array",
+            "title": "Skills",
+            "description": "List of skills in this agent file"
+          },
           "metadata": {
             "additionalProperties": {
               "type": "string"
@@ -32502,6 +32566,33 @@
         "required": ["id", "date", "event_type", "event_data"],
         "title": "EventMessage",
         "description": "A message for notifying the developer that an event that has occured (e.g. a compaction). Events are NOT part of the context window."
+      },
+      "ExportAgentRequest": {
+        "properties": {
+          "skills": {
+            "items": {
+              "$ref": "#/components/schemas/SkillSchema"
+            },
+            "type": "array",
+            "title": "Skills",
+            "description": "Skills to include in the export. Each skill must have a name and files (including SKILL.md)."
+          },
+          "conversation_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Conversation Id",
+            "description": "Conversation ID to export. If provided, uses messages from this conversation instead of the agent's global message history."
+          }
+        },
+        "type": "object",
+        "title": "ExportAgentRequest",
+        "description": "Request body for POST /export endpoint."
       },
       "FeedbackType": {
         "type": "string",
@@ -41770,6 +41861,46 @@
         "type": "object",
         "required": ["query"],
         "title": "SearchAllMessagesRequest"
+      },
+      "SkillSchema": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name",
+            "description": "Skill name, also serves as unique identifier (e.g., 'slack', 'pdf')"
+          },
+          "files": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Files",
+            "description": "Skill files as path -> content mapping. Must include 'SKILL.md' key if provided."
+          },
+          "source_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Url",
+            "description": "Source URL for skill resolution (e.g., 'letta:slack', 'anthropic:pdf', 'owner/repo/path')"
+          }
+        },
+        "type": "object",
+        "required": ["name"],
+        "title": "SkillSchema",
+        "description": "Skill schema for agent files.\n\nSkills are folders of instructions, scripts, and resources that agents can load.\nEither files (with SKILL.md) or source_url must be provided:\n- files with SKILL.md: inline skill content\n- source_url: reference to resolve later (e.g., 'letta:slack')\n- both: inline content with provenance tracking"
       },
       "SleeptimeManager": {
         "properties": {
