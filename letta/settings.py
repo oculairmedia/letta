@@ -324,6 +324,15 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices("LETTA_OBJECT_STORE_PROJECT"),
         description="Optional project override for object store clients (e.g., GCS project).",
     )
+
+    # memfs service URL - when set, git memory operations are proxied to the memfs service
+    # instead of running locally. This enables separating git/GCS operations into a dedicated service.
+    memfs_service_url: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("LETTA_MEMFS_SERVICE_URL"),
+        description="URL of the memfs service (e.g., http://memfs:8284). When set, git memory operations use this service.",
+    )
+
     # multi agent settings
     multi_agent_send_message_max_retries: int = 3
     multi_agent_send_message_timeout: int = 20 * 60

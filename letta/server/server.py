@@ -433,7 +433,8 @@ class SyncServer(object):
     def _init_memory_repo_manager(self) -> Optional[MemoryRepoManager]:
         """Initialize the memory repository manager if configured.
 
-        Configure the object store via settings (recommended):
+        If LETTA_MEMFS_SERVICE_URL is set, uses the external memfs service.
+        Otherwise, configure the object store via settings (recommended):
 
             LETTA_OBJECT_STORE_URI="gs://my-bucket/repository?project=my-gcp-project"
 
@@ -441,13 +442,20 @@ class SyncServer(object):
         - gs:// (or gcs://) -> Google Cloud Storage
 
         Returns:
-            MemoryRepoManager if configured, None otherwise
+            MemoryRepoManager (or MemfsClient) if configured, None otherwise
         """
 
         # Keep import local to avoid import/circular issues during server bootstrap.
         from urllib.parse import parse_qs, urlparse
 
         from letta.settings import settings
+
+        # Check if memfs service is configured (takes priority over local object store)
+        if settings.memfs_service_url:
+            from letta.services.memory_repo import MemfsClient
+
+            logger.info("Memory repo manager using memfs service: %s", settings.memfs_service_url)
+            return MemfsClient(base_url=settings.memfs_service_url)
 
         uri = settings.object_store_uri
         if not uri:

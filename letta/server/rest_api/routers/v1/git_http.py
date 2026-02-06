@@ -394,7 +394,17 @@ def _prune_broken_refs(repo: Repo) -> int:
 
 
 async def _sync_after_push(actor_id: str, agent_id: str) -> None:
-    """Sync repo back to GCS and PostgreSQL after a successful push."""
+    """Sync repo back to GCS and PostgreSQL after a successful push.
+
+    When using memfs service:
+    - GCS sync is handled by memfs (skipped here)
+    - We still sync blocks to Postgres
+
+    When using local dulwich:
+    - Upload repo to GCS
+    - Sync blocks to Postgres
+    """
+    from letta.settings import settings
 
     if _server_instance is None:
         logger.warning("Server instance not set; cannot sync after push")
@@ -407,45 +417,51 @@ async def _sync_after_push(actor_id: str, agent_id: str) -> None:
         return
 
     org_id = actor.organization_id
-    cache_key = f"{org_id}/{agent_id}"
+    using_memfs = bool(settings.memfs_service_url)
 
-    repo_path = _repo_cache.get(cache_key)
-    if not repo_path:
-        # Cross-worker fallback: read marker file written by the dulwich process.
-        try:
-            with open(_dulwich_repo_path_marker_file(cache_key), "r") as f:
-                repo_path = f.read().strip() or None
-        except FileNotFoundError:
-            repo_path = None
+    # When using local dulwich, we need to upload to GCS
+    if not using_memfs:
+        cache_key = f"{org_id}/{agent_id}"
 
-    if not repo_path:
-        logger.warning("No cached repo for %s after push", cache_key)
-        return
+        repo_path = _repo_cache.get(cache_key)
+        if not repo_path:
+            # Cross-worker fallback: read marker file written by the dulwich process.
+            try:
+                with open(_dulwich_repo_path_marker_file(cache_key), "r") as f:
+                    repo_path = f.read().strip() or None
+            except FileNotFoundError:
+                repo_path = None
 
-    if not os.path.exists(repo_path):
-        logger.warning("Repo path %s does not exist after push", repo_path)
-        return
+        if not repo_path:
+            logger.warning("No cached repo for %s after push", cache_key)
+            return
 
-    logger.info("Syncing repo after push: org=%s agent=%s", org_id, agent_id)
+        if not os.path.exists(repo_path):
+            logger.warning("Repo path %s does not exist after push", repo_path)
+            return
 
-    storage = _server_instance.memory_repo_manager.git.storage
-    storage_prefix = f"{org_id}/{agent_id}/repo.git"
-    git_dir = os.path.join(repo_path, ".git")
+        logger.info("Syncing repo after push: org=%s agent=%s", org_id, agent_id)
 
-    upload_tasks = []
-    for root, _dirs, files in os.walk(git_dir):
-        for filename in files:
-            local_file = os.path.join(root, filename)
-            rel_path = os.path.relpath(local_file, git_dir)
-            storage_path = f"{storage_prefix}/{rel_path}"
+        storage = _server_instance.memory_repo_manager.git.storage
+        storage_prefix = f"{org_id}/{agent_id}/repo.git"
+        git_dir = os.path.join(repo_path, ".git")
 
-            with open(local_file, "rb") as f:
-                content = f.read()
+        upload_tasks = []
+        for root, _dirs, files in os.walk(git_dir):
+            for filename in files:
+                local_file = os.path.join(root, filename)
+                rel_path = os.path.relpath(local_file, git_dir)
+                storage_path = f"{storage_prefix}/{rel_path}"
 
-            upload_tasks.append(storage.upload_bytes(storage_path, content))
+                with open(local_file, "rb") as f:
+                    content = f.read()
 
-    await asyncio.gather(*upload_tasks)
-    logger.info("Uploaded %s files to GCS", len(upload_tasks))
+                upload_tasks.append(storage.upload_bytes(storage_path, content))
+
+        await asyncio.gather(*upload_tasks)
+        logger.info("Uploaded %s files to GCS", len(upload_tasks))
+    else:
+        logger.info("Using memfs service; GCS sync handled by memfs (agent=%s)", agent_id)
 
     # Sync blocks to Postgres (if using GitEnabledBlockManager).
     #
@@ -518,13 +534,15 @@ async def _sync_after_push(actor_id: str, agent_id: str) -> None:
             except Exception:
                 logger.exception("Failed detaching removed blocks during post-push sync (agent=%s)", agent_id)
 
-    # Cleanup local cache
-    _repo_cache.pop(cache_key, None)
-    try:
-        os.unlink(_dulwich_repo_path_marker_file(cache_key))
-    except FileNotFoundError:
-        pass
-    shutil.rmtree(os.path.dirname(repo_path), ignore_errors=True)
+    # Cleanup local cache (only relevant when using local dulwich)
+    if not using_memfs:
+        cache_key = f"{org_id}/{agent_id}"
+        _repo_cache.pop(cache_key, None)
+        try:
+            os.unlink(_dulwich_repo_path_marker_file(cache_key))
+        except FileNotFoundError:
+            pass
+        shutil.rmtree(os.path.dirname(repo_path), ignore_errors=True)
 
 
 def _parse_agent_id_from_repo_path(path: str) -> Optional[str]:
@@ -566,6 +584,13 @@ def _filter_out_hop_by_hop_headers(headers: Iterable[tuple[str, str]]) -> Dict[s
     return out
 
 
+def _get_memfs_service_url() -> Optional[str]:
+    """Get the memfs service URL from settings, if configured."""
+    from letta.settings import settings
+
+    return settings.memfs_service_url
+
+
 @router.api_route("/{path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"])  # pragma: no cover
 async def proxy_git_http(
     path: str,
@@ -573,21 +598,33 @@ async def proxy_git_http(
     server=Depends(get_letta_server),
     headers: HeaderParams = Depends(get_headers),
 ):
-    """Proxy `/v1/git/*` requests to the local dulwich WSGI server."""
+    """Proxy `/v1/git/*` requests to the git HTTP backend.
 
-    if not _DULWICH_AVAILABLE:
-        return JSONResponse(
-            status_code=501,
-            content={
-                "detail": "git smart HTTP is disabled (dulwich not installed)",
-            },
-        )
+    If LETTA_MEMFS_SERVICE_URL is set, proxies to the external memfs service.
+    Otherwise, proxies to the local dulwich WSGI server.
+    """
 
-    # Ensure server is running (best-effort). We also start it during lifespan.
-    start_dulwich_server()
+    memfs_url = _get_memfs_service_url()
 
-    port = _get_dulwich_port()
-    url = f"http://127.0.0.1:{port}/{path}"
+    if memfs_url:
+        # Proxy to external memfs service
+        url = f"{memfs_url.rstrip('/')}/git/{path}"
+        logger.info("proxy_git_http: using memfs service at %s", memfs_url)
+    else:
+        # Proxy to local dulwich server
+        if not _DULWICH_AVAILABLE:
+            return JSONResponse(
+                status_code=501,
+                content={
+                    "detail": "git smart HTTP is disabled (dulwich not installed)",
+                },
+            )
+
+        # Ensure server is running (best-effort). We also start it during lifespan.
+        start_dulwich_server()
+
+        port = _get_dulwich_port()
+        url = f"http://127.0.0.1:{port}/{path}"
 
     req_headers = _filter_out_hop_by_hop_headers(request.headers.items())
     # Avoid sending FastAPI host/length; httpx will compute
