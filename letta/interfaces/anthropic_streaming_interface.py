@@ -263,7 +263,13 @@ class AnthropicStreamingInterface:
                     attributes={"stop_reason": StopReasonType.error.value, "error": str(e), "stacktrace": traceback.format_exc()},
                 )
             yield LettaStopReason(stop_reason=StopReasonType.error)
-            raise e
+
+            # Transform Anthropic errors into our custom error types for consistent handling
+            from letta.llm_api.anthropic_client import AnthropicClient
+
+            client = AnthropicClient()
+            transformed_error = client.handle_llm_error(e)
+            raise transformed_error
         finally:
             logger.info("AnthropicStreamingInterface: Stream processing complete.")
 

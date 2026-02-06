@@ -37,7 +37,16 @@ class LettaLLMStreamAdapter(LettaLLMAdapter):
         org_id: str | None = None,
         user_id: str | None = None,
     ) -> None:
-        super().__init__(llm_client, llm_config, call_type=call_type, agent_id=agent_id, agent_tags=agent_tags, run_id=run_id, org_id=org_id, user_id=user_id)
+        super().__init__(
+            llm_client,
+            llm_config,
+            call_type=call_type,
+            agent_id=agent_id,
+            agent_tags=agent_tags,
+            run_id=run_id,
+            org_id=org_id,
+            user_id=user_id,
+        )
         self.interface: OpenAIStreamingInterface | AnthropicStreamingInterface | None = None
 
     async def invoke_llm(

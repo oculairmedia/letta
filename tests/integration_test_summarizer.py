@@ -1157,7 +1157,7 @@ async def test_sliding_window_cutoff_index_does_not_exceed_message_count(server:
         summary, remaining_messages = await summarize_via_sliding_window(
             actor=actor,
             llm_config=llm_config,
-            agent_llm_config=llm_config, # case where agent and summarizer have same config
+            agent_llm_config=llm_config,  # case where agent and summarizer have same config
             summarizer_config=summarizer_config,
             in_context_messages=messages,
         )

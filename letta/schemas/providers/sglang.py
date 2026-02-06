@@ -15,30 +15,12 @@ from letta.schemas.providers.base import Provider
 
 
 class SGLangProvider(Provider):
-    provider_type: Literal[ProviderType.sglang] = Field(
-        ProviderType.sglang,
-        description="The type of the provider."
-    )
-    provider_category: ProviderCategory = Field(
-        ProviderCategory.base,
-        description="The category of the provider (base or byok)"
-    )
-    base_url: str = Field(
-        ...,
-        description="Base URL for the SGLang API (e.g., http://localhost:30000)."
-    )
-    api_key: str | None = Field(
-        None,
-        description="API key for the SGLang API (optional for local instances)."
-    )
-    default_prompt_formatter: str | None = Field(
-        default=None,
-        description="Default prompt formatter (aka model wrapper)."
-    )
-    handle_base: str | None = Field(
-        None,
-        description="Custom handle base name for model handles."
-    )
+    provider_type: Literal[ProviderType.sglang] = Field(ProviderType.sglang, description="The type of the provider.")
+    provider_category: ProviderCategory = Field(ProviderCategory.base, description="The category of the provider (base or byok)")
+    base_url: str = Field(..., description="Base URL for the SGLang API (e.g., http://localhost:30000).")
+    api_key: str | None = Field(None, description="API key for the SGLang API (optional for local instances).")
+    default_prompt_formatter: str | None = Field(default=None, description="Default prompt formatter (aka model wrapper).")
+    handle_base: str | None = Field(None, description="Custom handle base name for model handles.")
 
     async def list_llm_models_async(self) -> list[LLMConfig]:
         from letta.llm_api.openai import openai_get_model_list_async

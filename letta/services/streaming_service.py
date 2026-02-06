@@ -149,7 +149,6 @@ class StreamingService:
                 client_tools=request.client_tools,
                 include_compaction_messages=request.include_compaction_messages,
             )
-        
 
             # handle background streaming if requested
             if request.background and settings.track_agent_run:

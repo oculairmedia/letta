@@ -27,6 +27,7 @@ from letta.errors import (
     LLMTimeoutError,
     LLMUnprocessableEntityError,
 )
+from letta.helpers.json_helpers import sanitize_unicode_surrogates
 from letta.llm_api.error_utils import is_context_window_overflow_message
 from letta.llm_api.helpers import (
     add_inner_thoughts_to_functions,
@@ -587,6 +588,9 @@ class OpenAIClient(LLMClientBase):
         """
         Performs underlying synchronous request to OpenAI API and returns raw response dict.
         """
+        # Sanitize Unicode surrogates to prevent encoding errors
+        request_data = sanitize_unicode_surrogates(request_data)
+
         client = OpenAI(**self._prepare_client_kwargs(llm_config))
         # Route based on payload shape: Responses uses 'input', Chat Completions uses 'messages'
         if "input" in request_data and "messages" not in request_data:
@@ -601,6 +605,9 @@ class OpenAIClient(LLMClientBase):
         """
         Performs underlying asynchronous request to OpenAI API and returns raw response dict.
         """
+        # Sanitize Unicode surrogates to prevent encoding errors
+        request_data = sanitize_unicode_surrogates(request_data)
+
         kwargs = await self._prepare_client_kwargs_async(llm_config)
         client = AsyncOpenAI(**kwargs)
         # Route based on payload shape: Responses uses 'input', Chat Completions uses 'messages'
@@ -805,6 +812,9 @@ class OpenAIClient(LLMClientBase):
         """
         Performs underlying asynchronous streaming request to OpenAI and returns the async stream iterator.
         """
+        # Sanitize Unicode surrogates to prevent encoding errors
+        request_data = sanitize_unicode_surrogates(request_data)
+
         kwargs = await self._prepare_client_kwargs_async(llm_config)
         client = AsyncOpenAI(**kwargs)
 
@@ -836,6 +846,9 @@ class OpenAIClient(LLMClientBase):
         """
         Performs underlying asynchronous streaming request to OpenAI and returns the async stream iterator.
         """
+        # Sanitize Unicode surrogates to prevent encoding errors
+        request_data = sanitize_unicode_surrogates(request_data)
+
         kwargs = await self._prepare_client_kwargs_async(llm_config)
         client = AsyncOpenAI(**kwargs)
         response_stream: AsyncStream[ResponseStreamEvent] = await client.responses.create(**request_data, stream=True)

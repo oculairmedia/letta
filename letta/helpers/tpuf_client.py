@@ -12,7 +12,7 @@ import httpx
 
 from letta.constants import DEFAULT_EMBEDDING_CHUNK_SIZE
 from letta.errors import LettaInvalidArgumentError
-from letta.otel.tracing import trace_method, log_event
+from letta.otel.tracing import log_event, trace_method
 from letta.schemas.embedding_config import EmbeddingConfig
 from letta.schemas.enums import MessageRole, TagMatchMode
 from letta.schemas.passage import Passage as PydanticPassage
@@ -136,9 +136,7 @@ def async_retry_with_backoff(
                                 "function": func.__name__,
                             },
                         )
-                        logger.error(
-                            f"Turbopuffer operation '{func.__name__}' failed after {max_retries} retries: {e}"
-                        )
+                        logger.error(f"Turbopuffer operation '{func.__name__}' failed after {max_retries} retries: {e}")
                         raise
 
                     # Wait with exponential backoff
@@ -152,6 +150,7 @@ def async_retry_with_backoff(
         return wrapper
 
     return decorator
+
 
 # Global semaphore for Turbopuffer operations to prevent overwhelming the service
 # This is separate from embedding semaphore since Turbopuffer can handle more concurrency
