@@ -1,9 +1,11 @@
 import base64
+import copy
 import json
 import uuid
 from typing import AsyncIterator, List, Optional
 
 import httpx
+import pydantic_core
 from google.genai import Client, errors
 from google.genai.types import (
     FunctionCallingConfig,
@@ -78,6 +80,18 @@ class GoogleVertexClient(LLMClientBase):
                 config=request_data["config"],
             )
             return response.model_dump()
+        except pydantic_core._pydantic_core.ValidationError as e:
+            # Handle Pydantic validation errors from the Google SDK
+            # This occurs when tool schemas contain unsupported fields
+            logger.error(
+                f"Pydantic validation error when calling {self._provider_name()} API. Tool schema contains unsupported fields. Error: {e}"
+            )
+            raise LLMBadRequestError(
+                message=f"Invalid tool schema for {self._provider_name()}: Tool parameters contain unsupported fields. "
+                f"Common issues: 'const', 'default', 'additionalProperties' are not supported by Google AI. "
+                f"Please check your tool definitions. Error: {str(e)}",
+                code=ErrorCode.INTERNAL_SERVER_ERROR,
+            )
         except Exception as e:
             raise self.handle_llm_error(e)
 
@@ -99,6 +113,19 @@ class GoogleVertexClient(LLMClientBase):
                     model=llm_config.model,
                     contents=request_data["contents"],
                     config=request_data["config"],
+                )
+            except pydantic_core._pydantic_core.ValidationError as e:
+                # Handle Pydantic validation errors from the Google SDK
+                # This occurs when tool schemas contain unsupported fields
+                logger.error(
+                    f"Pydantic validation error when calling {self._provider_name()} API. "
+                    f"Tool schema contains unsupported fields. Error: {e}"
+                )
+                raise LLMBadRequestError(
+                    message=f"Invalid tool schema for {self._provider_name()}: Tool parameters contain unsupported fields. "
+                    f"Common issues: 'const', 'default', 'additionalProperties' are not supported by Google AI. "
+                    f"Please check your tool definitions. Error: {str(e)}",
+                    code=ErrorCode.INTERNAL_SERVER_ERROR,
                 )
             except errors.APIError as e:
                 # Retry on 503 and 500 errors as well, usually ephemeral from Gemini
@@ -156,6 +183,18 @@ class GoogleVertexClient(LLMClientBase):
                 contents=request_data["contents"],
                 config=request_data["config"],
             )
+        except pydantic_core._pydantic_core.ValidationError as e:
+            # Handle Pydantic validation errors from the Google SDK
+            # This occurs when tool schemas contain unsupported fields
+            logger.error(
+                f"Pydantic validation error when calling {self._provider_name()} API. Tool schema contains unsupported fields. Error: {e}"
+            )
+            raise LLMBadRequestError(
+                message=f"Invalid tool schema for {self._provider_name()}: Tool parameters contain unsupported fields. "
+                f"Common issues: 'const', 'default', 'additionalProperties' are not supported by Google AI. "
+                f"Please check your tool definitions. Error: {str(e)}",
+                code=ErrorCode.INTERNAL_SERVER_ERROR,
+            )
         except Exception as e:
             logger.error(f"Error streaming {self._provider_name()} request: {e} with request data: {json.dumps(request_data)}")
             raise e
@@ -196,7 +235,7 @@ class GoogleVertexClient(LLMClientBase):
         # Per https://ai.google.dev/gemini-api/docs/function-calling?example=meeting#notes_and_limitations
         # * Only a subset of the OpenAPI schema is supported.
         # * Supported parameter types in Python are limited.
-        unsupported_keys = ["default", "exclusiveMaximum", "exclusiveMinimum", "additionalProperties", "$schema"]
+        unsupported_keys = ["default", "exclusiveMaximum", "exclusiveMinimum", "additionalProperties", "$schema", "const"]
         keys_to_remove_at_this_level = [key for key in unsupported_keys if key in schema_part]
         for key_to_remove in keys_to_remove_at_this_level:
             logger.debug(f"Removing unsupported keyword 	'{key_to_remove}' from schema part.")
@@ -273,7 +312,8 @@ class GoogleVertexClient(LLMClientBase):
             dict(
                 name=t.function.name,
                 description=t.function.description,
-                parameters=t.function.parameters,  # TODO need to unpack
+                # Deep copy parameters to avoid modifying the original Tool object
+                parameters=copy.deepcopy(t.function.parameters) if t.function.parameters else {},
             )
             for t in tools
         ]
