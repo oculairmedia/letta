@@ -2052,9 +2052,9 @@ class AgentManager:
             agent = await AgentModel.read_async(db_session=session, identifier=agent_id, actor=actor)
             block = await BlockModel.read_async(db_session=session, identifier=block_id, actor=actor)
 
-            # Attach block to the main agent
-            agent.core_memory.append(block)
-            # await agent.update_async(session, actor=actor, no_commit=True)
+            # Attach block to the main agent (skip if already attached)
+            if not any(b.id == block_id for b in agent.core_memory):
+                agent.core_memory.append(block)
             await agent.update_async(session)
 
             # If agent is part of a sleeptime group, attach block to the sleeptime_agent
@@ -2066,9 +2066,7 @@ class AgentManager:
                         try:
                             other_agent = await AgentModel.read_async(db_session=session, identifier=other_agent_id, actor=actor)
                             if other_agent.agent_type == AgentType.sleeptime_agent:
-                                # Check if block with same label already exists
-                                existing_block = next((b for b in other_agent.core_memory if b.label == block.label), None)
-                                if not existing_block:
+                                if not any(b.id == block_id for b in other_agent.core_memory):
                                     other_agent.core_memory.append(block)
                                     await other_agent.update_async(session, actor=actor)
                         except NoResultFound:
