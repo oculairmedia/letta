@@ -471,15 +471,27 @@ async def _sync_after_push(actor_id: str, agent_id: str) -> None:
     from letta.services.block_manager_git import GitEnabledBlockManager
 
     if isinstance(_server_instance.block_manager, GitEnabledBlockManager):
-        try:
-            files = await _server_instance.memory_repo_manager.git.get_files(
-                agent_id=agent_id,
-                org_id=org_id,
-                ref="HEAD",
-            )
-        except Exception:
-            logger.exception("Failed to read repo files from storage for post-push block sync (agent=%s)", agent_id)
-            files = {}
+        # Retry with backoff to handle race condition where GCS upload is still in progress
+        # after git-receive-pack returns. The webhook fires immediately but commit objects
+        # may not be fully uploaded yet.
+        files = {}
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                files = await _server_instance.memory_repo_manager.git.get_files(
+                    agent_id=agent_id,
+                    org_id=org_id,
+                    ref="HEAD",
+                )
+                logger.info("get_files returned %d files (attempt %d)", len(files), attempt + 1)
+                break
+            except Exception as e:
+                if attempt < max_retries - 1:
+                    wait_time = 2**attempt  # 1s, 2s, 4s
+                    logger.warning("Failed to read repo files (attempt %d/%d), retrying in %ds: %s", attempt + 1, max_retries, wait_time, e)
+                    await asyncio.sleep(wait_time)
+                else:
+                    logger.exception("Failed to read repo files after %d retries (agent=%s)", max_retries, agent_id)
 
         expected_labels = set()
         synced = 0
