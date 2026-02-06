@@ -26,7 +26,7 @@ from letta.utils import enforce_types
 logger = get_logger(__name__)
 
 # File paths within the memory repository
-BLOCKS_DIR = "blocks"
+MEMORY_DIR = "memory"
 METADATA_FILE = "metadata/blocks.json"
 
 # Default local storage path
@@ -89,7 +89,7 @@ class MemfsClient:
         metadata = {"blocks": {}}
 
         for block in initial_blocks:
-            file_path = f"{BLOCKS_DIR}/{block.label}.md"
+            file_path = f"{MEMORY_DIR}/{block.label}.md"
             initial_files[file_path] = block.value or ""
             metadata["blocks"][block.label] = {
                 "description": block.description,
@@ -149,8 +149,8 @@ class MemfsClient:
         # Convert block files to PydanticBlock
         blocks = []
         for file_path, content in files.items():
-            if file_path.startswith(f"{BLOCKS_DIR}/") and file_path.endswith(".md"):
-                label = file_path[len(f"{BLOCKS_DIR}/") : -3]
+            if file_path.startswith(f"{MEMORY_DIR}/") and file_path.endswith(".md"):
+                label = file_path[len(f"{MEMORY_DIR}/") : -3]
                 block_meta = metadata.get(label, {})
 
                 # Generate deterministic UUID-style ID from agent_id + label
@@ -237,7 +237,7 @@ class MemfsClient:
 
         await self._ensure_repo_exists(agent_id, actor)
 
-        file_path = f"{BLOCKS_DIR}/{label}.md"
+        file_path = f"{MEMORY_DIR}/{label}.md"
         commit_message = message or f"Update {label}"
 
         return await self.git.commit(
@@ -299,7 +299,7 @@ class MemfsClient:
         # Prepare changes
         changes = [
             FileChange(
-                path=f"{BLOCKS_DIR}/{block.label}.md",
+                path=f"{MEMORY_DIR}/{block.label}.md",
                 content=block.value,
                 change_type="add",
             ),
@@ -368,7 +368,7 @@ class MemfsClient:
         # Prepare changes
         changes = [
             FileChange(
-                path=f"{BLOCKS_DIR}/{label}.md",
+                path=f"{MEMORY_DIR}/{label}.md",
                 content=None,
                 change_type="delete",
             ),

@@ -507,7 +507,7 @@ async def _sync_after_push(actor_id: str, agent_id: str) -> None:
             # Detach blocks that were removed in git.
             #
             # We treat git as the source of truth for which blocks are attached to
-            # this agent. If a blocks/*.md file disappears from HEAD, detach the
+            # this agent. If a memory/*.md file disappears from HEAD, detach the
             # corresponding block from the agent in Postgres.
             try:
                 existing_blocks = await _server_instance.agent_manager.list_agent_blocks_async(
