@@ -361,7 +361,37 @@ class GitEnabledBlockManager(BlockManager):
             try:
                 # Fast check: does the repo exist in backing storage?
                 await self.memory_repo_manager.git.get_head_sha(agent_id=agent_id, org_id=actor.organization_id)
-                logger.info(f"Git memory already enabled for agent {agent_id}")
+
+                # Repo exists - check if all blocks are present
+                blocks = await self.get_blocks_by_agent_async(agent_id, actor)
+                repo_files = await self.memory_repo_manager.git.get_files(agent_id=agent_id, org_id=actor.organization_id, ref="HEAD")
+
+                # Check which blocks are missing from repo
+                missing_blocks = []
+                for block in blocks:
+                    expected_path = f"memory/{block.label}.md"
+                    if expected_path not in repo_files:
+                        missing_blocks.append(block)
+
+                if missing_blocks:
+                    logger.warning(
+                        "Git memory repo exists but missing %d/%d blocks for agent %s; backfilling",
+                        len(missing_blocks),
+                        len(blocks),
+                        agent_id,
+                    )
+                    # Commit missing blocks
+                    for block in missing_blocks:
+                        await self.memory_repo_manager.update_block_async(
+                            agent_id=agent_id,
+                            label=block.label,
+                            value=block.value or "",
+                            actor=actor,
+                            message=f"Backfill {block.label} block",
+                        )
+                    logger.info(f"Backfilled {len(missing_blocks)} missing blocks for agent {agent_id}")
+                else:
+                    logger.info(f"Git memory already enabled for agent {agent_id}")
                 return
             except FileNotFoundError:
                 logger.warning(
