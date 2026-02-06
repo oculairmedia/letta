@@ -369,9 +369,13 @@ class GitEnabledBlockManager(BlockManager):
                     agent_id,
                 )
                 blocks = await self.get_blocks_by_agent_async(agent_id, actor)
-                # Ensure blocks have path-based labels before creating repo
+                # Ensure blocks have path-based labels before creating repo.
+                # All existing blocks were rendered in the system prompt, so they
+                # need the system/ prefix.  Check startswith (not "/" presence)
+                # because labels like "letta/letta_town" contain "/" but aren't
+                # yet in the system/ namespace.
                 for block in blocks:
-                    if "/" not in block.label:
+                    if not block.label.startswith("system/"):
                         old_label = block.label
                         new_label = f"system/{block.label}"
                         async with db_registry.async_session() as session:
@@ -389,10 +393,12 @@ class GitEnabledBlockManager(BlockManager):
                 return
 
         # Get current blocks for this agent and transform labels to path-based.
-        # Flat labels (e.g. "human") become "system/human" for the git directory structure.
+        # All existing blocks were in the system prompt, so they need the system/ prefix.
+        # Use startswith check (not "/" presence) because labels like "letta/letta_town"
+        # contain "/" but aren't yet in the system/ namespace.
         blocks = await self.get_blocks_by_agent_async(agent_id, actor)
         for block in blocks:
-            if "/" not in block.label:
+            if not block.label.startswith("system/"):
                 old_label = block.label
                 new_label = f"system/{block.label}"
                 logger.info(f"Transforming block label '{old_label}' -> '{new_label}' for agent {agent_id}")

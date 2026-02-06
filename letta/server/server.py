@@ -658,7 +658,7 @@ class SyncServer(object):
             if request.memory_blocks:
                 transformed_blocks = []
                 for block in request.memory_blocks:
-                    if "/" not in block.label:
+                    if not block.label.startswith("system/"):
                         block = block.model_copy(update={"label": f"system/{block.label}"})
                     transformed_blocks.append(block)
                 updates["memory_blocks"] = transformed_blocks
