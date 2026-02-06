@@ -620,12 +620,20 @@ class OpenAIClient(LLMClientBase):
 
         client = OpenAI(**self._prepare_client_kwargs(llm_config))
         # Route based on payload shape: Responses uses 'input', Chat Completions uses 'messages'
-        if "input" in request_data and "messages" not in request_data:
-            resp = client.responses.create(**request_data)
-            return resp.model_dump()
-        else:
-            response: ChatCompletion = client.chat.completions.create(**request_data)
-            return response.model_dump()
+        try:
+            if "input" in request_data and "messages" not in request_data:
+                resp = client.responses.create(**request_data)
+                return resp.model_dump()
+            else:
+                response: ChatCompletion = client.chat.completions.create(**request_data)
+                return response.model_dump()
+        except json.JSONDecodeError as e:
+            logger.error(f"[OpenAI] Failed to parse API response as JSON: {e}")
+            raise LLMServerError(
+                message=f"OpenAI API returned invalid JSON response (likely an HTML error page): {str(e)}",
+                code=ErrorCode.INTERNAL_SERVER_ERROR,
+                details={"json_error": str(e), "error_position": f"line {e.lineno} column {e.colno}"},
+            )
 
     @trace_method
     async def request_async(self, request_data: dict, llm_config: LLMConfig) -> dict:
@@ -638,12 +646,20 @@ class OpenAIClient(LLMClientBase):
         kwargs = await self._prepare_client_kwargs_async(llm_config)
         client = AsyncOpenAI(**kwargs)
         # Route based on payload shape: Responses uses 'input', Chat Completions uses 'messages'
-        if "input" in request_data and "messages" not in request_data:
-            resp = await client.responses.create(**request_data)
-            return resp.model_dump()
-        else:
-            response: ChatCompletion = await client.chat.completions.create(**request_data)
-            return response.model_dump()
+        try:
+            if "input" in request_data and "messages" not in request_data:
+                resp = await client.responses.create(**request_data)
+                return resp.model_dump()
+            else:
+                response: ChatCompletion = await client.chat.completions.create(**request_data)
+                return response.model_dump()
+        except json.JSONDecodeError as e:
+            logger.error(f"[OpenAI] Failed to parse API response as JSON: {e}")
+            raise LLMServerError(
+                message=f"OpenAI API returned invalid JSON response (likely an HTML error page): {str(e)}",
+                code=ErrorCode.INTERNAL_SERVER_ERROR,
+                details={"json_error": str(e), "error_position": f"line {e.lineno} column {e.colno}"},
+            )
 
     def is_reasoning_model(self, llm_config: LLMConfig) -> bool:
         return is_openai_reasoning_model(llm_config.model)

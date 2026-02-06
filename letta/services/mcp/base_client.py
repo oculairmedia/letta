@@ -87,6 +87,9 @@ class AsyncBaseMCPClient:
             # Log at debug level to avoid triggering production alerts for expected failures
             if e.__class__.__name__ in ("McpError", "ToolError"):
                 logger.debug(f"MCP tool '{tool_name}' execution failed: {str(e)}")
+                # Return error message with failure status instead of raising to avoid Datadog alerts
+                return str(e), False
+            # Re-raise unexpected errors
             raise
 
         parsed_content = []

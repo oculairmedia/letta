@@ -263,6 +263,11 @@ class ProviderCreate(ProviderBase):
     base_url: str | None = Field(None, description="Base URL used for requests to the provider.")
     api_version: str | None = Field(None, description="API version used for requests to the provider.")
 
+    @field_validator("api_key", "access_key", mode="before")
+    @classmethod
+    def strip_whitespace(cls, v: str | None) -> str | None:
+        return v.strip() if isinstance(v, str) else v
+
 
 class ProviderUpdate(ProviderBase):
     api_key: str = Field(..., description="API key or secret key used for requests to the provider.")
@@ -270,6 +275,11 @@ class ProviderUpdate(ProviderBase):
     region: str | None = Field(None, description="Region used for requests to the provider.")
     base_url: str | None = Field(None, description="Base URL used for requests to the provider.")
     api_version: str | None = Field(None, description="API version used for requests to the provider.")
+
+    @field_validator("api_key", "access_key", mode="before")
+    @classmethod
+    def strip_whitespace(cls, v: str | None) -> str | None:
+        return v.strip() if isinstance(v, str) else v
 
 
 class ProviderCheck(BaseModel):
@@ -279,3 +289,8 @@ class ProviderCheck(BaseModel):
     region: str | None = Field(None, description="Region used for requests to the provider.")
     base_url: str | None = Field(None, description="Base URL used for requests to the provider.")
     api_version: str | None = Field(None, description="API version used for requests to the provider.")
+
+    @field_validator("api_key", "access_key", mode="before")
+    @classmethod
+    def strip_whitespace(cls, v: str | None) -> str | None:
+        return v.strip() if isinstance(v, str) else v
