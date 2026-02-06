@@ -330,7 +330,7 @@ class Settings(BaseSettings):
     memfs_service_url: str | None = Field(
         default=None,
         validation_alias=AliasChoices("LETTA_MEMFS_SERVICE_URL"),
-        description="URL of the memfs service (e.g., http://memfs:8284). When set, git memory operations use this service.",
+        description="URL of the memfs service (e.g., http://memfs-py:8285). When set, git memory operations use this service.",
     )
 
     # multi agent settings
