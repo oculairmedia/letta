@@ -3,6 +3,7 @@ from collections.abc import AsyncGenerator
 from typing import Any, Dict, List, Literal, Optional, Union
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request
+from fastmcp.exceptions import ToolError as FastMCPToolError
 from httpx import ConnectError, HTTPStatusError
 from pydantic import BaseModel, Field
 from starlette.responses import StreamingResponse
@@ -819,7 +820,10 @@ async def execute_mcp_tool(
         await client.connect_to_server()
 
         # Execute the tool
-        result, success = await client.execute_tool(tool_name, request.args)
+        try:
+            result, success = await client.execute_tool(tool_name, request.args)
+        except FastMCPToolError as e:
+            raise LettaInvalidArgumentError(f"Invalid arguments for MCP tool '{tool_name}': {str(e)}", argument_name="args")
 
         return {
             "result": result,

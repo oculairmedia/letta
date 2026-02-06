@@ -67,6 +67,33 @@ from letta.settings import model_settings
 logger = get_logger(__name__)
 
 
+def sanitize_unicode_surrogates(obj: Any) -> Any:
+    """Recursively sanitize invalid Unicode surrogates in strings within nested data structures.
+
+    This fixes UnicodeEncodeError when the OpenAI SDK tries to encode requests containing
+    unpaired UTF-16 surrogates (e.g., '\ud83c' without its pair) which can occur in corrupted
+    emoji data or malformed Unicode sequences.
+
+    Args:
+        obj: The object to sanitize (dict, list, str, or other types)
+
+    Returns:
+        The sanitized object with invalid surrogates replaced by the Unicode replacement character
+    """
+    if isinstance(obj, dict):
+        return {k: sanitize_unicode_surrogates(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [sanitize_unicode_surrogates(item) for item in obj]
+    elif isinstance(obj, str):
+        try:
+            obj.encode("utf-8")
+            return obj
+        except UnicodeEncodeError:
+            return obj.encode("utf-8", errors="replace").decode("utf-8")
+    else:
+        return obj
+
+
 def is_openai_reasoning_model(model: str) -> bool:
     """Utility function to check if the model is a 'reasoner'"""
 

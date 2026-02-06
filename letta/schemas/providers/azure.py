@@ -2,11 +2,11 @@ from collections import defaultdict
 from typing import ClassVar, Literal
 
 import httpx
-from openai import AsyncAzureOpenAI
+from openai import AsyncAzureOpenAI, AuthenticationError, PermissionDeniedError
 from pydantic import Field, field_validator
 
 from letta.constants import DEFAULT_EMBEDDING_CHUNK_SIZE, LLM_MAX_CONTEXT_WINDOW
-from letta.errors import ErrorCode, LLMAuthenticationError
+from letta.errors import ErrorCode, LLMAuthenticationError, LLMPermissionDeniedError
 from letta.schemas.embedding_config import EmbeddingConfig
 from letta.schemas.enums import ProviderCategory, ProviderType
 from letta.schemas.llm_config import LLMConfig
@@ -65,6 +65,9 @@ class AzureProvider(Provider):
 
         try:
             models_list = await client.models.list()
+        except (AuthenticationError, PermissionDeniedError):
+            # Re-raise auth/permission errors so they're properly handled upstream
+            raise
         except Exception:
             return []
 
@@ -176,5 +179,8 @@ class AzureProvider(Provider):
 
         try:
             await self.list_llm_models_async()
+        except (LLMAuthenticationError, LLMPermissionDeniedError):
+            # Re-raise specific LLM errors as-is
+            raise
         except Exception as e:
             raise LLMAuthenticationError(message=f"Failed to authenticate with Azure: {e}", code=ErrorCode.UNAUTHENTICATED)

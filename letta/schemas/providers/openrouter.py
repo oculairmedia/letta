@@ -1,9 +1,9 @@
 from typing import Literal
 
-from openai import AsyncOpenAI, AuthenticationError
+from openai import AsyncOpenAI, AuthenticationError, PermissionDeniedError
 from pydantic import Field
 
-from letta.errors import ErrorCode, LLMAuthenticationError, LLMError
+from letta.errors import ErrorCode, LLMAuthenticationError, LLMError, LLMPermissionDeniedError
 from letta.log import get_logger
 from letta.schemas.enums import ProviderCategory, ProviderType
 from letta.schemas.llm_config import LLMConfig
@@ -41,6 +41,8 @@ class OpenRouterProvider(OpenAIProvider):
             await client.models.list()
         except AuthenticationError as e:
             raise LLMAuthenticationError(message=f"Failed to authenticate with OpenRouter: {e}", code=ErrorCode.UNAUTHENTICATED)
+        except PermissionDeniedError as e:
+            raise LLMPermissionDeniedError(message=f"Permission denied by OpenRouter: {e}", code=ErrorCode.PERMISSION_DENIED)
         except Exception as e:
             raise LLMError(message=f"{e}", code=ErrorCode.INTERNAL_SERVER_ERROR)
 

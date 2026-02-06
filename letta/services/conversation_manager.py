@@ -12,7 +12,6 @@ from letta.orm.block import Block as BlockModel
 from letta.orm.blocks_conversations import BlocksConversations
 from letta.orm.conversation import Conversation as ConversationModel
 from letta.orm.conversation_messages import ConversationMessage as ConversationMessageModel
-from letta.orm.errors import NoResultFound
 from letta.orm.message import Message as MessageModel
 from letta.otel.tracing import trace_method
 from letta.schemas.agent import AgentState
@@ -22,6 +21,7 @@ from letta.schemas.letta_message import LettaMessage
 from letta.schemas.message import Message as PydanticMessage
 from letta.schemas.user import User as PydanticUser
 from letta.server.db import db_registry
+from letta.services.helpers.agent_manager_helper import validate_agent_exists_async
 from letta.utils import enforce_types
 
 
@@ -48,6 +48,8 @@ class ConversationManager:
             The created conversation with isolated_block_ids if any were created
         """
         async with db_registry.async_session() as session:
+            # Validate that the agent exists before creating the conversation
+            await validate_agent_exists_async(session, agent_id, actor)
             conversation = ConversationModel(
                 agent_id=agent_id,
                 summary=conversation_create.summary,
