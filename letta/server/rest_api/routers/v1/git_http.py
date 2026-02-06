@@ -494,6 +494,8 @@ async def _sync_after_push(actor_id: str, agent_id: str) -> None:
                     logger.exception("Failed to read repo files after %d retries (agent=%s)", max_retries, agent_id)
 
         expected_labels = set()
+        from letta.services.memory_repo.block_markdown import parse_block_markdown
+
         synced = 0
         for file_path, content in files.items():
             if not file_path.startswith("memory/") or not file_path.endswith(".md"):
@@ -501,12 +503,20 @@ async def _sync_after_push(actor_id: str, agent_id: str) -> None:
 
             label = file_path[len("memory/") : -3]
             expected_labels.add(label)
+
+            # Parse frontmatter to extract metadata alongside value
+            parsed = parse_block_markdown(content)
+
             try:
                 await _server_instance.block_manager._sync_block_to_postgres(
                     agent_id=agent_id,
                     label=label,
-                    value=content,
+                    value=parsed["value"],
                     actor=actor,
+                    description=parsed.get("description"),
+                    limit=parsed.get("limit"),
+                    read_only=parsed.get("read_only"),
+                    metadata=parsed.get("metadata"),
                 )
                 synced += 1
                 logger.info("Synced block %s to PostgreSQL", label)

@@ -9,16 +9,17 @@ HTTP service instead.
 """
 
 import hashlib
-import json
 import os
 import uuid
 from typing import Dict, List, Optional
 
+from letta.constants import CORE_MEMORY_BLOCK_CHAR_LIMIT
 from letta.log import get_logger
 from letta.otel.tracing import trace_method
 from letta.schemas.block import Block as PydanticBlock
 from letta.schemas.memory_repo import MemoryCommit
 from letta.schemas.user import User as PydanticUser
+from letta.services.memory_repo.block_markdown import parse_block_markdown, serialize_block
 from letta.services.memory_repo.git_operations import GitOperations
 from letta.services.memory_repo.storage.local import LocalStorageBackend
 from letta.utils import enforce_types
@@ -27,7 +28,6 @@ logger = get_logger(__name__)
 
 # File paths within the memory repository
 MEMORY_DIR = "memory"
-METADATA_FILE = "metadata/blocks.json"
 
 # Default local storage path
 DEFAULT_LOCAL_PATH = os.path.expanduser("~/.letta/memfs")
@@ -84,20 +84,18 @@ class MemfsClient:
         initial_blocks = initial_blocks or []
         org_id = actor.organization_id
 
-        # Build initial files from blocks
+        # Build initial files from blocks (frontmatter embeds metadata)
         initial_files = {}
-        metadata = {"blocks": {}}
 
         for block in initial_blocks:
             file_path = f"{MEMORY_DIR}/{block.label}.md"
-            initial_files[file_path] = block.value or ""
-            metadata["blocks"][block.label] = {
-                "description": block.description,
-                "limit": block.limit,
-            }
-
-        if metadata["blocks"]:
-            initial_files[METADATA_FILE] = json.dumps(metadata, indent=2)
+            initial_files[file_path] = serialize_block(
+                value=block.value or "",
+                description=block.description,
+                limit=block.limit,
+                read_only=block.read_only,
+                metadata=block.metadata,
+            )
 
         return await self.git.create_repo(
             agent_id=agent_id,
@@ -136,33 +134,24 @@ class MemfsClient:
         except FileNotFoundError:
             return []
 
-        # Parse metadata
-        metadata: dict = {}
-        if METADATA_FILE in files:
-            try:
-                metadata_json = json.loads(files[METADATA_FILE])
-                if isinstance(metadata_json, dict):
-                    metadata = metadata_json.get("blocks", {}) or {}
-            except json.JSONDecodeError:
-                logger.warning(f"Failed to parse metadata for agent {agent_id}")
-
-        # Convert block files to PydanticBlock
+        # Convert block files to PydanticBlock (metadata is in frontmatter)
         blocks = []
         for file_path, content in files.items():
             if file_path.startswith(f"{MEMORY_DIR}/") and file_path.endswith(".md"):
                 label = file_path[len(f"{MEMORY_DIR}/") : -3]
-                block_meta = metadata.get(label, {})
 
-                # Generate deterministic UUID-style ID from agent_id + label
+                parsed = parse_block_markdown(content)
+
                 synthetic_uuid = uuid.UUID(hashlib.md5(f"{agent_id}:{label}".encode()).hexdigest())
                 blocks.append(
                     PydanticBlock(
                         id=f"block-{synthetic_uuid}",
                         label=label,
-                        value=content,
-                        description=block_meta.get("description"),
-                        limit=block_meta.get("limit", 5000),
-                        metadata=block_meta.get("metadata", {}),
+                        value=parsed["value"],
+                        description=parsed.get("description"),
+                        limit=parsed.get("limit", CORE_MEMORY_BLOCK_CHAR_LIMIT),
+                        read_only=parsed.get("read_only", False),
+                        metadata=parsed.get("metadata", {}),
                     )
                 )
 
@@ -220,6 +209,11 @@ class MemfsClient:
         value: str,
         actor: PydanticUser,
         message: Optional[str] = None,
+        *,
+        description: Optional[str] = None,
+        limit: Optional[int] = None,
+        read_only: bool = False,
+        metadata: Optional[dict] = None,
     ) -> MemoryCommit:
         """Update a memory block.
 
@@ -229,6 +223,10 @@ class MemfsClient:
             value: New block value
             actor: User performing the operation
             message: Optional commit message
+            description: Block description (for frontmatter)
+            limit: Block character limit (for frontmatter)
+            read_only: Block read-only flag (for frontmatter)
+            metadata: Block metadata dict (for frontmatter)
 
         Returns:
             Commit details
@@ -238,12 +236,19 @@ class MemfsClient:
         await self._ensure_repo_exists(agent_id, actor)
 
         file_path = f"{MEMORY_DIR}/{label}.md"
+        file_content = serialize_block(
+            value=value,
+            description=description,
+            limit=limit,
+            read_only=read_only,
+            metadata=metadata,
+        )
         commit_message = message or f"Update {label}"
 
         return await self.git.commit(
             agent_id=agent_id,
             org_id=actor.organization_id,
-            changes=[FileChange(path=file_path, content=value, change_type="modify")],
+            changes=[FileChange(path=file_path, content=file_content, change_type="modify")],
             message=commit_message,
             author_name=f"User {actor.id}",
             author_email=f"{actor.id}@letta.ai",
@@ -274,39 +279,19 @@ class MemfsClient:
         await self._ensure_repo_exists(agent_id, actor)
         org_id = actor.organization_id
 
-        # Get current metadata
-        try:
-            files = await self.git.get_files(agent_id, org_id)
-        except FileNotFoundError:
-            files = {}
+        file_content = serialize_block(
+            value=block.value or "",
+            description=block.description,
+            limit=block.limit,
+            read_only=block.read_only,
+            metadata=block.metadata,
+        )
 
-        metadata = {"blocks": {}}
-        if METADATA_FILE in files:
-            try:
-                raw_metadata = json.loads(files[METADATA_FILE])
-                if isinstance(raw_metadata, dict) and isinstance(raw_metadata.get("blocks"), dict):
-                    metadata = raw_metadata
-            except json.JSONDecodeError:
-                pass
-
-        # Add new block metadata
-        metadata["blocks"][block.label] = {
-            "description": block.description,
-            "limit": block.limit,
-            "metadata": block.metadata or {},
-        }
-
-        # Prepare changes
         changes = [
             FileChange(
                 path=f"{MEMORY_DIR}/{block.label}.md",
-                content=block.value,
+                content=file_content,
                 change_type="add",
-            ),
-            FileChange(
-                path=METADATA_FILE,
-                content=json.dumps(metadata, indent=2),
-                change_type="modify",
             ),
         ]
 
@@ -346,36 +331,11 @@ class MemfsClient:
         await self._ensure_repo_exists(agent_id, actor)
         org_id = actor.organization_id
 
-        # Get current metadata
-        try:
-            files = await self.git.get_files(agent_id, org_id)
-        except FileNotFoundError:
-            files = {}
-
-        metadata = {"blocks": {}}
-        if METADATA_FILE in files:
-            try:
-                raw_metadata = json.loads(files[METADATA_FILE])
-                if isinstance(raw_metadata, dict) and isinstance(raw_metadata.get("blocks"), dict):
-                    metadata = raw_metadata
-            except json.JSONDecodeError:
-                pass
-
-        # Remove block from metadata
-        if label in metadata["blocks"]:
-            del metadata["blocks"][label]
-
-        # Prepare changes
         changes = [
             FileChange(
                 path=f"{MEMORY_DIR}/{label}.md",
                 content=None,
                 change_type="delete",
-            ),
-            FileChange(
-                path=METADATA_FILE,
-                content=json.dumps(metadata, indent=2),
-                change_type="modify",
             ),
         ]
 

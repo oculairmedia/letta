@@ -11,6 +11,7 @@ import json
 import time
 from typing import List, Optional
 
+from letta.constants import CORE_MEMORY_BLOCK_CHAR_LIMIT
 from letta.log import get_logger
 from letta.orm.block import Block as BlockModel
 from letta.otel.tracing import trace_method
@@ -87,6 +88,8 @@ class GitEnabledBlockManager(BlockManager):
         actor: PydanticUser,
         description: Optional[str] = None,
         limit: Optional[int] = None,
+        read_only: Optional[bool] = None,
+        metadata: Optional[dict] = None,
     ) -> PydanticBlock:
         """Sync a block from git to PostgreSQL cache."""
         async with db_registry.async_session() as session:
@@ -113,6 +116,10 @@ class GitEnabledBlockManager(BlockManager):
                     block.description = description
                 if limit is not None:
                     block.limit = limit
+                if read_only is not None:
+                    block.read_only = read_only
+                if metadata is not None:
+                    block.metadata_ = metadata
                 await block.update_async(db_session=session, actor=actor)
             else:
                 # Create new block and link to agent in a single transaction
@@ -123,7 +130,9 @@ class GitEnabledBlockManager(BlockManager):
                     label=label,
                     value=value,
                     description=description or f"{label} block",
-                    limit=limit or 5000,
+                    limit=limit or CORE_MEMORY_BLOCK_CHAR_LIMIT,
+                    read_only=read_only or False,
+                    metadata_=metadata or {},
                     organization_id=actor.organization_id,
                 )
                 await block.create_async(db_session=session, actor=actor, no_commit=True)
@@ -206,17 +215,28 @@ class GitEnabledBlockManager(BlockManager):
             logger.info(f"[GIT_PERF] BlockModel.read_async took {(time.perf_counter() - t0) * 1000:.2f}ms label={label}")
 
             # 1. Commit to git (source of truth)
-            if block_update.value is not None:
-                t0 = time.perf_counter()
-                commit = await self.memory_repo_manager.update_block_async(
-                    agent_id=agent_id,
-                    label=label,
-                    value=block_update.value,
-                    actor=actor,
-                    message=f"Update {label} block",
-                )
-                git_time = (time.perf_counter() - t0) * 1000
-                logger.info(f"[GIT_PERF] memory_repo_manager.update_block_async took {git_time:.2f}ms commit={commit.sha[:8]}")
+            # Resolve each field: use the update value if provided, else fall back
+            # to the current block value from Postgres.
+            resolved_value = block_update.value if block_update.value is not None else block.value
+            resolved_description = block_update.description if block_update.description is not None else block.description
+            resolved_limit = block_update.limit if block_update.limit is not None else block.limit
+            resolved_read_only = block_update.read_only if block_update.read_only is not None else block.read_only
+            resolved_metadata = block_update.metadata if block_update.metadata is not None else (block.metadata_ or {})
+
+            t0 = time.perf_counter()
+            commit = await self.memory_repo_manager.update_block_async(
+                agent_id=agent_id,
+                label=label,
+                value=resolved_value,
+                actor=actor,
+                message=f"Update {label} block",
+                description=resolved_description,
+                limit=resolved_limit,
+                read_only=resolved_read_only,
+                metadata=resolved_metadata,
+            )
+            git_time = (time.perf_counter() - t0) * 1000
+            logger.info(f"[GIT_PERF] memory_repo_manager.update_block_async took {git_time:.2f}ms commit={commit.sha[:8]}")
 
             # 2. Sync to PostgreSQL cache
             t0 = time.perf_counter()
@@ -283,7 +303,7 @@ class GitEnabledBlockManager(BlockManager):
                     label=block.label,
                     value=block.value,
                     description=block.description,
-                    limit=block.limit or 5000,
+                    limit=block.limit or CORE_MEMORY_BLOCK_CHAR_LIMIT,
                 ),
                 actor=actor,
                 message=f"Create {block.label} block",
