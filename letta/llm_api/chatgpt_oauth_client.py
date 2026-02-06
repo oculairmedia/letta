@@ -39,6 +39,7 @@ from letta.errors import (
     LLMServerError,
     LLMTimeoutError,
 )
+from letta.helpers.json_helpers import sanitize_unicode_surrogates
 from letta.llm_api.llm_client_base import LLMClientBase
 from letta.log import get_logger
 from letta.otel.tracing import trace_method
@@ -356,6 +357,8 @@ class ChatGPTOAuthClient(LLMClientBase):
         Returns:
             Response data in OpenAI ChatCompletion format.
         """
+        request_data = sanitize_unicode_surrogates(request_data)
+
         _, creds = await self._get_provider_and_credentials_async(llm_config)
         headers = self._build_headers(creds)
 
@@ -550,6 +553,8 @@ class ChatGPTOAuthClient(LLMClientBase):
         Returns:
             Async generator yielding ResponseStreamEvent objects.
         """
+        request_data = sanitize_unicode_surrogates(request_data)
+
         _, creds = await self._get_provider_and_credentials_async(llm_config)
         headers = self._build_headers(creds)
 

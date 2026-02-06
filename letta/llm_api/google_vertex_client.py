@@ -31,7 +31,7 @@ from letta.errors import (
     LLMUnprocessableEntityError,
 )
 from letta.helpers.datetime_helpers import get_utc_time_int
-from letta.helpers.json_helpers import json_dumps, json_loads
+from letta.helpers.json_helpers import json_dumps, json_loads, sanitize_unicode_surrogates
 from letta.llm_api.llm_client_base import LLMClientBase
 from letta.local_llm.json_parser import clean_json_string_extra_backslash
 from letta.log import get_logger
@@ -100,6 +100,8 @@ class GoogleVertexClient(LLMClientBase):
         """
         Performs underlying request to llm and returns raw response.
         """
+        request_data = sanitize_unicode_surrogates(request_data)
+
         client = self._get_client()
 
         # Gemini 2.5 models will often return MALFORMED_FUNCTION_CALL, force a retry
@@ -175,6 +177,8 @@ class GoogleVertexClient(LLMClientBase):
 
     @trace_method
     async def stream_async(self, request_data: dict, llm_config: LLMConfig) -> AsyncIterator[GenerateContentResponse]:
+        request_data = sanitize_unicode_surrogates(request_data)
+
         client = self._get_client()
 
         try:

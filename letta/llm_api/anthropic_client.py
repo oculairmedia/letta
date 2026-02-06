@@ -29,6 +29,7 @@ from letta.errors import (
 )
 from letta.helpers.datetime_helpers import get_utc_time_int
 from letta.helpers.decorators import deprecated
+from letta.helpers.json_helpers import sanitize_unicode_surrogates
 from letta.llm_api.anthropic_constants import ANTHROPIC_MAX_STRICT_TOOLS, ANTHROPIC_STRICT_MODE_ALLOWLIST
 from letta.llm_api.helpers import add_inner_thoughts_to_functions, unpack_all_inner_thoughts_from_kwargs
 from letta.llm_api.llm_client_base import LLMClientBase
@@ -109,6 +110,8 @@ class AnthropicClient(LLMClientBase):
 
     @trace_method
     async def request_async(self, request_data: dict, llm_config: LLMConfig) -> dict:
+        request_data = sanitize_unicode_surrogates(request_data)
+
         client = await self._get_anthropic_client_async(llm_config, async_client=True)
         betas: list[str] = []
 
@@ -279,6 +282,8 @@ class AnthropicClient(LLMClientBase):
 
     @trace_method
     async def stream_async(self, request_data: dict, llm_config: LLMConfig) -> AsyncStream[BetaRawMessageStreamEvent]:
+        request_data = sanitize_unicode_surrogates(request_data)
+
         client = await self._get_anthropic_client_async(llm_config, async_client=True)
         request_data["stream"] = True
 
