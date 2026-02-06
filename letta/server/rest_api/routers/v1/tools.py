@@ -5,6 +5,7 @@ from typing import Any, Dict, List, Literal, Optional, Union
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request
 from fastmcp.exceptions import ToolError as FastMCPToolError
 from httpx import ConnectError, HTTPStatusError
+from mcp.shared.exceptions import McpError
 from pydantic import BaseModel, Field
 from starlette.responses import StreamingResponse
 
@@ -822,8 +823,21 @@ async def execute_mcp_tool(
         # Execute the tool
         try:
             result, success = await client.execute_tool(tool_name, request.args)
-        except FastMCPToolError as e:
-            raise LettaInvalidArgumentError(f"Invalid arguments for MCP tool '{tool_name}': {str(e)}", argument_name="args")
+        except Exception as e:
+            # Handle ExceptionGroup wrapping (Python 3.11+ async TaskGroup can wrap exceptions)
+            exception_to_check = e
+            if hasattr(e, "exceptions") and e.exceptions:
+                if len(e.exceptions) == 1:
+                    exception_to_check = e.exceptions[0]
+
+            # Check by class name to handle both fastmcp.exceptions.ToolError and potential module variations
+            if exception_to_check.__class__.__name__ == "ToolError":
+                raise LettaInvalidArgumentError(
+                    f"Invalid arguments for MCP tool '{tool_name}': {str(exception_to_check)}", argument_name="args"
+                )
+            elif isinstance(exception_to_check, McpError):
+                raise LettaMCPConnectionError(f"MCP tool execution failed: {str(exception_to_check)}", server_name=tool_name)
+            raise
 
         return {
             "result": result,
