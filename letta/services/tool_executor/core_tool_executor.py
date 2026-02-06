@@ -405,7 +405,7 @@ class LettaCoreToolExecutor(ToolExecutor):
             f"The core memory block with label `{label}` has been successfully edited. "
             f"Your system prompt has been recompiled with the updated memory contents and is now active in your context. "
             f"Review the changes and make sure they are as expected (correct indentation, "
-            f"no duplicate lines, etc). Edit the memory block again if necessary."
+            f"no duplicate lines, etc)."
         )
 
         # return None
@@ -548,8 +548,7 @@ class LettaCoreToolExecutor(ToolExecutor):
             return (
                 f"The core memory block with label `{label}` has been successfully edited. "
                 f"Your system prompt has been recompiled with the updated memory contents and is now active in your context. "
-                f"Review the changes and make sure they are as expected (correct indentation, no duplicate lines, etc). "
-                f"Edit the memory block again if necessary."
+                f"Review the changes and make sure they are as expected (correct indentation, no duplicate lines, etc)."
             )
 
         # Extended mode: parse codex-like patch operations for memory blocks
@@ -759,7 +758,7 @@ class LettaCoreToolExecutor(ToolExecutor):
             f"The core memory block with label `{label}` has been successfully edited. "
             f"Your system prompt has been recompiled with the updated memory contents and is now active in your context. "
             f"Review the changes and make sure they are as expected (correct indentation, "
-            f"no duplicate lines, etc). Edit the memory block again if necessary."
+            f"no duplicate lines, etc)."
         )
 
         return success_msg
@@ -799,7 +798,7 @@ class LettaCoreToolExecutor(ToolExecutor):
             f"The core memory block with label `{label}` has been successfully edited. "
             f"Your system prompt has been recompiled with the updated memory contents and is now active in your context. "
             f"Review the changes and make sure they are as expected (correct indentation, "
-            f"no duplicate lines, etc). Edit the memory block again if necessary."
+            f"no duplicate lines, etc)."
         )
 
         # return None
@@ -973,7 +972,7 @@ class LettaCoreToolExecutor(ToolExecutor):
             f"The core memory block with label `{label}` has been successfully edited. "
             f"Your system prompt has been recompiled with the updated memory contents and is now active in your context. "
             f"Review the changes and make sure they are as expected (correct indentation, "
-            f"no duplicate lines, etc). Edit the memory block again if necessary."
+            f"no duplicate lines, etc)."
         )
 
         return success_msg
@@ -1040,7 +1039,7 @@ class LettaCoreToolExecutor(ToolExecutor):
             f"The core memory block with label `{label}` has been successfully edited. "
             f"Your system prompt has been recompiled with the updated memory contents and is now active in your context. "
             f"Review the changes and make sure they are as expected (correct indentation, "
-            f"no duplicate lines, etc). Edit the memory block again if necessary."
+            f"no duplicate lines, etc)."
         )
 
         return success_msg

@@ -387,7 +387,7 @@ def memory_replace(agent_state: "AgentState", label: str, old_str: str, new_str:
         f"The core memory block with label `{label}` has been successfully edited. "
         f"Your system prompt has been recompiled with the updated memory contents and is now active in your context. "
         f"Review the changes and make sure they are as expected (correct indentation, "
-        f"no duplicate lines, etc). Edit the memory block again if necessary."
+        f"no duplicate lines, etc)."
     )
 
     # return None
@@ -458,7 +458,7 @@ def memory_insert(agent_state: "AgentState", label: str, new_str: str, insert_li
         f"The core memory block with label `{label}` has been successfully edited. "
         f"Your system prompt has been recompiled with the updated memory contents and is now active in your context. "
         f"Review the changes and make sure they are as expected (correct indentation, "
-        f"no duplicate lines, etc). Edit the memory block again if necessary."
+        f"no duplicate lines, etc)."
     )
 
     return success_msg
@@ -534,7 +534,7 @@ def memory_rethink(agent_state: "AgentState", label: str, new_memory: str) -> No
         f"The core memory block with label `{label}` has been successfully edited. "
         f"Your system prompt has been recompiled with the updated memory contents and is now active in your context. "
         f"Review the changes and make sure they are as expected (correct indentation, "
-        f"no duplicate lines, etc). Edit the memory block again if necessary."
+        f"no duplicate lines, etc)."
     )
 
     # return None
