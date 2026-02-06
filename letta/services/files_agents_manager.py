@@ -5,6 +5,7 @@ from sqlalchemy import and_, delete, func, or_, select, update
 
 from letta.log import get_logger
 from letta.orm.errors import NoResultFound
+from letta.orm.file import FileMetadata as FileMetadataModel
 from letta.orm.files_agents import FileAgent as FileAgentModel
 from letta.otel.tracing import trace_method
 from letta.schemas.block import Block as PydanticBlock, FileBlock as PydanticFileBlock
@@ -695,6 +696,20 @@ class FileAgentManager:
             if len(new_names) >= max_files_open:
                 closed_file_names.extend(new_names[max_files_open:])
             evicted_ids = [r.file_id for r in currently_open if r.file_name in closed_file_names]
+
+            # validate file IDs exist to prevent FK violations (files may have been deleted)
+            requested_file_ids = {meta.id for meta in ordered_unique}
+            existing_file_ids_q = select(FileMetadataModel.id).where(FileMetadataModel.id.in_(requested_file_ids))
+            existing_file_ids = set((await session.execute(existing_file_ids_q)).scalars().all())
+            missing_file_ids = requested_file_ids - existing_file_ids
+            if missing_file_ids:
+                logger.warning(
+                    "attach_files_bulk: skipping %d file(s) with missing records for agent %s: %s",
+                    len(missing_file_ids),
+                    agent_id,
+                    missing_file_ids,
+                )
+                ordered_unique = [m for m in ordered_unique if m.id in existing_file_ids]
 
             # upsert requested files
             for meta in ordered_unique:
