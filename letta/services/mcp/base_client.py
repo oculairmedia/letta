@@ -85,8 +85,16 @@ class AsyncBaseMCPClient:
             # McpError is raised for other MCP-related errors
             # Both are expected user-facing issues from external MCP servers
             # Log at debug level to avoid triggering production alerts for expected failures
-            if e.__class__.__name__ in ("McpError", "ToolError"):
-                logger.debug(f"MCP tool '{tool_name}' execution failed: {str(e)}")
+
+            # Handle ExceptionGroup wrapping (Python 3.11+ async TaskGroup can wrap exceptions)
+            exception_to_check = e
+            if hasattr(e, "exceptions") and e.exceptions:
+                # If it's an ExceptionGroup with a single wrapped exception, unwrap it
+                if len(e.exceptions) == 1:
+                    exception_to_check = e.exceptions[0]
+
+            if exception_to_check.__class__.__name__ in ("McpError", "ToolError"):
+                logger.debug(f"MCP tool '{tool_name}' execution failed: {str(exception_to_check)}")
                 # Return error message with failure status instead of raising to avoid Datadog alerts
                 return str(e), False
             # Re-raise unexpected errors
