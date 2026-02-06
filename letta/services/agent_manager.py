@@ -1674,6 +1674,7 @@ class AgentManager:
                 blocks=blocks,
                 file_blocks=agent_state.memory.file_blocks,
                 agent_type=agent_state.agent_type,
+                git_enabled=agent_state.memory.git_enabled,
             )
 
             # NOTE: don't do this since re-buildin the memory is handled at the start of the step

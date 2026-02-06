@@ -468,22 +468,25 @@ async def _sync_after_push(actor_id: str, agent_id: str) -> None:
         expected_labels = set()
         synced = 0
         for file_path, content in files.items():
-            if not file_path.startswith("blocks/") or not file_path.endswith(".md"):
+            if not file_path.startswith("memory/") or not file_path.endswith(".md"):
                 continue
 
-            label = file_path[len("blocks/") : -3]
+            label = file_path[len("memory/") : -3]
             expected_labels.add(label)
-            await _server_instance.block_manager._sync_block_to_postgres(
-                agent_id=agent_id,
-                label=label,
-                value=content,
-                actor=actor,
-            )
-            synced += 1
-            logger.info("Synced block %s to PostgreSQL", label)
+            try:
+                await _server_instance.block_manager._sync_block_to_postgres(
+                    agent_id=agent_id,
+                    label=label,
+                    value=content,
+                    actor=actor,
+                )
+                synced += 1
+                logger.info("Synced block %s to PostgreSQL", label)
+            except Exception:
+                logger.exception("Failed to sync block %s to PostgreSQL (agent=%s)", label, agent_id)
 
         if synced == 0:
-            logger.warning("No blocks/*.md files found in repo HEAD during post-push sync (agent=%s)", agent_id)
+            logger.warning("No memory/*.md files found in repo HEAD during post-push sync (agent=%s)", agent_id)
         else:
             # Detach blocks that were removed in git.
             #

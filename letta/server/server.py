@@ -641,7 +641,21 @@ class SyncServer(object):
         create_request = request
         if wants_git_memory:
             filtered_tags = [t for t in (request.tags or []) if t != GIT_MEMORY_ENABLED_TAG]
-            create_request = request.model_copy(update={"tags": filtered_tags})
+            updates: dict = {"tags": filtered_tags}
+
+            # Transform block labels to path-based for git-memory agents.
+            # Blocks without a "/" prefix go under system/ (rendered in system prompt).
+            # e.g. "human" -> "system/human", "persona" -> "system/persona"
+            # Blocks with an explicit path (e.g. "notes/project") keep their label.
+            if request.memory_blocks:
+                transformed_blocks = []
+                for block in request.memory_blocks:
+                    if "/" not in block.label:
+                        block = block.model_copy(update={"label": f"system/{block.label}"})
+                    transformed_blocks.append(block)
+                updates["memory_blocks"] = transformed_blocks
+
+            create_request = request.model_copy(update=updates)
 
         log_event(name="start create_agent db")
         main_agent = await self.agent_manager.create_agent_async(
@@ -653,9 +667,10 @@ class SyncServer(object):
         # Enable git-backed memory (creates repo + commits initial blocks + adds tag)
         if wants_git_memory and isinstance(self.block_manager, GitEnabledBlockManager):
             await self.block_manager.enable_git_memory_for_agent(agent_id=main_agent.id, actor=actor)
-            # Preserve the user's requested tags in the response model.
+            # Preserve the user's requested tags and git_enabled flag in the response model.
             try:
                 main_agent.tags = list(request.tags or [])
+                main_agent.memory.git_enabled = True
             except Exception:
                 pass
 

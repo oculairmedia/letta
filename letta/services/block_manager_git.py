@@ -115,15 +115,18 @@ class GitEnabledBlockManager(BlockManager):
                     block.limit = limit
                 await block.update_async(db_session=session, actor=actor)
             else:
-                # Create new block
+                # Create new block and link to agent in a single transaction
+                from letta.schemas.block import BaseBlock
+
                 block = BlockModel(
+                    id=BaseBlock.generate_id(),
                     label=label,
                     value=value,
                     description=description or f"{label} block",
                     limit=limit or 5000,
                     organization_id=actor.organization_id,
                 )
-                await block.create_async(db_session=session, actor=actor)
+                await block.create_async(db_session=session, actor=actor, no_commit=True)
 
                 # Link to agent
                 from letta.orm.blocks_agents import BlocksAgents
@@ -131,8 +134,10 @@ class GitEnabledBlockManager(BlockManager):
                 blocks_agents = BlocksAgents(
                     agent_id=agent_id,
                     block_id=block.id,
+                    block_label=label,
                 )
                 session.add(blocks_agents)
+                await session.commit()
 
             return block.to_pydantic()
 
@@ -364,6 +369,17 @@ class GitEnabledBlockManager(BlockManager):
                     agent_id,
                 )
                 blocks = await self.get_blocks_by_agent_async(agent_id, actor)
+                # Ensure blocks have path-based labels before creating repo
+                for block in blocks:
+                    if "/" not in block.label:
+                        old_label = block.label
+                        new_label = f"system/{block.label}"
+                        async with db_registry.async_session() as session:
+                            block_orm = await BlockModel.read_async(db_session=session, identifier=block.id, actor=actor)
+                            block_orm.label = new_label
+                            await session.commit()
+                        block.label = new_label
+                        logger.info(f"Transformed block label '{old_label}' -> '{new_label}' during backfill for agent {agent_id}")
                 await self.memory_repo_manager.create_repo_async(
                     agent_id=agent_id,
                     actor=actor,
@@ -372,10 +388,24 @@ class GitEnabledBlockManager(BlockManager):
                 logger.info(f"Backfilled git repo for agent {agent_id} with {len(blocks)} blocks")
                 return
 
-        # Get current blocks for this agent
+        # Get current blocks for this agent and transform labels to path-based.
+        # Flat labels (e.g. "human") become "system/human" for the git directory structure.
         blocks = await self.get_blocks_by_agent_async(agent_id, actor)
+        for block in blocks:
+            if "/" not in block.label:
+                old_label = block.label
+                new_label = f"system/{block.label}"
+                logger.info(f"Transforming block label '{old_label}' -> '{new_label}' for agent {agent_id}")
 
-        # Create git repo with current blocks
+                # Rename in PostgreSQL directly
+                async with db_registry.async_session() as session:
+                    block_orm = await BlockModel.read_async(db_session=session, identifier=block.id, actor=actor)
+                    block_orm.label = new_label
+                    await session.commit()
+
+                block.label = new_label
+
+        # Create git repo with path-based blocks
         await self.memory_repo_manager.create_repo_async(
             agent_id=agent_id,
             actor=actor,
@@ -466,7 +496,7 @@ class GitEnabledBlockManager(BlockManager):
         if self.memory_repo_manager is None:
             raise ValueError("Memory repo manager not configured")
 
-        path = f"blocks/{label}.md" if label else None
+        path = f"memory/{label}.md" if label else None
         return await self.memory_repo_manager.get_history_async(
             agent_id=agent_id,
             actor=actor,

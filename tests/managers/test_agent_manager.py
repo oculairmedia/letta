@@ -1738,7 +1738,7 @@ async def test_agent_state_schema_unchanged(server: SyncServer):
     # Validate nested object schemas
     # Memory schema
     memory_fields = Memory.model_fields
-    expected_memory_fields = {"agent_type", "blocks", "file_blocks", "prompt_template"}
+    expected_memory_fields = {"agent_type", "git_enabled", "blocks", "file_blocks", "prompt_template"}
     actual_memory_fields = set(memory_fields.keys())
     if actual_memory_fields != expected_memory_fields:
         pytest.fail(
@@ -1980,6 +1980,7 @@ async def test_agent_state_relationship_loads(server: SyncServer, default_user, 
     assert not agent_state.tools
 
     # Test include_relationships override with specific relationships
+    # Note: tags are always loaded alongside memory (needed for git_enabled)
     agent_state = await server.agent_manager.get_agent_by_id_async(
         agent_id=created_agent.id,
         actor=default_user,
@@ -1987,7 +1988,7 @@ async def test_agent_state_relationship_loads(server: SyncServer, default_user, 
     )
     assert agent_state.blocks
     assert agent_state.sources
-    assert not agent_state.tags
+    assert agent_state.tags  # tags loaded with memory for git_enabled
     assert not agent_state.tools
 
     # Test include override with specific relationships
@@ -1999,7 +2000,7 @@ async def test_agent_state_relationship_loads(server: SyncServer, default_user, 
     )
     assert agent_state.blocks
     assert agent_state.sources
-    assert not agent_state.tags
+    assert agent_state.tags  # tags loaded with blocks for git_enabled
     assert not agent_state.tools
 
 

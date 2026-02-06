@@ -92,9 +92,9 @@ class Block(OrganizationMixin, SqlalchemyBase, ProjectMixin, TemplateEntityMixin
 
     def to_pydantic(self) -> Type:
         match self.label:
-            case "human":
+            case "human" | "system/human":
                 Schema = Human
-            case "persona":
+            case "persona" | "system/persona":
                 Schema = Persona
             case _:
                 Schema = PydanticBlock

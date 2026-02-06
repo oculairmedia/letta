@@ -61,6 +61,7 @@ class Memory(BaseModel, validate_assignment=True):
     """
 
     agent_type: Optional[Union["AgentType", str]] = Field(None, description="Agent type controlling prompt rendering.")
+    git_enabled: bool = Field(False, description="Whether this agent uses git-backed memory with structured labels.")
     blocks: List[Block] = Field(..., description="Memory blocks contained in the agent's in-context memory")
     file_blocks: List[FileBlock] = Field(
         default_factory=list, description="Special blocks representing the agent's in-context memory of an attached file"
@@ -106,16 +107,36 @@ class Memory(BaseModel, validate_assignment=True):
         """Deprecated. Async setter that stores the string but does not validate or use it."""
         self.prompt_template = prompt_template
 
+    def _get_renderable_blocks(self) -> list:
+        """Return blocks that should be rendered into <memory_blocks>.
+
+        For git-memory-enabled agents, only system/ blocks are rendered.
+        For standard agents, all blocks are rendered.
+        """
+        if self.git_enabled:
+            return [b for b in self.blocks if b.label and b.label.startswith("system/")]
+        return list(self.blocks)
+
+    def _display_label(self, label: str) -> str:
+        """Return the XML tag name for a block label.
+
+        For git-memory-enabled agents, strip the 'system/' prefix so
+        system/human renders as <human>.
+        """
+        if self.git_enabled and label.startswith("system/"):
+            return label.removeprefix("system/")
+        return label
+
     @trace_method
     def _render_memory_blocks_standard(self, s: StringIO):
-        if len(self.blocks) == 0:
-            # s.write("<memory_blocks></memory_blocks>") # TODO: consider empty tags
+        renderable = self._get_renderable_blocks()
+        if len(renderable) == 0:
             s.write("")
             return
 
         s.write("<memory_blocks>\nThe following memory blocks are currently engaged in your core memory unit:\n\n")
-        for idx, block in enumerate(self.blocks):
-            label = block.label or "block"
+        for idx, block in enumerate(renderable):
+            label = self._display_label(block.label or "block")
             value = block.value or ""
             desc = block.description or ""
             chars_current = len(value)
@@ -135,14 +156,15 @@ class Memory(BaseModel, validate_assignment=True):
             s.write(f"{value}\n")
             s.write("</value>\n")
             s.write(f"</{label}>\n")
-            if idx != len(self.blocks) - 1:
+            if idx != len(renderable) - 1:
                 s.write("\n")
         s.write("\n</memory_blocks>")
 
     def _render_memory_blocks_line_numbered(self, s: StringIO):
+        renderable = self._get_renderable_blocks()
         s.write("<memory_blocks>\nThe following memory blocks are currently engaged in your core memory unit:\n\n")
-        for idx, block in enumerate(self.blocks):
-            label = block.label or "block"
+        for idx, block in enumerate(renderable):
+            label = self._display_label(block.label or "block")
             value = block.value or ""
             desc = block.description or ""
             limit = block.limit if block.limit is not None else 0
@@ -164,9 +186,54 @@ class Memory(BaseModel, validate_assignment=True):
                     s.write(f"{i}→ {line}\n")
             s.write("</value>\n")
             s.write(f"</{label}>\n")
-            if idx != len(self.blocks) - 1:
+            if idx != len(renderable) - 1:
                 s.write("\n")
         s.write("\n</memory_blocks>")
+
+    def _render_memory_filesystem(self, s: StringIO):
+        """Render a filesystem tree view of all memory blocks.
+
+        Only rendered for git-memory-enabled agents. Shows all blocks
+        (system and non-system) as a tree with char counts and descriptions.
+        """
+        if not self.blocks:
+            return
+
+        # Build tree structure from block labels
+        # e.g. "system/human" -> {"system": {"human": block}}
+        #      "organization" -> {"organization": block}
+        tree: dict = {}
+        for block in self.blocks:
+            label = block.label or "block"
+            parts = label.split("/")
+            node = tree
+            for part in parts[:-1]:
+                node = node.setdefault(part, {})
+            node[parts[-1]] = block
+
+        s.write("\n\n<memory_filesystem>\nmemory/\n")
+
+        def _render_tree(node: dict, indent: int = 1):
+            prefix = "  " * indent
+            # Sort: directories first, then files
+            dirs = sorted(k for k, v in node.items() if isinstance(v, dict))
+            files = sorted(k for k, v in node.items() if not isinstance(v, dict))
+
+            for d in dirs:
+                s.write(f"{prefix}{d}/\n")
+                _render_tree(node[d], indent + 1)
+
+            for f in files:
+                block = node[f]
+                chars = len(block.value or "")
+                desc = block.description or ""
+                line = f"{prefix}{f}.md ({chars} chars)"
+                if desc:
+                    line += f" - {desc}"
+                s.write(f"{line}\n")
+
+        _render_tree(tree)
+        s.write("</memory_filesystem>")
 
     def _render_directories_common(self, s: StringIO, sources, max_files_open):
         s.write("\n\n<directories>\n")
@@ -290,6 +357,10 @@ class Memory(BaseModel, validate_assignment=True):
                 self._render_memory_blocks_line_numbered(s)
             else:
                 self._render_memory_blocks_standard(s)
+
+            # For git-memory-enabled agents, render a filesystem tree of all blocks
+            if self.git_enabled:
+                self._render_memory_filesystem(s)
 
         if tool_usage_rules is not None:
             desc = getattr(tool_usage_rules, "description", None) or ""

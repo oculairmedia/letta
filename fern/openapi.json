@@ -38202,6 +38202,12 @@
             "title": "Agent Type",
             "description": "Agent type controlling prompt rendering."
           },
+          "git_enabled": {
+            "type": "boolean",
+            "title": "Git Enabled",
+            "description": "Whether this agent uses git-backed memory with structured labels.",
+            "default": false
+          },
           "blocks": {
             "items": {
               "$ref": "#/components/schemas/Block"

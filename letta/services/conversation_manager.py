@@ -614,6 +614,7 @@ class ConversationManager:
             blocks=memory_blocks,
             file_blocks=agent_state.memory.file_blocks,
             agent_type=agent_state.memory.agent_type,
+            git_enabled=agent_state.memory.git_enabled,
         )
 
         return agent_state

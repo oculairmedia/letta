@@ -822,7 +822,7 @@ def get_column_names_from_includes_params(
     include_relationships: Optional[List[str]] = None, includes: Optional[List[str]] = None
 ) -> Set[str]:
     include_mapping = {
-        "agent.blocks": ["core_memory", "file_agents"],
+        "agent.blocks": ["core_memory", "file_agents", "tags"],
         "agent.identities": ["identities"],
         "agent.managed_group": ["multi_agent_group"],
         "agent.secrets": ["tool_exec_environment_variables"],
@@ -830,7 +830,7 @@ def get_column_names_from_includes_params(
         "agent.tags": ["tags"],
         "agent.tools": ["tools"],
         # legacy
-        "memory": ["core_memory", "file_agents"],
+        "memory": ["core_memory", "file_agents", "tags"],
         "identity_ids": ["identities"],
         "multi_agent_group": ["multi_agent_group"],
         "tool_exec_environment_variables": ["tool_exec_environment_variables"],

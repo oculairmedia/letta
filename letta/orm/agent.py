@@ -286,6 +286,7 @@ class Agent(SqlalchemyBase, OrganizationMixin, ProjectMixin, TemplateEntityMixin
                     is not None
                 ],
                 agent_type=self.agent_type,
+                git_enabled=any(t.tag == "git-memory-enabled" for t in self.tags),
             ),
             "blocks": lambda: [b.to_pydantic() for b in self.core_memory],
             "identity_ids": lambda: [i.id for i in self.identities],
@@ -418,7 +419,15 @@ class Agent(SqlalchemyBase, OrganizationMixin, ProjectMixin, TemplateEntityMixin
             return None
 
         # Only load requested relationships
-        tags = self.awaitable_attrs.tags if "tags" in include_relationships or "agent.tags" in include_set else empty_list_async()
+        # Always load tags when memory is requested, since git_enabled depends on them
+        tags = (
+            self.awaitable_attrs.tags
+            if "tags" in include_relationships
+            or "memory" in include_relationships
+            or "agent.tags" in include_set
+            or "agent.blocks" in include_set
+            else empty_list_async()
+        )
         tools = self.awaitable_attrs.tools if "tools" in include_relationships or "agent.tools" in include_set else empty_list_async()
         sources = (
             self.awaitable_attrs.sources if "sources" in include_relationships or "agent.sources" in include_set else empty_list_async()
@@ -473,6 +482,7 @@ class Agent(SqlalchemyBase, OrganizationMixin, ProjectMixin, TemplateEntityMixin
                 if (block := b.to_pydantic_block(per_file_view_window_char_limit=self._get_per_file_view_window_char_limit())) is not None
             ],
             agent_type=self.agent_type,
+            git_enabled="git-memory-enabled" in state["tags"],
         )
         state["blocks"] = [m.to_pydantic() for m in memory]
         state["identity_ids"] = [i.id for i in identities]
