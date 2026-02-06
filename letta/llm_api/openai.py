@@ -524,7 +524,17 @@ def openai_chat_completions_request(
     log_event(name="llm_request_sent", attributes=data)
     chat_completion = client.chat.completions.create(**data)
     log_event(name="llm_response_received", attributes=chat_completion.model_dump())
-    return ChatCompletionResponse(**chat_completion.model_dump())
+    response = ChatCompletionResponse(**chat_completion.model_dump())
+
+    # Override tool_call IDs to ensure cross-provider compatibility (matches streaming path behavior)
+    # Some models (e.g. Kimi via OpenRouter) generate IDs like 'Read:93' which violate Anthropic's pattern
+    for choice in response.choices:
+        if choice.message.tool_calls:
+            for tool_call in choice.message.tool_calls:
+                if tool_call.id is not None:
+                    tool_call.id = get_tool_call_id()
+
+    return response
 
 
 def prepare_openai_payload(chat_completion_request: ChatCompletionRequest):

@@ -491,6 +491,25 @@ def get_tool_call_id() -> str:
     return str(uuid.uuid4())[:TOOL_CALL_ID_MAX_LEN]
 
 
+# Pattern for valid tool_call_id (required by Anthropic: ^[a-zA-Z0-9_-]+$)
+TOOL_CALL_ID_PATTERN = re.compile(r"^[a-zA-Z0-9_-]+$")
+
+
+def sanitize_tool_call_id(tool_id: str) -> str:
+    """Ensure tool_call_id matches cross-provider requirements:
+    - Anthropic: pattern ^[a-zA-Z0-9_-]+$
+    - OpenAI: max length 29 characters
+
+    Some models (e.g. Kimi via OpenRouter) generate IDs like 'Read:93' which
+    contain invalid characters. This sanitizes them for cross-provider compatibility.
+    """
+    # Replace invalid characters with underscores
+    if not TOOL_CALL_ID_PATTERN.match(tool_id):
+        tool_id = re.sub(r"[^a-zA-Z0-9_-]", "_", tool_id)
+    # Truncate to max length
+    return tool_id[:TOOL_CALL_ID_MAX_LEN]
+
+
 def assistant_function_to_tool(assistant_message: dict) -> dict:
     assert "function_call" in assistant_message
     new_msg = copy.deepcopy(assistant_message)

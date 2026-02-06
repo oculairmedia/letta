@@ -64,7 +64,7 @@ from letta.schemas.letta_message_content import (
     get_letta_message_content_union_str_json_schema,
 )
 from letta.system import unpack_message
-from letta.utils import parse_json, validate_function_response
+from letta.utils import parse_json, sanitize_tool_call_id, validate_function_response
 
 
 def truncate_tool_return(content: Optional[str], limit: Optional[int]) -> Optional[str]:
@@ -1973,7 +1973,7 @@ class Message(BaseMessage):
                     content.append(
                         {
                             "type": "tool_use",
-                            "id": tool_call.id,
+                            "id": sanitize_tool_call_id(tool_call.id),
                             "name": tool_call.function.name,
                             "input": tool_call_input,
                         }
@@ -2017,7 +2017,7 @@ class Message(BaseMessage):
                     content.append(
                         {
                             "type": "tool_result",
-                            "tool_use_id": resolved_tool_call_id,
+                            "tool_use_id": sanitize_tool_call_id(resolved_tool_call_id),
                             "content": tool_result_content,
                         }
                     )
