@@ -20,3 +20,11 @@ class DatabaseTimeoutError(Exception):
     def __init__(self, message="Database operation timed out", original_exception=None):
         super().__init__(message)
         self.original_exception = original_exception
+
+
+class DatabaseDeadlockError(Exception):
+    """Custom exception for database deadlock errors (PostgreSQL error code 40P01)."""
+
+    def __init__(self, message="A database deadlock was detected", original_exception=None):
+        super().__init__(message)
+        self.original_exception = original_exception

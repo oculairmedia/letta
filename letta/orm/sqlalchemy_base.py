@@ -5,7 +5,7 @@ from functools import wraps
 from pprint import pformat
 from typing import TYPE_CHECKING, List, Literal, Optional, Tuple, Union
 
-from asyncpg.exceptions import QueryCanceledError
+from asyncpg.exceptions import DeadlockDetectedError, QueryCanceledError
 from sqlalchemy import Sequence, String, and_, delete, func, or_, select
 from sqlalchemy.exc import DBAPIError, IntegrityError, TimeoutError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -16,7 +16,13 @@ from sqlalchemy.orm.interfaces import ORMOption
 from letta.errors import ConcurrentUpdateError
 from letta.log import get_logger
 from letta.orm.base import Base, CommonSqlalchemyMetaMixins
-from letta.orm.errors import DatabaseTimeoutError, ForeignKeyConstraintViolationError, NoResultFound, UniqueConstraintViolationError
+from letta.orm.errors import (
+    DatabaseDeadlockError,
+    DatabaseTimeoutError,
+    ForeignKeyConstraintViolationError,
+    NoResultFound,
+    UniqueConstraintViolationError,
+)
 from letta.settings import DatabaseChoice
 
 if TYPE_CHECKING:
@@ -810,6 +816,10 @@ class SqlalchemyBase(CommonSqlalchemyMetaMixins, Base):
             logger.error(f"Query canceled (statement timeout) for {cls.__name__}: {e}")
             raise DatabaseTimeoutError(message=f"Query canceled due to statement timeout for {cls.__name__}.", original_exception=e) from e
 
+        if isinstance(orig, DeadlockDetectedError):
+            logger.error(f"Deadlock detected for {cls.__name__}: {e}")
+            raise DatabaseDeadlockError(message=f"A database deadlock was detected for {cls.__name__}.", original_exception=e) from e
+
         # Handle SQLite-specific errors
         if "UNIQUE constraint failed" in error_message:
             raise UniqueConstraintViolationError(
@@ -843,6 +853,11 @@ class SqlalchemyBase(CommonSqlalchemyMetaMixins, Base):
             raise ForeignKeyConstraintViolationError(
                 f"A foreign key constraint was violated for {cls.__name__}. Check your input for missing or invalid references: {e}"
             ) from e
+
+        # Handle deadlock detected
+        if error_code == "40P01":
+            logger.error(f"Deadlock detected for {cls.__name__}: {e}")
+            raise DatabaseDeadlockError(message=f"A database deadlock was detected for {cls.__name__}.", original_exception=e) from e
 
         # Re-raise for other unhandled DBAPI errors
         raise

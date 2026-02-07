@@ -20,7 +20,7 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, ORJSONResponse
 from marshmallow import ValidationError
-from sqlalchemy.exc import IntegrityError, OperationalError
+from sqlalchemy.exc import DBAPIError, IntegrityError, OperationalError
 from starlette.middleware.cors import CORSMiddleware
 
 from letta.__init__ import __version__ as letta_version
@@ -59,7 +59,13 @@ from letta.errors import (
 from letta.helpers.pinecone_utils import get_pinecone_indices, should_use_pinecone, upsert_pinecone_indices
 from letta.jobs.scheduler import start_scheduler_with_leader_election
 from letta.log import get_logger
-from letta.orm.errors import DatabaseTimeoutError, ForeignKeyConstraintViolationError, NoResultFound, UniqueConstraintViolationError
+from letta.orm.errors import (
+    DatabaseDeadlockError,
+    DatabaseTimeoutError,
+    ForeignKeyConstraintViolationError,
+    NoResultFound,
+    UniqueConstraintViolationError,
+)
 from letta.otel.tracing import get_trace_id
 from letta.schemas.letta_message import create_letta_error_message_schema, create_letta_message_union_schema
 from letta.schemas.letta_message_content import (
@@ -546,6 +552,35 @@ def create_application() -> "FastAPI":
     app.add_exception_handler(OperationalError, _error_handler_503)
     app.add_exception_handler(LettaServiceUnavailableError, _error_handler_503)
     app.add_exception_handler(LLMProviderOverloaded, _error_handler_503)
+
+    @app.exception_handler(DatabaseDeadlockError)
+    async def database_deadlock_error_handler(request: Request, exc: DatabaseDeadlockError):
+        logger.error(f"Deadlock detected: {exc}. Original exception: {exc.original_exception}")
+        return JSONResponse(
+            status_code=409,
+            content={"detail": "A database deadlock was detected. Please retry your request."},
+            headers={"Retry-After": "1"},
+        )
+
+    @app.exception_handler(DBAPIError)
+    async def dbapi_error_handler(request: Request, exc: DBAPIError):
+        from asyncpg.exceptions import DeadlockDetectedError
+
+        if isinstance(exc.orig, DeadlockDetectedError):
+            logger.error(f"Deadlock detected (DBAPIError wrapper): {exc}")
+            return JSONResponse(
+                status_code=409,
+                content={"detail": "A database deadlock was detected. Please retry your request."},
+                headers={"Retry-After": "1"},
+            )
+
+        logger.error(f"Unhandled DBAPIError: {exc}", exc_info=True)
+        if SENTRY_ENABLED:
+            sentry_sdk.capture_exception(exc)
+        return JSONResponse(
+            status_code=500,
+            content={"detail": "A database error occurred."},
+        )
 
     @app.exception_handler(IncompatibleAgentType)
     async def handle_incompatible_agent_type(request: Request, exc: IncompatibleAgentType):
