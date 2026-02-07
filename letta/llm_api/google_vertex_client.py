@@ -204,8 +204,16 @@ class GoogleVertexClient(LLMClientBase):
             raise e
         # Direct yield - keeps response alive in generator's local scope throughout iteration
         # This is required because the SDK's connection lifecycle is tied to the response object
-        async for chunk in response:
-            yield chunk
+        try:
+            async for chunk in response:
+                yield chunk
+        except errors.ClientError as e:
+            if e.code == 499:
+                logger.info(f"{self._provider_prefix()} Stream cancelled by client (499): {e}")
+                return
+            raise self.handle_llm_error(e)
+        except errors.APIError as e:
+            raise self.handle_llm_error(e)
 
     @staticmethod
     def add_dummy_model_messages(messages: List[dict]) -> List[dict]:
@@ -801,6 +809,14 @@ class GoogleVertexClient(LLMClientBase):
     def handle_llm_error(self, e: Exception) -> Exception:
         # Handle Google GenAI specific errors
         if isinstance(e, errors.ClientError):
+            if e.code == 499:
+                logger.info(f"{self._provider_prefix()} Request cancelled by client (499): {e}")
+                return LLMConnectionError(
+                    message=f"Request to {self._provider_name()} was cancelled (client disconnected): {str(e)}",
+                    code=ErrorCode.INTERNAL_SERVER_ERROR,
+                    details={"status_code": 499, "cause": "client_cancelled"},
+                )
+
             logger.warning(f"{self._provider_prefix()} Client error ({e.code}): {e}")
 
             # Handle specific error codes
