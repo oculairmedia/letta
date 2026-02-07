@@ -1799,9 +1799,14 @@ class SyncServer(object):
             raise LettaInvalidArgumentError(f"Invalid MCP server config: {server_config}", argument_name="server_config")
         try:
             await new_mcp_client.connect_to_server()
-        except:
+        except LettaMCPConnectionError:
+            raise
+        except Exception:
             logger.exception(f"Failed to connect to MCP server: {server_config.server_name}")
-            raise RuntimeError(f"Failed to connect to MCP server: {server_config.server_name}")
+            raise LettaMCPConnectionError(
+                message=f"Failed to connect to MCP server: {server_config.server_name}",
+                server_name=server_config.server_name,
+            )
         # Print out the tools that are connected
         logger.info(f"Attempting to fetch tools from MCP server: {server_config.server_name}")
         new_mcp_tools = await new_mcp_client.list_tools()

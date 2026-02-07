@@ -16,6 +16,7 @@ from fastmcp import Client
 from fastmcp.client.transports import SSETransport, StreamableHttpTransport
 from mcp import Tool as MCPTool
 
+from letta.errors import LettaMCPConnectionError
 from letta.functions.mcp_client.types import SSEServerConfig, StreamableHTTPServerConfig
 from letta.log import get_logger
 from letta.services.mcp.server_side_oauth import ServerSideOAuth
@@ -76,22 +77,24 @@ class AsyncFastMCPSSEClient:
             await self.client._connect()
             self.initialized = True
         except httpx.HTTPStatusError as e:
-            # Re-raise HTTP status errors for OAuth flow handling
             if e.response.status_code == 401:
-                raise ConnectionError("401 Unauthorized") from e
-            raise ConnectionError(f"HTTP error connecting to MCP server at {self.server_config.server_url}: {e}") from e
-        except ConnectionError:
-            # Re-raise ConnectionError as-is
+                raise LettaMCPConnectionError(message="401 Unauthorized", server_name=self.server_config.server_name) from e
+            raise LettaMCPConnectionError(
+                message=f"HTTP error connecting to MCP server at {self.server_config.server_url}: {e}",
+                server_name=self.server_config.server_name,
+            ) from e
+        except LettaMCPConnectionError:
             raise
+        except ConnectionError as e:
+            raise LettaMCPConnectionError(message=str(e), server_name=self.server_config.server_name) from e
         except Exception as e:
-            # MCP connection failures are often due to user misconfiguration, not system errors
-            # Log as warning for visibility in monitoring
             logger.warning(
                 f"Connecting to MCP server failed. Please review your server config: {self.server_config.model_dump_json(indent=4)}. Error: {str(e)}"
             )
-            raise ConnectionError(
-                f"Failed to connect to MCP server at '{self.server_config.server_url}'. "
-                f"Please check your configuration and ensure the server is accessible. Error: {str(e)}"
+            raise LettaMCPConnectionError(
+                message=f"Failed to connect to MCP server at '{self.server_config.server_url}'. "
+                f"Please check your configuration and ensure the server is accessible. Error: {str(e)}",
+                server_name=self.server_config.server_name,
             ) from e
 
     async def list_tools(self, serialize: bool = False) -> List[MCPTool]:
@@ -241,22 +244,24 @@ class AsyncFastMCPStreamableHTTPClient:
             await self.client._connect()
             self.initialized = True
         except httpx.HTTPStatusError as e:
-            # Re-raise HTTP status errors for OAuth flow handling
             if e.response.status_code == 401:
-                raise ConnectionError("401 Unauthorized") from e
-            raise ConnectionError(f"HTTP error connecting to MCP server at {self.server_config.server_url}: {e}") from e
-        except ConnectionError:
-            # Re-raise ConnectionError as-is
+                raise LettaMCPConnectionError(message="401 Unauthorized", server_name=self.server_config.server_name) from e
+            raise LettaMCPConnectionError(
+                message=f"HTTP error connecting to MCP server at {self.server_config.server_url}: {e}",
+                server_name=self.server_config.server_name,
+            ) from e
+        except LettaMCPConnectionError:
             raise
+        except ConnectionError as e:
+            raise LettaMCPConnectionError(message=str(e), server_name=self.server_config.server_name) from e
         except Exception as e:
-            # MCP connection failures are often due to user misconfiguration, not system errors
-            # Log as warning for visibility in monitoring
             logger.warning(
                 f"Connecting to MCP server failed. Please review your server config: {self.server_config.model_dump_json(indent=4)}. Error: {str(e)}"
             )
-            raise ConnectionError(
-                f"Failed to connect to MCP server at '{self.server_config.server_url}'. "
-                f"Please check your configuration and ensure the server is accessible. Error: {str(e)}"
+            raise LettaMCPConnectionError(
+                message=f"Failed to connect to MCP server at '{self.server_config.server_url}'. "
+                f"Please check your configuration and ensure the server is accessible. Error: {str(e)}",
+                server_name=self.server_config.server_name,
             ) from e
 
     async def list_tools(self, serialize: bool = False) -> List[MCPTool]:

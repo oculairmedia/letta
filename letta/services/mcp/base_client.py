@@ -5,6 +5,7 @@ from mcp import ClientSession, Tool as MCPTool
 from mcp.client.auth import OAuthClientProvider
 from mcp.types import TextContent
 
+from letta.errors import LettaMCPConnectionError
 from letta.functions.mcp_client.types import BaseServerConfig
 from letta.log import get_logger
 
@@ -31,14 +32,12 @@ class AsyncBaseMCPClient:
             await self._initialize_connection(self.server_config)
             await self.session.initialize()
             self.initialized = True
+        except LettaMCPConnectionError:
+            raise
         except ConnectionError as e:
-            # MCP connection failures are often due to user misconfiguration, not system errors
-            # Log at debug level to avoid triggering Sentry alerts for expected configuration issues
             logger.debug(f"MCP connection failed: {str(e)}")
-            raise e
+            raise LettaMCPConnectionError(message=str(e), server_name=getattr(self.server_config, "server_name", None)) from e
         except Exception as e:
-            # MCP connection failures are often due to user misconfiguration, not system errors
-            # Log as warning for visibility in monitoring
             logger.warning(
                 f"Connecting to MCP server failed. Please review your server config: {self.server_config.model_dump_json(indent=4)}. Error: {str(e)}"
             )
@@ -48,8 +47,9 @@ class AsyncBaseMCPClient:
                 server_info = f"command '{self.server_config.command}'"
             else:
                 server_info = f"server '{self.server_config.server_name}'"
-            raise ConnectionError(
-                f"Failed to connect to MCP {server_info}. Please check your configuration and ensure the server is accessible."
+            raise LettaMCPConnectionError(
+                message=f"Failed to connect to MCP {server_info}. Please check your configuration and ensure the server is accessible.",
+                server_name=getattr(self.server_config, "server_name", None),
             ) from e
 
     async def _initialize_connection(self, server_config: BaseServerConfig) -> None:
