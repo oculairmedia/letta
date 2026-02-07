@@ -704,8 +704,9 @@ def generate_tool_schema_for_mcp(
     name = mcp_tool.name
     description = mcp_tool.description
 
-    assert "type" in parameters_schema, parameters_schema
-    assert "properties" in parameters_schema, parameters_schema
+    if "type" not in parameters_schema:
+        parameters_schema["type"] = "object"
+    parameters_schema.setdefault("properties", {})
     # assert "required" in parameters_schema, parameters_schema
 
     # Normalize the schema to fix common issues with MCP schemas
