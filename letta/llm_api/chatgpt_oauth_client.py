@@ -154,6 +154,11 @@ class ChatGPTOAuthClient(LLMClientBase):
         Returns:
             Dictionary of HTTP headers.
         """
+        if not creds.access_token:
+            raise LLMAuthenticationError(
+                message="ChatGPT OAuth access_token is empty or missing",
+                code=ErrorCode.UNAUTHENTICATED,
+            )
         return {
             "Authorization": f"Bearer {creds.access_token}",
             "ChatGPT-Account-Id": creds.account_id,

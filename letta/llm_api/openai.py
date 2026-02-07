@@ -59,7 +59,7 @@ async def openai_get_model_list_async(
     url = smart_urljoin(url, "models")
 
     headers = {"Content-Type": "application/json"}
-    if api_key is not None:
+    if api_key:
         headers["Authorization"] = f"Bearer {api_key}"
     if "openrouter.ai" in url:
         if model_settings.openrouter_referer:
@@ -478,7 +478,7 @@ def openai_chat_completions_request_stream(
 
     data = prepare_openai_payload(chat_completion_request)
     data["stream"] = True
-    kwargs = {"api_key": api_key, "base_url": url, "max_retries": 0}
+    kwargs = {"api_key": api_key or "DUMMY_API_KEY", "base_url": url, "max_retries": 0}
     if "openrouter.ai" in url:
         headers = {}
         if model_settings.openrouter_referer:
@@ -511,7 +511,7 @@ def openai_chat_completions_request(
     https://platform.openai.com/docs/guides/text-generation?lang=curl
     """
     data = prepare_openai_payload(chat_completion_request)
-    kwargs = {"api_key": api_key, "base_url": url, "max_retries": 0}
+    kwargs = {"api_key": api_key or "DUMMY_API_KEY", "base_url": url, "max_retries": 0}
     if "openrouter.ai" in url:
         headers = {}
         if model_settings.openrouter_referer:

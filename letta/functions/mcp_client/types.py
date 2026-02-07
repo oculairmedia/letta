@@ -176,11 +176,11 @@ class HTTPBasedServerConfig(BaseServerConfig):
         Returns:
             Dictionary of headers or None if no headers are configured
         """
-        if self.custom_headers is not None or (self.auth_header is not None and self.auth_token is not None):
+        if self.custom_headers is not None or (self.auth_header and self.auth_token):
             headers = self.custom_headers.copy() if self.custom_headers else {}
 
-            # Add auth header if specified
-            if self.auth_header is not None and self.auth_token is not None:
+            # Add auth header if specified (skip if either is empty to avoid illegal header values)
+            if self.auth_header and self.auth_token:
                 headers[self.auth_header] = self.auth_token
 
             return headers
