@@ -1182,7 +1182,23 @@ class AnthropicClient(LLMClientBase):
                     redacted_reasoning_content = content_part.data
 
         else:
-            raise RuntimeError("Unexpected empty content in response")
+            # Log the full response for debugging
+            logger.error(
+                "[Anthropic] Received response with empty content. Response ID: %s, Model: %s, Stop reason: %s, Full response: %s",
+                response.id,
+                response.model,
+                response.stop_reason,
+                json.dumps(response_data),
+            )
+            raise LLMServerError(
+                message=f"LLM provider returned empty content in response (ID: {response.id}, model: {response.model}, stop_reason: {response.stop_reason})",
+                code=ErrorCode.INTERNAL_SERVER_ERROR,
+                details={
+                    "response_id": response.id,
+                    "model": response.model,
+                    "stop_reason": response.stop_reason,
+                },
+            )
 
         assert response.role == "assistant"
         choice = Choice(
