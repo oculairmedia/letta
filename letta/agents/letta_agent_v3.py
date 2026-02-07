@@ -733,13 +733,11 @@ class LettaAgentV3(LettaAgentV2):
                     self.logger.info("switching to unconstrained mode (allowing non-tool responses)")
             self._require_tool_call = require_tool_call
 
-            # Always refresh messages at the start of each step to pick up external inputs
-            # (e.g., approval responses submitted by the client while this stream is running)
+            # Refresh messages at the start of each step to scrub inner thoughts.
+            # NOTE: We skip system prompt refresh during normal steps to preserve prefix caching.
+            # The system prompt is only rebuilt after compaction or message reset.
             try:
-                # TODO: cleanup and de-dup
-                # updates the system prompt with the latest blocks / message histories
-                messages = await self._refresh_messages(messages)
-
+                messages = await self._refresh_messages(messages, force_system_prompt_refresh=False)
             except Exception as e:
                 self.logger.warning(f"Failed to refresh messages at step start: {e}")
 
@@ -924,6 +922,8 @@ class LettaAgentV3(LettaAgentV2):
                                     context_tokens_before=context_tokens_before,
                                     messages_count_before=messages_count_before,
                                 )
+                                # Force system prompt rebuild after compaction to update memory blocks and timestamps
+                                messages = await self._refresh_messages(messages, force_system_prompt_refresh=True)
                                 self.logger.info("Summarization succeeded, continuing to retry LLM request")
 
                                 # Persist the summary message
@@ -1081,6 +1081,10 @@ class LettaAgentV3(LettaAgentV2):
                         context_tokens_before=context_tokens_before,
                         messages_count_before=messages_count_before,
                     )
+                    # Force system prompt rebuild after compaction to update memory blocks and timestamps
+                    messages = await self._refresh_messages(messages, force_system_prompt_refresh=True)
+                    # TODO: persist + return the summary message
+                    # TODO: convert this to a SummaryMessage
                     self.response_messages.append(summary_message)
 
                     # Yield summary result message to client
