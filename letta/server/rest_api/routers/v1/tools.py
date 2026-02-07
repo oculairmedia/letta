@@ -742,6 +742,13 @@ async def connect_mcp_server(
                 async for event in server.mcp_manager.handle_oauth_flow(request=request, actor=actor, http_request=http_request):
                     yield event
             return
+        except ExceptionGroup as eg:
+            # Handle ExceptionGroup wrapping (Python 3.11+ async TaskGroup can wrap exceptions)
+            # Unwrap and handle the first exception in the group
+            exception_to_handle = eg.exceptions[0] if eg.exceptions else eg
+            detailed_error = drill_down_exception(exception_to_handle)
+            logger.error(f"Error in OAuth stream (ExceptionGroup):\n{detailed_error}")
+            yield oauth_stream_event(OauthStreamEvent.ERROR, message=f"Internal error: {detailed_error}")
         except Exception as e:
             detailed_error = drill_down_exception(e)
             logger.error(f"Error in OAuth stream:\n{detailed_error}")
