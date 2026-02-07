@@ -593,6 +593,9 @@ class GoogleVertexClient(LLMClientBase):
                                 content=inner_thoughts,
                                 tool_calls=[tool_call],
                             )
+                            if response_message.thought_signature:
+                                thought_signature = base64.b64encode(response_message.thought_signature).decode("utf-8")
+                                openai_response_message.reasoning_content_signature = thought_signature
                         else:
                             openai_response_message.content = inner_thoughts
                             if openai_response_message.tool_calls is None:

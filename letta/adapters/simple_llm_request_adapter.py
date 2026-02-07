@@ -81,7 +81,12 @@ class SimpleLLMRequestAdapter(LettaLLMRequestAdapter):
         if self.chat_completions_response.choices[0].message.content:
             # NOTE: big difference - 'content' goes into 'content'
             # Reasoning placed into content for legacy reasons
-            self.content = [TextContent(text=self.chat_completions_response.choices[0].message.content)]
+            # Carry thought_signature on TextContent when ReasoningContent doesn't exist to hold it
+            # (e.g. Gemini 2.5 Flash with include_thoughts=False still returns thought_signature)
+            orphan_sig = (
+                self.chat_completions_response.choices[0].message.reasoning_content_signature if not self.reasoning_content else None
+            )
+            self.content = [TextContent(text=self.chat_completions_response.choices[0].message.content, signature=orphan_sig)]
         else:
             self.content = None
 
