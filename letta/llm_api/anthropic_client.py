@@ -102,11 +102,29 @@ class AnthropicClient(LLMClientBase):
         if llm_config.strict and _supports_structured_outputs(llm_config.model):
             betas.append("structured-outputs-2025-11-13")
 
-        if betas:
-            response = client.beta.messages.create(**request_data, betas=betas)
-        else:
-            response = client.beta.messages.create(**request_data)
-        return response.model_dump()
+        try:
+            if betas:
+                response = client.beta.messages.create(**request_data, betas=betas)
+            else:
+                response = client.beta.messages.create(**request_data)
+            return response.model_dump()
+        except ValueError as e:
+            # Anthropic SDK raises ValueError when streaming is required for long-running operations
+            # See: https://github.com/anthropics/anthropic-sdk-python#streaming
+            if "streaming is required" in str(e).lower():
+                logger.warning(
+                    "[Anthropic] Non-streaming request rejected due to potential long duration. Error: %s. "
+                    "Note: Synchronous fallback to streaming is not supported. Use async API instead.",
+                    str(e),
+                )
+                # Re-raise as LLMBadRequestError (maps to 502 Bad Gateway) since this is a downstream provider constraint
+                raise LLMBadRequestError(
+                    message="This operation may take longer than 10 minutes and requires streaming. "
+                    "Please use the async API (request_async) instead of the deprecated sync API. "
+                    f"Original error: {str(e)}",
+                    code=ErrorCode.INTERNAL_SERVER_ERROR,
+                ) from e
+            raise
 
     @trace_method
     async def request_async(self, request_data: dict, llm_config: LLMConfig) -> dict:
