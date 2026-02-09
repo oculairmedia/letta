@@ -24,9 +24,7 @@ def send_message_to_agent_and_wait_for_reply(self: "Agent", message: str, other_
         str: The response from the target agent.
     """
     augmented_message = (
-        f"[Incoming message from agent with ID '{self.agent_state.id}' - to reply to this message, "
-        f"make sure to use the 'send_message' at the end, and the system will notify the sender of your response] "
-        f"{message}"
+        f"[Incoming message from agent with ID '{self.agent_state.id}' - your response will be delivered to the sender] {message}"
     )
     messages = [MessageCreate(role=MessageRole.system, content=augmented_message, name=self.agent_state.name)]
 
@@ -53,11 +51,7 @@ def send_message_to_agents_matching_tags(self: "Agent", message: str, match_all:
         in the returned list.
     """
     server = get_letta_server()
-    augmented_message = (
-        f"[Incoming message from external Letta agent - to reply to this message, "
-        f"make sure to use the 'send_message' at the end, and the system will notify the sender of your response] "
-        f"{message}"
-    )
+    augmented_message = f"[Incoming message from external Letta agent - your response will be delivered to the sender] {message}"
 
     # Find matching agents
     matching_agents = server.agent_manager.list_agents_matching_tags(actor=self.user, match_all=match_all, match_some=match_some)
@@ -100,8 +94,8 @@ def send_message_to_agent_async(self: "Agent", message: str, other_agent_id: str
         raise RuntimeError("This tool is not allowed to be run on Letta Cloud.")
 
     message = (
-        f"[Incoming message from agent with ID '{self.agent_state.id}' - to reply to this message, "
-        f"make sure to use the 'send_message_to_agent_async' tool, or the agent will not receive your message] "
+        f"[Incoming message from agent with ID '{self.agent_state.id}' - "
+        f"this is a one-way notification; if you need to respond, use an agent-to-agent messaging tool if available] "
         f"{message}"
     )
     messages = [MessageCreate(role=MessageRole.system, content=message, name=self.agent_state.name)]

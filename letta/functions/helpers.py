@@ -464,9 +464,7 @@ async def _send_message_to_all_agents_in_group_async(sender_agent: "Agent", mess
     server = get_letta_server()
 
     augmented_message = (
-        f"[Incoming message from agent with ID '{sender_agent.agent_state.id}' - to reply to this message, "
-        f"make sure to use the 'send_message' at the end, and the system will notify the sender of your response] "
-        f"{message}"
+        f"[Incoming message from agent with ID '{sender_agent.agent_state.id}' - your response will be delivered to the sender] {message}"
     )
 
     worker_agents_ids = sender_agent.agent_state.multi_agent_group.agent_ids
