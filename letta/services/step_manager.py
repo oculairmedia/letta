@@ -7,8 +7,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
 
 from letta.helpers.singleton import singleton
+from letta.log import get_logger
+
+logger = get_logger(__name__)
 from letta.orm.errors import NoResultFound
 from letta.orm.message import Message as MessageModel
+from letta.orm.run import Run as RunModel
 from letta.orm.sqlalchemy_base import AccessType
 from letta.orm.step import Step as StepModel
 from letta.orm.step_metrics import StepMetrics as StepMetricsModel
@@ -231,11 +235,15 @@ class StepManager:
                 except NoResultFound:
                     pass
 
+            if run_id:
+                run_exists = await session.get(RunModel, run_id)
+                if not run_exists:
+                    logger.warning("Step run_id %s references non-existent run, setting to None", run_id)
+                    step_data["run_id"] = None
+
             new_step = StepModel(**step_data)
             await new_step.create_async(session, no_commit=True, no_refresh=True)
             pydantic_step = new_step.to_pydantic()
-            # context manager now handles commits
-            # await session.commit()
             return pydantic_step
 
     @enforce_types
@@ -592,6 +600,12 @@ class StepManager:
                 "template_id": template_id,
                 "base_template_id": base_template_id,
             }
+
+            if run_id:
+                run_exists = await session.get(RunModel, run_id)
+                if not run_exists:
+                    logger.warning("StepMetrics run_id %s references non-existent run, setting to None", run_id)
+                    metrics_data["run_id"] = None
 
             metrics = StepMetricsModel(**metrics_data)
             await metrics.create_async(session)
