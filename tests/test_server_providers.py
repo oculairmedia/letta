@@ -1,5 +1,6 @@
 """Tests for provider initialization via ProviderManager.sync_base_providers and provider model persistence."""
 
+import json
 import uuid
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -2658,6 +2659,70 @@ async def test_byok_provider_last_synced_skips_sync_when_set(default_user, provi
     # Verify we got the cached model from DB
     byok_handles = [m.handle for m in byok_models]
     assert f"test-byok-cached-{test_id}/gpt-4o" in byok_handles
+
+
+@pytest.mark.asyncio
+async def test_chatgpt_oauth_byok_resyncs_when_allowlist_expands(
+    default_user, provider_manager
+):
+    """ChatGPT OAuth providers should backfill newly added hardcoded models."""
+    test_id = generate_test_id()
+    provider_name = f"test-chatgpt-oauth-{test_id}"
+
+    oauth_credentials = json.dumps(
+        {
+            "access_token": "test-access-token",
+            "refresh_token": "test-refresh-token",
+            "account_id": "test-account-id",
+            "expires_at": 4_102_444_800,  # year 2100 (seconds)
+        }
+    )
+
+    byok_provider = await provider_manager.create_provider_async(
+        ProviderCreate(
+            name=provider_name,
+            provider_type=ProviderType.chatgpt_oauth,
+            api_key=oauth_credentials,
+        ),
+        actor=default_user,
+        is_byok=True,
+    )
+
+    # Simulate a stale provider model cache that predates gpt-5.3-codex.
+    stale_models = [
+        LLMConfig(
+            model="gpt-5.2-codex",
+            model_endpoint_type="chatgpt_oauth",
+            model_endpoint="https://chatgpt.com/backend-api/codex/responses",
+            context_window=272000,
+            handle=f"{provider_name}/gpt-5.2-codex",
+            provider_name=provider_name,
+            provider_category=ProviderCategory.byok,
+        )
+    ]
+    await provider_manager.sync_provider_models_async(
+        provider=byok_provider,
+        llm_models=stale_models,
+        embedding_models=[],
+        organization_id=default_user.organization_id,
+    )
+    await provider_manager.update_provider_last_synced_async(
+        byok_provider.id, actor=default_user
+    )
+
+    server = SyncServer(init_with_default_org_and_user=False)
+    server.default_user = default_user
+    server.provider_manager = provider_manager
+    server._enabled_providers = []
+
+    byok_models = await server.list_llm_models_async(
+        actor=default_user,
+        provider_category=[ProviderCategory.byok],
+        provider_name=provider_name,
+    )
+
+    byok_handles = {model.handle for model in byok_models}
+    assert f"{provider_name}/gpt-5.3-codex" in byok_handles
 
 
 @pytest.mark.asyncio

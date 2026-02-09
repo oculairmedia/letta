@@ -19,8 +19,14 @@ from letta.schemas.providers import (
     VLLMProvider,
     ZAIProvider,
 )
+from letta.schemas.providers.chatgpt_oauth import CHATGPT_MODELS
 from letta.schemas.secret import Secret
 from letta.settings import model_settings
+
+
+def test_chatgpt_oauth_model_allowlist_includes_gpt_5_3_codex():
+    model_names = {model["name"] for model in CHATGPT_MODELS}
+    assert "gpt-5.3-codex" in model_names
 
 
 def test_openai():

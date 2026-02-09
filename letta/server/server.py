@@ -1333,8 +1333,31 @@ class SyncServer(object):
                     # Get typed provider to access schema defaults (e.g., base_url)
                     typed_provider = provider.cast_to_subtype()
 
-                    # Sync models if not synced yet
-                    if provider.last_synced is None:
+                    provider_llm_models = None
+                    should_sync_models = provider.last_synced is None
+
+                    # ChatGPT OAuth uses a hardcoded model list. If that list changes,
+                    # backfill already-synced providers that are missing new handles.
+                    if (
+                        provider.provider_type == ProviderType.chatgpt_oauth
+                        and not should_sync_models
+                    ):
+                        expected_models = await typed_provider.list_llm_models_async()
+                        expected_handles = {model.handle for model in expected_models}
+                        provider_llm_models = await self.provider_manager.list_models_async(
+                            actor=actor,
+                            model_type="llm",
+                            provider_id=provider.id,
+                            enabled=True,
+                        )
+                        existing_handles = {
+                            model.handle for model in provider_llm_models
+                        }
+                        should_sync_models = not expected_handles.issubset(
+                            existing_handles
+                        )
+
+                    if should_sync_models:
                         models = await typed_provider.list_llm_models_async()
                         embedding_models = await typed_provider.list_embedding_models_async()
                         await self.provider_manager.sync_provider_models_async(
@@ -1346,12 +1369,13 @@ class SyncServer(object):
                         await self.provider_manager.update_provider_last_synced_async(provider.id, actor=actor)
 
                     # Read from database
-                    provider_llm_models = await self.provider_manager.list_models_async(
-                        actor=actor,
-                        model_type="llm",
-                        provider_id=provider.id,
-                        enabled=True,
-                    )
+                    if provider_llm_models is None:
+                        provider_llm_models = await self.provider_manager.list_models_async(
+                            actor=actor,
+                            model_type="llm",
+                            provider_id=provider.id,
+                            enabled=True,
+                        )
                     for model in provider_llm_models:
                         llm_config = LLMConfig(
                             model=model.name,
