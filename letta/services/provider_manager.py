@@ -723,19 +723,12 @@ class ProviderManager:
                         f"org_id={pydantic_model.organization_id}"
                     )
 
-                    # Convert to ORM
                     model = ProviderModelORM(**pydantic_model.model_dump(to_orm=True))
-                    try:
-                        await model.create_async(session)
-                        logger.info(f"    ✓ Successfully created LLM model {llm_config.handle} with ID {model.id}")
-                    except Exception as e:
-                        logger.info(f"    ✗ Failed to create LLM model {llm_config.handle}: {e}")
-                        # Log the full error details
-                        import traceback
-
-                        logger.info(f"    Full traceback: {traceback.format_exc()}")
-                        # Roll back the session to clear the failed transaction
-                        await session.rollback()
+                    result = await model.create_async(session, ignore_conflicts=True)
+                    if result:
+                        logger.info(f"    ✓ Successfully created LLM model {llm_config.handle}")
+                    else:
+                        logger.info(f"    LLM model {llm_config.handle} already exists (concurrent insert), skipping")
                 else:
                     # Check if max_context_window or model_endpoint_type needs to be updated
                     existing_model = existing[0]
@@ -813,19 +806,12 @@ class ProviderManager:
                         f"org_id={pydantic_model.organization_id}"
                     )
 
-                    # Convert to ORM
                     model = ProviderModelORM(**pydantic_model.model_dump(to_orm=True))
-                    try:
-                        await model.create_async(session)
-                        logger.info(f"    ✓ Successfully created embedding model {embedding_config.handle} with ID {model.id}")
-                    except Exception as e:
-                        logger.error(f"    ✗ Failed to create embedding model {embedding_config.handle}: {e}")
-                        # Log the full error details
-                        import traceback
-
-                        logger.error(f"    Full traceback: {traceback.format_exc()}")
-                        # Roll back the session to clear the failed transaction
-                        await session.rollback()
+                    result = await model.create_async(session, ignore_conflicts=True)
+                    if result:
+                        logger.info(f"    ✓ Successfully created embedding model {embedding_config.handle}")
+                    else:
+                        logger.info(f"    Embedding model {embedding_config.handle} already exists (concurrent insert), skipping")
                 else:
                     # Check if model_endpoint_type needs to be updated
                     existing_model = existing[0]

@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, List, Literal, Optional, Tuple, Union
 
 from asyncpg.exceptions import DeadlockDetectedError, QueryCanceledError
 from sqlalchemy import Sequence, String, and_, delete, func, or_, select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.exc import DBAPIError, IntegrityError, TimeoutError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Mapped, Session, mapped_column
@@ -544,12 +545,31 @@ class SqlalchemyBase(CommonSqlalchemyMetaMixins, Base):
         actor: Optional["User"] = None,
         no_commit: bool = False,
         no_refresh: bool = False,
-    ) -> "SqlalchemyBase":
-        """Async version of create function"""
+        ignore_conflicts: bool = False,
+    ) -> Optional["SqlalchemyBase"]:
+        """Async version of create function
+
+        Args:
+            ignore_conflicts: If True, uses INSERT ... ON CONFLICT DO NOTHING and returns
+                            None if a conflict occurred (no exception raised).
+        """
         logger.debug(f"Creating {self.__class__.__name__} with ID: {self.id} with actor={actor}")
 
         if actor:
             self._set_created_and_updated_by_fields(actor.id)
+
+        if ignore_conflicts:
+            values = {
+                col.name: getattr(self, col.key)
+                for col in self.__table__.columns
+                if not (getattr(self, col.key) is None and col.server_default is not None)
+            }
+            stmt = pg_insert(self.__table__).values(**values).on_conflict_do_nothing()
+            result = await db_session.execute(stmt)
+            if not no_commit:
+                await db_session.commit()
+            return self if result.rowcount > 0 else None
+
         for attempt in range(_DEADLOCK_MAX_RETRIES):
             try:
                 db_session.add(self)
