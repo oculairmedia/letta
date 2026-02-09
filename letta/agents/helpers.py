@@ -15,7 +15,7 @@ from letta.schemas.letta_message import MessageType
 from letta.schemas.letta_message_content import TextContent
 from letta.schemas.letta_response import LettaResponse
 from letta.schemas.letta_stop_reason import LettaStopReason, StopReasonType
-from letta.schemas.message import ApprovalCreate, Message, MessageCreate, MessageCreateBase
+from letta.schemas.message import ApprovalCreate, Message, MessageCreate, MessageCreateBase, ToolReturnCreate
 from letta.schemas.tool_execution_result import ToolExecutionResult
 from letta.schemas.usage import LettaUsageStatistics
 from letta.schemas.user import User
@@ -241,6 +241,14 @@ async def _prepare_in_context_messages_no_persist_async(
         else:
             # Otherwise, include the full list of messages by ID for context
             current_in_context_messages = await message_manager.get_messages_by_ids_async(message_ids=agent_state.message_ids, actor=actor)
+
+    # Convert ToolReturnCreate to ApprovalCreate for unified processing
+    if input_messages[0].type == "tool_return":
+        tool_return_msg = input_messages[0]
+        input_messages = [
+            ApprovalCreate(approvals=tool_return_msg.tool_returns),
+            *input_messages[1:],
+        ]
 
     # Check for approval-related message validation
     if input_messages[0].type == "approval":

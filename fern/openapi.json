@@ -30372,6 +30372,9 @@
                     },
                     {
                       "$ref": "#/components/schemas/ApprovalCreate"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ToolReturnCreate"
                     }
                   ]
                 },
@@ -36732,6 +36735,9 @@
                     },
                     {
                       "$ref": "#/components/schemas/ApprovalCreate"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ToolReturnCreate"
                     }
                   ]
                 },
@@ -36924,6 +36930,9 @@
                     },
                     {
                       "$ref": "#/components/schemas/ApprovalCreate"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ToolReturnCreate"
                     }
                   ]
                 },
@@ -37296,6 +37305,9 @@
                     },
                     {
                       "$ref": "#/components/schemas/ApprovalCreate"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ToolReturnCreate"
                     }
                   ]
                 },
@@ -37543,6 +37555,9 @@
                     },
                     {
                       "$ref": "#/components/schemas/ApprovalCreate"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ToolReturnCreate"
                     }
                   ]
                 },
@@ -44705,6 +44720,29 @@
         "type": "object",
         "required": ["tool_call_id", "content", "is_error"],
         "title": "ToolReturnContent"
+      },
+      "ToolReturnCreate": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "tool_return",
+            "title": "Type",
+            "description": "The message type to be created.",
+            "default": "tool_return"
+          },
+          "tool_returns": {
+            "items": {
+              "$ref": "#/components/schemas/letta__schemas__letta_message__ToolReturn"
+            },
+            "type": "array",
+            "title": "Tool Returns",
+            "description": "List of tool returns from client-side execution"
+          }
+        },
+        "type": "object",
+        "required": ["tool_returns"],
+        "title": "ToolReturnCreate",
+        "description": "Submit tool return(s) from client-side tool execution.\n\nThis is the preferred way to send tool results back to the agent after\nclient-side tool execution. It is equivalent to sending an ApprovalCreate\nwith tool return approvals, but provides a cleaner API for the common case."
       },
       "ToolReturnMessage": {
         "properties": {

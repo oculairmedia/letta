@@ -128,6 +128,7 @@ def add_inner_thoughts_to_tool_call(
 class MessageCreateType(str, Enum):
     message = "message"
     approval = "approval"
+    tool_return = "tool_return"
 
 
 class MessageCreateBase(BaseModel):
@@ -188,7 +189,24 @@ class ApprovalCreate(MessageCreateBase):
         return self
 
 
-MessageCreateUnion = Union[MessageCreate, ApprovalCreate]
+class ToolReturnCreate(MessageCreateBase):
+    """Submit tool return(s) from client-side tool execution.
+
+    This is the preferred way to send tool results back to the agent after
+    client-side tool execution. It is equivalent to sending an ApprovalCreate
+    with tool return approvals, but provides a cleaner API for the common case.
+    """
+
+    type: Literal[MessageCreateType.tool_return] = Field(
+        default=MessageCreateType.tool_return, description="The message type to be created."
+    )
+    tool_returns: List[LettaToolReturn] = Field(
+        ...,
+        description="List of tool returns from client-side execution",
+    )
+
+
+MessageCreateUnion = Union[MessageCreate, ApprovalCreate, ToolReturnCreate]
 
 
 class MessageUpdate(BaseModel):
