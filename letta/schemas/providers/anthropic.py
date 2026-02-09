@@ -176,7 +176,16 @@ class AnthropicProvider(Provider):
         else:
             raise ValueError("No API key provided")
 
-        models = await anthropic_client.models.list()
+        try:
+            models = await anthropic_client.models.list()
+        except AttributeError as e:
+            if "_set_private_attributes" in str(e):
+                raise LLMError(
+                    message="Anthropic API returned an unexpected non-JSON response. Verify the API key and endpoint.",
+                    code=ErrorCode.INTERNAL_SERVER_ERROR,
+                )
+            raise
+
         models_json = models.model_dump()
         assert "data" in models_json, f"Anthropic model query response missing 'data' field: {models_json}"
         models_data = models_json["data"]

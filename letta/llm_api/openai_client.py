@@ -708,6 +708,12 @@ class OpenAIClient(LLMClientBase):
         Converts raw OpenAI response dict into the ChatCompletionResponse Pydantic model.
         Handles potential extraction of inner thoughts if they were added via kwargs.
         """
+        if isinstance(response_data, str):
+            raise LLMServerError(
+                message="LLM endpoint returned a raw string instead of a JSON object. This usually indicates the endpoint URL is incorrect or returned an error page.",
+                code=ErrorCode.INTERNAL_SERVER_ERROR,
+                details={"raw_response": response_data[:500]},
+            )
         if "object" in response_data and response_data["object"] == "response":
             # Map Responses API shape to Chat Completions shape
             # See example payload in tests/integration_test_send_message_v2.py

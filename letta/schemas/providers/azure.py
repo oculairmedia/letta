@@ -7,6 +7,9 @@ from pydantic import Field, field_validator
 
 from letta.constants import DEFAULT_EMBEDDING_CHUNK_SIZE, LLM_MAX_CONTEXT_WINDOW
 from letta.errors import ErrorCode, LLMAuthenticationError, LLMPermissionDeniedError
+from letta.log import get_logger
+
+logger = get_logger(__name__)
 from letta.schemas.embedding_config import EmbeddingConfig
 from letta.schemas.enums import ProviderCategory, ProviderType
 from letta.schemas.llm_config import LLMConfig
@@ -68,6 +71,10 @@ class AzureProvider(Provider):
         except (AuthenticationError, PermissionDeniedError):
             # Re-raise auth/permission errors so they're properly handled upstream
             raise
+        except AttributeError as e:
+            if "_set_private_attributes" in str(e):
+                logger.warning(f"Azure endpoint at {self.base_url} returned an unexpected non-JSON response: {e}")
+            return []
         except Exception:
             return []
 

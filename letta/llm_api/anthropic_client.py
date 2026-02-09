@@ -1110,6 +1110,11 @@ class AnthropicClient(LLMClientBase):
         input_messages: List[PydanticMessage],
         llm_config: LLMConfig,
     ) -> ChatCompletionResponse:
+        if isinstance(response_data, str):
+            raise LLMServerError(
+                message="Anthropic endpoint returned a raw string instead of a JSON object. This usually indicates the endpoint URL is incorrect or returned an error page.",
+                code=ErrorCode.INTERNAL_SERVER_ERROR,
+            )
         """
         Example response from Claude 3:
         response.json = {

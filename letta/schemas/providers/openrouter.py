@@ -43,6 +43,13 @@ class OpenRouterProvider(OpenAIProvider):
             raise LLMAuthenticationError(message=f"Failed to authenticate with OpenRouter: {e}", code=ErrorCode.UNAUTHENTICATED)
         except PermissionDeniedError as e:
             raise LLMPermissionDeniedError(message=f"Permission denied by OpenRouter: {e}", code=ErrorCode.PERMISSION_DENIED)
+        except AttributeError as e:
+            if "_set_private_attributes" in str(e):
+                raise LLMError(
+                    message=f"OpenRouter endpoint at {self.base_url} returned an unexpected non-JSON response. Verify the base URL and API key.",
+                    code=ErrorCode.INTERNAL_SERVER_ERROR,
+                )
+            raise LLMError(message=f"{e}", code=ErrorCode.INTERNAL_SERVER_ERROR)
         except Exception as e:
             raise LLMError(message=f"{e}", code=ErrorCode.INTERNAL_SERVER_ERROR)
 
