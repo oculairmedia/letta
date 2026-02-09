@@ -242,7 +242,7 @@ async def archival_memory_search(
     raise NotImplementedError("This should never be invoked directly. Contact Letta if you see this error message.")
 
 
-def core_memory_append(agent_state: "AgentState", label: str, content: str) -> str:  # type: ignore
+def core_memory_append(agent_state: "AgentState", label: str, content: str) -> Optional[str]:  # type: ignore
     """
     Append to the contents of core memory.
 
@@ -251,15 +251,15 @@ def core_memory_append(agent_state: "AgentState", label: str, content: str) -> s
         content (str): Content to write to the memory. All unicode (including emojis) are supported.
 
     Returns:
-        str: The updated value of the memory block.
+        Optional[str]: None is always returned as this function does not produce a response.
     """
     current_value = str(agent_state.memory.get_block(label).value)
     new_value = current_value + "\n" + str(content)
     agent_state.memory.update_block_value(label=label, value=new_value)
-    return new_value
+    return None
 
 
-def core_memory_replace(agent_state: "AgentState", label: str, old_content: str, new_content: str) -> str:  # type: ignore
+def core_memory_replace(agent_state: "AgentState", label: str, old_content: str, new_content: str) -> Optional[str]:  # type: ignore
     """
     Replace the contents of core memory. To delete memories, use an empty string for new_content.
 
@@ -269,14 +269,14 @@ def core_memory_replace(agent_state: "AgentState", label: str, old_content: str,
         new_content (str): Content to write to the memory. All unicode (including emojis) are supported.
 
     Returns:
-        str: The updated value of the memory block.
+        Optional[str]: None is always returned as this function does not produce a response.
     """
     current_value = str(agent_state.memory.get_block(label).value)
     if old_content not in current_value:
         raise ValueError(f"Old content '{old_content}' not found in memory block '{label}'")
     new_value = current_value.replace(str(old_content), str(new_content))
     agent_state.memory.update_block_value(label=label, value=new_value)
-    return new_value
+    return None
 
 
 def rethink_memory(agent_state: "AgentState", new_memory: str, target_block_label: str) -> None:
@@ -337,7 +337,7 @@ def memory_replace(agent_state: "AgentState", label: str, old_str: str, new_str:
         memory_replace(label="human", old_str="Their name is Alice", new_str="Their name is Bob")
 
     Returns:
-        str: The updated value of the memory block.
+        str: The success message
     """
     import re
 
@@ -382,10 +382,19 @@ def memory_replace(agent_state: "AgentState", label: str, old_str: str, new_str:
     # end_line = replacement_line + SNIPPET_LINES + new_str.count("\n")
     # snippet = "\n".join(new_value.split("\n")[start_line : end_line + 1])
 
-    return new_value
+    # Prepare the success message
+    success_msg = (
+        f"The core memory block with label `{label}` has been successfully edited. "
+        f"Your system prompt has been recompiled with the updated memory contents and is now active in your context. "
+        f"Review the changes and make sure they are as expected (correct indentation, "
+        f"no duplicate lines, etc)."
+    )
+
+    # return None
+    return success_msg
 
 
-def memory_insert(agent_state: "AgentState", label: str, new_str: str, insert_line: int = -1) -> str:  # type: ignore
+def memory_insert(agent_state: "AgentState", label: str, new_str: str, insert_line: int = -1) -> Optional[str]:  # type: ignore
     """
     The memory_insert command allows you to insert text at a specific location in a memory block.
 
@@ -444,7 +453,15 @@ def memory_insert(agent_state: "AgentState", label: str, new_str: str, insert_li
     # Write into the block
     agent_state.memory.update_block_value(label=label, value=new_value)
 
-    return new_value
+    # Prepare the success message
+    success_msg = (
+        f"The core memory block with label `{label}` has been successfully edited. "
+        f"Your system prompt has been recompiled with the updated memory contents and is now active in your context. "
+        f"Review the changes and make sure they are as expected (correct indentation, "
+        f"no duplicate lines, etc)."
+    )
+
+    return success_msg
 
 
 def memory_apply_patch(agent_state: "AgentState", label: str, patch: str) -> str:  # type: ignore
@@ -482,7 +499,7 @@ def memory_apply_patch(agent_state: "AgentState", label: str, patch: str) -> str
     raise NotImplementedError("This should never be invoked directly. Contact Letta if you see this error message.")
 
 
-def memory_rethink(agent_state: "AgentState", label: str, new_memory: str) -> str:
+def memory_rethink(agent_state: "AgentState", label: str, new_memory: str) -> None:
     """
     The memory_rethink command allows you to completely rewrite the contents of a memory block. Use this tool to make large sweeping changes (e.g. when you want to condense or reorganize the memory blocks), do NOT use this tool to make small precise edits (e.g. add or remove a line, replace a specific string, etc).
 
@@ -511,7 +528,17 @@ def memory_rethink(agent_state: "AgentState", label: str, new_memory: str) -> st
         agent_state.memory.set_block(new_block)
 
     agent_state.memory.update_block_value(label=label, value=new_memory)
-    return new_memory
+
+    # Prepare the success message
+    success_msg = (
+        f"The core memory block with label `{label}` has been successfully edited. "
+        f"Your system prompt has been recompiled with the updated memory contents and is now active in your context. "
+        f"Review the changes and make sure they are as expected (correct indentation, "
+        f"no duplicate lines, etc)."
+    )
+
+    # return None
+    return success_msg
 
 
 def memory_finish_edits(agent_state: "AgentState") -> None:  # type: ignore

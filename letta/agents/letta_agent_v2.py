@@ -687,38 +687,20 @@ class LettaAgentV2(BaseAgentV2):
             return False
 
     @trace_method
-    async def _refresh_messages(self, in_context_messages: list[Message], force_system_prompt_refresh: bool = False):
-        """Refresh in-context messages.
-
-        This performs two tasks:
-        1) Rebuild the *system prompt* only if the memory/tool-rules/directories section has changed.
-           This avoids rebuilding the system prompt on every step due to dynamic metadata (e.g. message counts),
-           which can bust prefix caching.
-        2) Scrub inner thoughts from messages.
-
-        Args:
-            in_context_messages: Current in-context messages
-            force_system_prompt_refresh: If True, forces evaluation of whether the system prompt needs to be rebuilt.
-                (The rebuild will still be skipped if memory/tool-rules/directories haven't changed.)
-
-        Returns:
-            Refreshed in-context messages.
-        """
-        # Always attempt to rebuild the system prompt if the memory section changed.
-        # This method is careful to skip rebuilds when the memory section is unchanged.
-        try:
-            in_context_messages = await self._rebuild_memory(
-                in_context_messages,
-                num_messages=None,
-                num_archival_memories=None,
-            )
-        except Exception as e:
-            # If callers requested a forced refresh, surface the error.
-            if force_system_prompt_refresh:
-                raise
-            self.logger.warning(f"Failed to refresh system prompt/memory: {e}")
-
-        # Always scrub inner thoughts regardless of system prompt refresh
+    async def _refresh_messages(self, in_context_messages: list[Message]):
+        num_messages = await self.message_manager.size_async(
+            agent_id=self.agent_state.id,
+            actor=self.actor,
+        )
+        num_archival_memories = await self.passage_manager.agent_passage_size_async(
+            agent_id=self.agent_state.id,
+            actor=self.actor,
+        )
+        in_context_messages = await self._rebuild_memory(
+            in_context_messages,
+            num_messages=num_messages,
+            num_archival_memories=num_archival_memories,
+        )
         in_context_messages = scrub_inner_thoughts_from_messages(in_context_messages, self.agent_state.llm_config)
         return in_context_messages
 
@@ -726,8 +708,8 @@ class LettaAgentV2(BaseAgentV2):
     async def _rebuild_memory(
         self,
         in_context_messages: list[Message],
-        num_messages: int | None,
-        num_archival_memories: int | None,
+        num_messages: int,
+        num_archival_memories: int,
     ):
         agent_state = await self.agent_manager.refresh_memory_async(agent_state=self.agent_state, actor=self.actor)
 
@@ -787,14 +769,10 @@ class LettaAgentV2(BaseAgentV2):
         )
         new_memory_section = extract_memory_section(curr_memory_str)
 
-        # Compare just the memory sections (memory blocks, tool rules, directories).
-        # Also ensure the configured system prompt is still present; if the system prompt
-        # changed (e.g. via UpdateAgent(system=...)), we must rebuild.
-        system_prompt_changed = agent_state.system not in curr_system_message_text
-
-        if (not system_prompt_changed) and (curr_memory_section.strip() == new_memory_section.strip()):
+        # compare just the memory sections (memory blocks, tool rules, directories)
+        if curr_memory_section.strip() == new_memory_section.strip():
             self.logger.debug(
-                f"Memory, sources, and system prompt haven't changed for agent id={agent_state.id} and actor=({self.actor.id}, {self.actor.name}), skipping system prompt rebuild"
+                f"Memory and sources haven't changed for agent id={agent_state.id} and actor=({self.actor.id}, {self.actor.name}), skipping system prompt rebuild"
             )
             return in_context_messages
 

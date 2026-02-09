@@ -1567,30 +1567,21 @@ class AgentManager:
     @enforce_types
     @trace_method
     async def reset_messages_async(
-        self,
-        agent_id: str,
-        actor: PydanticUser,
-        add_default_initial_messages: bool = False,
-        needs_agent_state: bool = True,
-        rebuild_system_prompt: bool = False,
+        self, agent_id: str, actor: PydanticUser, add_default_initial_messages: bool = False, needs_agent_state: bool = True
     ) -> Optional[PydanticAgentState]:
         """
         Clears all in-context messages for the specified agent except the original system message by:
           1) Preserving the first message ID (original system message).
           2) Updating the agent's message_ids to only contain the system message.
-          3) Optionally rebuilding the system prompt with current memory blocks (for prefix caching optimization).
-          4) Optionally adding default initial messages after the system message.
+          3) Optionally adding default initial messages after the system message.
 
         Note: This only clears messages from the agent's context, it does not delete them from the database.
 
         Args:
+            add_default_initial_messages: If true, adds the default initial messages after resetting.
             agent_id (str): The ID of the agent whose messages will be reset.
             actor (PydanticUser): The user performing this action.
-            add_default_initial_messages: If true, adds the default initial messages after resetting.
             needs_agent_state: If True, returns the updated agent state. If False, returns None (for performance optimization)
-            rebuild_system_prompt: If True, rebuilds the system prompt with current memory blocks.
-                This ensures the system prompt reflects the latest memory state after reset.
-                Defaults to False to preserve the original system message content.
 
         Returns:
             Optional[PydanticAgentState]: The updated agent state with only the original system message preserved, or None if needs_agent_state=False.
@@ -1610,16 +1601,11 @@ class AgentManager:
             agent.message_ids = [system_message_id]
             await agent.update_async(db_session=session, actor=actor)
 
-            # Only convert to pydantic if we need to return it or add initial messages or rebuild system prompt
-            if add_default_initial_messages or needs_agent_state or rebuild_system_prompt:
-                include_rels = ["sources", "memory"] if (add_default_initial_messages or rebuild_system_prompt) else None
-                agent_state = await agent.to_pydantic_async(include_relationships=include_rels)
+            # Only convert to pydantic if we need to return it or add initial messages
+            if add_default_initial_messages or needs_agent_state:
+                agent_state = await agent.to_pydantic_async(include_relationships=["sources"] if add_default_initial_messages else None)
             else:
                 agent_state = None
-
-        # Optionally rebuild the system prompt with current memory blocks
-        if rebuild_system_prompt and agent_state:
-            agent_state, _, _, _ = await self.rebuild_system_prompt_async(agent_id=agent_state.id, actor=actor, force=True)
 
         # Optionally add default initial messages after the system message
         if add_default_initial_messages:
