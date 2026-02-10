@@ -1221,6 +1221,14 @@ class LettaAgentV3(LettaAgentV2):
             self.logger.warning(f"Error during step processing: {error_detail}")
             self.job_update_metadata = {"error": error_detail}
 
+            # Stop the agent loop on any exception to prevent wasteful retry loops
+            # (e.g., if post-step compaction fails, we don't want to keep retrying)
+            self.should_continue = False
+            self.logger.warning(
+                f"Agent loop stopped due to exception (step_progression={step_progression.name}, "
+                f"exception_type={type(e).__name__}): {error_detail}"
+            )
+
             # This indicates we failed after we decided to stop stepping, which indicates a bug with our flow.
             if not self.stop_reason:
                 self.stop_reason = LettaStopReason(stop_reason=StopReasonType.error.value)
