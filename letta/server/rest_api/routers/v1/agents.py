@@ -297,6 +297,10 @@ async def export_agent(
         None,
         description="Conversation ID to export. If provided, uses messages from this conversation instead of the agent's global message history.",
     ),
+    scrub_messages: bool = Query(
+        False,
+        description="If True, excludes all messages from the export. Useful for sharing agent configs without conversation history.",
+    ),
     # do not remove, used to autogeneration of spec
     # TODO: Think of a better way to export AgentFileSchema
     spec: AgentFileSchema | None = None,
@@ -308,7 +312,12 @@ async def export_agent(
     if use_legacy_format:
         raise HTTPException(status_code=400, detail="Legacy format is not supported")
     actor = await server.user_manager.get_actor_or_default_async(actor_id=headers.actor_id)
-    agent_file_schema = await server.agent_serialization_manager.export(agent_ids=[agent_id], actor=actor, conversation_id=conversation_id)
+    agent_file_schema = await server.agent_serialization_manager.export(
+        agent_ids=[agent_id], 
+        actor=actor, 
+        conversation_id=conversation_id,
+        scrub_messages=scrub_messages,
+    )
     return agent_file_schema.model_dump()
 
 
@@ -322,6 +331,10 @@ class ExportAgentRequest(BaseModel):
     conversation_id: Optional[str] = Field(
         None,
         description="Conversation ID to export. If provided, uses messages from this conversation instead of the agent's global message history.",
+    )
+    scrub_messages: bool = Field(
+        default=False,
+        description="If True, excludes all messages from the export. Useful for sharing agent configs without conversation history.",
     )
 
 
@@ -343,12 +356,14 @@ async def export_agent_with_skills(
     # Use defaults if no request body provided
     skills = request.skills if request else []
     conversation_id = request.conversation_id if request else None
+    scrub_messages = request.scrub_messages if request else False
 
     agent_file_schema = await server.agent_serialization_manager.export(
         agent_ids=[agent_id],
         actor=actor,
         conversation_id=conversation_id,
         skills=skills,
+        scrub_messages=scrub_messages,
     )
     return agent_file_schema.model_dump()
 

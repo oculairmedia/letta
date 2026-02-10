@@ -189,7 +189,13 @@ class AgentSerializationManager:
 
         return sources, files
 
-    async def _convert_agent_state_to_schema(self, agent_state: AgentState, actor: User, files_agents_cache: dict = None) -> AgentSchema:
+    async def _convert_agent_state_to_schema(
+        self, 
+        agent_state: AgentState, 
+        actor: User, 
+        files_agents_cache: dict = None,
+        scrub_messages: bool = False,
+    ) -> AgentSchema:
         """Convert AgentState to AgentSchema with ID remapping"""
 
         agent_file_id = self._map_db_to_file_id(agent_state.id, AgentSchema.__id_prefix__)
@@ -210,21 +216,27 @@ class AgentSerializationManager:
         )
         agent_schema.id = agent_file_id
 
-        # Ensure all in-context messages are present before ID remapping.
-        # AgentSchema.from_agent_state fetches a limited slice (~50) and may exclude messages still
-        # referenced by in_context_message_ids. Fetch any missing in-context messages by ID so remapping succeeds.
-        existing_msg_ids = {m.id for m in (agent_schema.messages or [])}
-        in_context_ids = agent_schema.in_context_message_ids or []
-        missing_in_context_ids = [mid for mid in in_context_ids if mid not in existing_msg_ids]
-        if missing_in_context_ids:
-            missing_msgs = await self.message_manager.get_messages_by_ids_async(message_ids=missing_in_context_ids, actor=actor)
-            fetched_ids = {m.id for m in missing_msgs}
-            not_found = [mid for mid in missing_in_context_ids if mid not in fetched_ids]
-            if not_found:
-                # Surface a clear mapping error; handled upstream by the route/export wrapper.
-                raise AgentExportIdMappingError(db_id=not_found[0], entity_type=MessageSchema.__id_prefix__)
-            for msg in missing_msgs:
-                agent_schema.messages.append(MessageSchema.from_message(msg))
+        # Handle message scrubbing
+        if not scrub_messages:
+            # Ensure all in-context messages are present before ID remapping.
+            # AgentSchema.from_agent_state fetches a limited slice (~50) and may exclude messages still
+            # referenced by in_context_message_ids. Fetch any missing in-context messages by ID so remapping succeeds.
+            existing_msg_ids = {m.id for m in (agent_schema.messages or [])}
+            in_context_ids = agent_schema.in_context_message_ids or []
+            missing_in_context_ids = [mid for mid in in_context_ids if mid not in existing_msg_ids]
+            if missing_in_context_ids:
+                missing_msgs = await self.message_manager.get_messages_by_ids_async(message_ids=missing_in_context_ids, actor=actor)
+                fetched_ids = {m.id for m in missing_msgs}
+                not_found = [mid for mid in missing_in_context_ids if mid not in fetched_ids]
+                if not_found:
+                    # Surface a clear mapping error; handled upstream by the route/export wrapper.
+                    raise AgentExportIdMappingError(db_id=not_found[0], entity_type=MessageSchema.__id_prefix__)
+                for msg in missing_msgs:
+                    agent_schema.messages.append(MessageSchema.from_message(msg))
+        else:
+            # Scrub all messages from export
+            agent_schema.messages = []
+            agent_schema.in_context_message_ids = []
 
         # wipe the values of tool_exec_environment_variables (they contain secrets)
         agent_secrets = agent_schema.secrets or agent_schema.tool_exec_environment_variables
@@ -232,17 +244,18 @@ class AgentSerializationManager:
             agent_schema.tool_exec_environment_variables = {key: "" for key in agent_secrets}
             agent_schema.secrets = {key: "" for key in agent_secrets}
 
-        if agent_schema.messages:
-            for message in agent_schema.messages:
-                message_file_id = self._map_db_to_file_id(message.id, MessageSchema.__id_prefix__)
-                message.id = message_file_id
-                message.agent_id = agent_file_id
+        if not scrub_messages:
+            if agent_schema.messages:
+                for message in agent_schema.messages:
+                    message_file_id = self._map_db_to_file_id(message.id, MessageSchema.__id_prefix__)
+                    message.id = message_file_id
+                    message.agent_id = agent_file_id
 
-        if agent_schema.in_context_message_ids:
-            agent_schema.in_context_message_ids = [
-                self._map_db_to_file_id(message_id, MessageSchema.__id_prefix__, allow_new=False)
-                for message_id in agent_schema.in_context_message_ids
-            ]
+            if agent_schema.in_context_message_ids:
+                agent_schema.in_context_message_ids = [
+                    self._map_db_to_file_id(message_id, MessageSchema.__id_prefix__, allow_new=False)
+                    for message_id in agent_schema.in_context_message_ids
+                ]
 
         if agent_schema.tool_ids:
             agent_schema.tool_ids = [self._map_db_to_file_id(tool_id, ToolSchema.__id_prefix__) for tool_id in agent_schema.tool_ids]
@@ -366,6 +379,7 @@ class AgentSerializationManager:
         actor: User,
         conversation_id: Optional[str] = None,
         skills: Optional[List[SkillSchema]] = None,
+        scrub_messages: bool = False,
     ) -> AgentFileSchema:
         """
         Export agents and their related entities to AgentFileSchema format.
@@ -376,6 +390,8 @@ class AgentSerializationManager:
                            in-context message_ids instead of the agent's global message_ids.
             skills: Optional list of skills to include in the export. Skills are resolved
                    client-side and passed as SkillSchema objects.
+            scrub_messages: If True, excludes all messages from the export. Useful for
+                          sharing agent configs without conversation history.
 
         Returns:
             AgentFileSchema with all related entities
@@ -443,7 +459,12 @@ class AgentSerializationManager:
 
             # Convert to schemas with ID remapping (reusing cached file-agent data)
             agent_schemas = [
-                await self._convert_agent_state_to_schema(agent_state, actor=actor, files_agents_cache=files_agents_cache)
+                await self._convert_agent_state_to_schema(
+                    agent_state, 
+                    actor=actor, 
+                    files_agents_cache=files_agents_cache,
+                    scrub_messages=scrub_messages,
+                )
                 for agent_state in agent_states
             ]
             tool_schemas = [self._convert_tool_to_schema(tool) for tool in tool_set]
