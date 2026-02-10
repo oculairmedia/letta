@@ -39,10 +39,15 @@ class ContextWindowCalculator:
         Note:
             This method assumes a specific format with sections delimited by:
             <base_instructions>, <memory_blocks>, and <memory_metadata> tags.
+            For git-memory-enabled agents, <memory_filesystem> is used instead
+            of <memory_blocks> as the core memory delimiter.
             The extraction is position-based and expects sections in this order.
         """
         base_start = system_message.find("<base_instructions>")
         memory_blocks_start = system_message.find("<memory_blocks>")
+        if memory_blocks_start == -1:
+            # Git-memory-enabled agents render <memory_filesystem> instead of <memory_blocks>
+            memory_blocks_start = system_message.find("<memory_filesystem>")
         metadata_start = system_message.find("<memory_metadata>")
 
         system_prompt = ""
