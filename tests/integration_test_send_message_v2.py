@@ -207,12 +207,15 @@ def assert_tool_call_response(
         # Reasoning is non-deterministic, so don't throw if missing
         pass
 
-    # Special case for claude-sonnet-4-5-20250929, opus-4.1, and zai which can generate an extra AssistantMessage before tool call
-    if (
-        ("claude-sonnet-4-5-20250929" in model_handle or "claude-opus-4-1" in model_handle or model_settings.get("provider_type") == "zai")
-        and index < len(messages)
-        and isinstance(messages[index], AssistantMessage)
-    ):
+    # Special case for models that can generate an extra AssistantMessage before tool call
+    # (claude-sonnet-4-5, opus-4.1, zai, and self-hosted models like ollama/qwen3 with thinking)
+    is_extra_assistant_model = (
+        "claude-sonnet-4-5-20250929" in model_handle
+        or "claude-opus-4-1" in model_handle
+        or model_settings.get("provider_type") == "zai"
+        or model_handle.startswith(("ollama/", "vllm/"))
+    )
+    if is_extra_assistant_model and index < len(messages) and isinstance(messages[index], AssistantMessage):
         # Skip the extra AssistantMessage and move to the next message
         index += 1
         otid_suffix += 1
@@ -441,6 +444,10 @@ def get_expected_message_count_range(
             if model_settings.get("provider_type") == "zai":
                 expected_range += 1
 
+    # Self-hosted models (ollama/vllm) may emit an extra AssistantMessage with thinking content
+    if model_handle.startswith(("ollama/", "vllm/")):
+        expected_range += 1
+
     if tool_call:
         # tool call and tool return messages
         expected_message_count += 2
@@ -561,13 +568,16 @@ async def agent_state(client: AsyncLetta) -> AgentState:
     """
     dice_tool = await client.tools.upsert_from_function(func=roll_dice)
 
+    initial_model = TESTED_MODEL_CONFIGS[0][0] if TESTED_MODEL_CONFIGS else "openai/gpt-4o"
+    initial_embedding = os.getenv("EMBEDDING_HANDLE", "openai/text-embedding-3-small")
+
     agent_state_instance = await client.agents.create(
         agent_type="letta_v1_agent",
         name="test_agent",
         include_base_tools=False,
         tool_ids=[dice_tool.id],
-        model="openai/gpt-4o",
-        embedding="openai/text-embedding-3-small",
+        model=initial_model,
+        embedding=initial_embedding,
         tags=["test"],
     )
     yield agent_state_instance
@@ -676,6 +686,9 @@ async def test_parallel_tool_calls(
     # Skip Gemini models due to issues with parallel tool calling
     if provider_type in ["google_ai", "google_vertex"]:
         pytest.skip("Gemini models are flaky for this test so we disable them for now")
+
+    if model_handle.startswith("vllm"):
+        pytest.skip("vLLM Qwen3 tool call parsers incompatible with streaming parallel tool calls")
 
     # Update model_settings to enable parallel tool calling
     modified_model_settings = model_settings.copy()
@@ -1076,6 +1089,10 @@ async def test_conversation_non_streaming_raw_http(
         assert "assistant_message" in message_types, f"Expected assistant_message in {message_types}"
 
 
+@pytest.mark.skipif(
+    os.getenv("LLM_CONFIG_FILE", "").startswith(("ollama", "vllm")),
+    reason="Structured output not supported on self-hosted providers in CI",
+)
 @pytest.mark.parametrize(
     "model_handle,provider_type",
     [

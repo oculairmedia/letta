@@ -991,10 +991,13 @@ class ProviderManager:
         # Get the default max_output_tokens from the provider (provider-specific logic)
         max_tokens = typed_provider.get_default_max_output_tokens(model.name)
 
-        # Determine the model endpoint - use provider's base_url if set,
-        # otherwise use provider-specific defaults
+        # Determine the model endpoint - use provider's OpenAI-compatible base_url if available,
+        # otherwise fall back to raw base_url or provider-specific defaults
 
-        if typed_provider.base_url:
+        if hasattr(typed_provider, "openai_compat_base_url"):
+            # For providers like ollama/vllm/lmstudio that need /v1 appended for OpenAI compatibility
+            model_endpoint = typed_provider.openai_compat_base_url
+        elif typed_provider.base_url:
             model_endpoint = typed_provider.base_url
         elif provider.provider_type == ProviderType.chatgpt_oauth:
             # ChatGPT OAuth uses the ChatGPT backend API, not a generic endpoint pattern

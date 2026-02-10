@@ -1,5 +1,5 @@
 {
-  "handle": "ollama/qwen3:8b",
+  "handle": "vllm/Qwen/Qwen3-32B-AWQ",
   "model_settings": {
     "provider_type": "openai",
     "temperature": 0.7,
