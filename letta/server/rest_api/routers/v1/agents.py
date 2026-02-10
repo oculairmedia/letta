@@ -1673,6 +1673,20 @@ async def send_message(
     result = None
     run_status = RunStatus.failed  # Default to failed, updated on success
     try:
+        # Handle request-level logprobs override
+        if request.return_logprobs or request.return_token_ids:
+            agent = agent.model_copy(
+                update={
+                    "llm_config": agent.llm_config.model_copy(
+                        update={
+                            "return_logprobs": request.return_logprobs,
+                            "top_logprobs": request.top_logprobs,
+                            "return_token_ids": request.return_token_ids,
+                        }
+                    )
+                }
+            )
+
         agent_loop = AgentLoop.load(agent_state=agent, actor=actor)
         result = await agent_loop.step(
             request.messages,

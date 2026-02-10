@@ -1,12 +1,12 @@
 from abc import ABC, abstractmethod
-from typing import AsyncGenerator
+from typing import AsyncGenerator, Optional
 
 from letta.llm_api.llm_client_base import LLMClientBase
 from letta.schemas.enums import LLMCallType
 from letta.schemas.letta_message import LettaMessage
 from letta.schemas.letta_message_content import ReasoningContent, RedactedReasoningContent, TextContent
 from letta.schemas.llm_config import LLMConfig
-from letta.schemas.openai.chat_completion_response import ChatCompletionResponse, ToolCall
+from letta.schemas.openai.chat_completion_response import ChatCompletionResponse, ChoiceLogprobs, ToolCall
 from letta.schemas.usage import LettaUsageStatistics
 from letta.schemas.user import User
 from letta.services.telemetry_manager import TelemetryManager
@@ -48,6 +48,10 @@ class LettaLLMAdapter(ABC):
         self.content: list[TextContent | ReasoningContent | RedactedReasoningContent] | None = None
         self.tool_call: ToolCall | None = None
         self.tool_calls: list[ToolCall] = []
+        self.logprobs: ChoiceLogprobs | None = None
+        # SGLang native endpoint data (for multi-turn RL training)
+        self.output_ids: list[int] | None = None
+        self.output_token_logprobs: list[list[float]] | None = None
         self.usage: LettaUsageStatistics = LettaUsageStatistics()
         self.telemetry_manager: TelemetryManager = TelemetryManager()
         self.llm_request_finish_timestamp_ns: int | None = None

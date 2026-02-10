@@ -99,6 +99,9 @@ class SimpleLLMRequestAdapter(LettaLLMRequestAdapter):
         self.tool_calls = list(tool_calls)
         self.tool_call = self.tool_calls[0] if self.tool_calls else None
 
+        # Extract logprobs if present
+        self.logprobs = self.chat_completions_response.choices[0].logprobs
+
         # Extract usage statistics
         self.usage.step_count = 1
         self.usage.completion_tokens = self.chat_completions_response.usage.completion_tokens

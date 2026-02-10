@@ -83,6 +83,9 @@ class LettaLLMRequestAdapter(LettaLLMAdapter):
         else:
             self.tool_call = None
 
+        # Extract logprobs if present
+        self.logprobs = self.chat_completions_response.choices[0].logprobs
+
         # Extract usage statistics
         self.usage.step_count = 1
         self.usage.completion_tokens = self.chat_completions_response.usage.completion_tokens

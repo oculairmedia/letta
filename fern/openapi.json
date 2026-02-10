@@ -29192,43 +29192,6 @@
         "title": "ChatCompletionSystemMessageParam",
         "description": "Developer-provided instructions that the model should follow, regardless of\nmessages sent by the user. With o1 models and newer, use `developer` messages\nfor this purpose instead."
       },
-      "ChatCompletionTokenLogprob": {
-        "properties": {
-          "token": {
-            "type": "string",
-            "title": "Token"
-          },
-          "bytes": {
-            "anyOf": [
-              {
-                "items": {
-                  "type": "integer"
-                },
-                "type": "array"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Bytes"
-          },
-          "logprob": {
-            "type": "number",
-            "title": "Logprob"
-          },
-          "top_logprobs": {
-            "items": {
-              "$ref": "#/components/schemas/TopLogprob"
-            },
-            "type": "array",
-            "title": "Top Logprobs"
-          }
-        },
-        "additionalProperties": true,
-        "type": "object",
-        "required": ["token", "logprob", "top_logprobs"],
-        "title": "ChatCompletionTokenLogprob"
-      },
       "ChatCompletionToolMessageParam": {
         "properties": {
           "content": {
@@ -29453,7 +29416,7 @@
           "logprobs": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/ChoiceLogprobs"
+                "$ref": "#/components/schemas/openai__types__chat__chat_completion__ChoiceLogprobs"
               },
               {
                 "type": "null"
@@ -29468,42 +29431,6 @@
         "type": "object",
         "required": ["finish_reason", "index", "message"],
         "title": "Choice"
-      },
-      "ChoiceLogprobs": {
-        "properties": {
-          "content": {
-            "anyOf": [
-              {
-                "items": {
-                  "$ref": "#/components/schemas/ChatCompletionTokenLogprob"
-                },
-                "type": "array"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Content"
-          },
-          "refusal": {
-            "anyOf": [
-              {
-                "items": {
-                  "$ref": "#/components/schemas/ChatCompletionTokenLogprob"
-                },
-                "type": "array"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Refusal"
-          }
-        },
-        "additionalProperties": true,
-        "type": "object",
-        "title": "ChoiceLogprobs",
-        "description": "Log probability information for the choice."
       },
       "ClientToolSchema": {
         "properties": {
@@ -30523,6 +30450,30 @@
             "type": "boolean",
             "title": "Include Compaction Messages",
             "description": "If True, compaction events emit structured `SummaryMessage` and `EventMessage` types. If False (default), compaction messages are not included in the response.",
+            "default": false
+          },
+          "return_logprobs": {
+            "type": "boolean",
+            "title": "Return Logprobs",
+            "description": "If True, returns log probabilities of the output tokens in the response. Useful for RL training. Only supported for OpenAI-compatible providers (including SGLang).",
+            "default": false
+          },
+          "top_logprobs": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Top Logprobs",
+            "description": "Number of most likely tokens to return at each position (0-20). Requires return_logprobs=True."
+          },
+          "return_token_ids": {
+            "type": "boolean",
+            "title": "Return Token Ids",
+            "description": "If True, returns token IDs and logprobs for ALL LLM generations in the agent step, not just the last one. Uses SGLang native /generate endpoint. Returns 'turns' field with TurnTokenData for each assistant/tool turn. Required for proper multi-turn RL training with loss masking.",
             "default": false
           },
           "streaming": {
@@ -36716,6 +36667,30 @@
             "title": "Strict",
             "description": "Enable strict mode for tool calling. When true, tool schemas include strict: true and additionalProperties: false, guaranteeing tool outputs match JSON schemas.",
             "default": false
+          },
+          "return_logprobs": {
+            "type": "boolean",
+            "title": "Return Logprobs",
+            "description": "Whether to return log probabilities of the output tokens. Useful for RL training.",
+            "default": false
+          },
+          "top_logprobs": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Top Logprobs",
+            "description": "Number of most likely tokens to return at each position (0-20). Requires return_logprobs=True."
+          },
+          "return_token_ids": {
+            "type": "boolean",
+            "title": "Return Token Ids",
+            "description": "Whether to return token IDs for all LLM generations via SGLang native endpoint. Required for multi-turn RL training with loss masking. Only works with SGLang provider.",
+            "default": false
           }
         },
         "type": "object",
@@ -36886,6 +36861,30 @@
             "type": "boolean",
             "title": "Include Compaction Messages",
             "description": "If True, compaction events emit structured `SummaryMessage` and `EventMessage` types. If False (default), compaction messages are not included in the response.",
+            "default": false
+          },
+          "return_logprobs": {
+            "type": "boolean",
+            "title": "Return Logprobs",
+            "description": "If True, returns log probabilities of the output tokens in the response. Useful for RL training. Only supported for OpenAI-compatible providers (including SGLang).",
+            "default": false
+          },
+          "top_logprobs": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Top Logprobs",
+            "description": "Number of most likely tokens to return at each position (0-20). Requires return_logprobs=True."
+          },
+          "return_token_ids": {
+            "type": "boolean",
+            "title": "Return Token Ids",
+            "description": "If True, returns token IDs and logprobs for ALL LLM generations in the agent step, not just the last one. Uses SGLang native /generate endpoint. Returns 'turns' field with TurnTokenData for each assistant/tool turn. Required for proper multi-turn RL training with loss masking.",
             "default": false
           },
           "callback_url": {
@@ -37081,6 +37080,30 @@
             "type": "boolean",
             "title": "Include Compaction Messages",
             "description": "If True, compaction events emit structured `SummaryMessage` and `EventMessage` types. If False (default), compaction messages are not included in the response.",
+            "default": false
+          },
+          "return_logprobs": {
+            "type": "boolean",
+            "title": "Return Logprobs",
+            "description": "If True, returns log probabilities of the output tokens in the response. Useful for RL training. Only supported for OpenAI-compatible providers (including SGLang).",
+            "default": false
+          },
+          "top_logprobs": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Top Logprobs",
+            "description": "Number of most likely tokens to return at each position (0-20). Requires return_logprobs=True."
+          },
+          "return_token_ids": {
+            "type": "boolean",
+            "title": "Return Token Ids",
+            "description": "If True, returns token IDs and logprobs for ALL LLM generations in the agent step, not just the last one. Uses SGLang native /generate endpoint. Returns 'turns' field with TurnTokenData for each assistant/tool turn. Required for proper multi-turn RL training with loss masking.",
             "default": false
           },
           "agent_id": {
@@ -37457,6 +37480,30 @@
             "title": "Include Compaction Messages",
             "description": "If True, compaction events emit structured `SummaryMessage` and `EventMessage` types. If False (default), compaction messages are not included in the response.",
             "default": false
+          },
+          "return_logprobs": {
+            "type": "boolean",
+            "title": "Return Logprobs",
+            "description": "If True, returns log probabilities of the output tokens in the response. Useful for RL training. Only supported for OpenAI-compatible providers (including SGLang).",
+            "default": false
+          },
+          "top_logprobs": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Top Logprobs",
+            "description": "Number of most likely tokens to return at each position (0-20). Requires return_logprobs=True."
+          },
+          "return_token_ids": {
+            "type": "boolean",
+            "title": "Return Token Ids",
+            "description": "If True, returns token IDs and logprobs for ALL LLM generations in the agent step, not just the last one. Uses SGLang native /generate endpoint. Returns 'turns' field with TurnTokenData for each assistant/tool turn. Required for proper multi-turn RL training with loss masking.",
+            "default": false
           }
         },
         "type": "object",
@@ -37517,6 +37564,32 @@
           "usage": {
             "$ref": "#/components/schemas/LettaUsageStatistics",
             "description": "The usage statistics of the agent."
+          },
+          "logprobs": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/letta__schemas__openai__chat_completion_response__ChoiceLogprobs"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Log probabilities of the output tokens from the last LLM call. Only present if return_logprobs was enabled."
+          },
+          "turns": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/TurnTokenData"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Turns",
+            "description": "Token data for all LLM generations in multi-turn agent interaction. Includes token IDs and logprobs for each assistant turn, plus tool result content. Only present if return_token_ids was enabled. Used for RL training with loss masking."
           }
         },
         "type": "object",
@@ -37706,6 +37779,30 @@
             "type": "boolean",
             "title": "Include Compaction Messages",
             "description": "If True, compaction events emit structured `SummaryMessage` and `EventMessage` types. If False (default), compaction messages are not included in the response.",
+            "default": false
+          },
+          "return_logprobs": {
+            "type": "boolean",
+            "title": "Return Logprobs",
+            "description": "If True, returns log probabilities of the output tokens in the response. Useful for RL training. Only supported for OpenAI-compatible providers (including SGLang).",
+            "default": false
+          },
+          "top_logprobs": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Top Logprobs",
+            "description": "Number of most likely tokens to return at each position (0-20). Requires return_logprobs=True."
+          },
+          "return_token_ids": {
+            "type": "boolean",
+            "title": "Return Token Ids",
+            "description": "If True, returns token IDs and logprobs for ALL LLM generations in the agent step, not just the last one. Uses SGLang native /generate endpoint. Returns 'turns' field with TurnTokenData for each assistant/tool turn. Required for proper multi-turn RL training with loss masking.",
             "default": false
           },
           "streaming": {
@@ -39263,6 +39360,30 @@
             "type": "boolean",
             "title": "Strict",
             "description": "Enable strict mode for tool calling. When true, tool schemas include strict: true and additionalProperties: false, guaranteeing tool outputs match JSON schemas.",
+            "default": false
+          },
+          "return_logprobs": {
+            "type": "boolean",
+            "title": "Return Logprobs",
+            "description": "Whether to return log probabilities of the output tokens. Useful for RL training.",
+            "default": false
+          },
+          "top_logprobs": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Top Logprobs",
+            "description": "Number of most likely tokens to return at each position (0-20). Requires return_logprobs=True."
+          },
+          "return_token_ids": {
+            "type": "boolean",
+            "title": "Return Token Ids",
+            "description": "Whether to return token IDs for all LLM generations via SGLang native endpoint. Required for multi-turn RL training with loss masking. Only works with SGLang provider.",
             "default": false
           },
           "max_context_window": {
@@ -45313,13 +45434,15 @@
         "type": "object",
         "title": "ToolUpdate"
       },
-      "TopLogprob": {
+      "TurnTokenData": {
         "properties": {
-          "token": {
+          "role": {
             "type": "string",
-            "title": "Token"
+            "enum": ["assistant", "tool"],
+            "title": "Role",
+            "description": "Role of this turn: 'assistant' for LLM generations (trainable), 'tool' for tool results (non-trainable)."
           },
-          "bytes": {
+          "output_ids": {
             "anyOf": [
               {
                 "items": {
@@ -45331,17 +45454,54 @@
                 "type": "null"
               }
             ],
-            "title": "Bytes"
+            "title": "Output Ids",
+            "description": "Token IDs from SGLang native endpoint. Only present for assistant turns."
           },
-          "logprob": {
-            "type": "number",
-            "title": "Logprob"
+          "output_token_logprobs": {
+            "anyOf": [
+              {
+                "items": {
+                  "items": {},
+                  "type": "array"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Output Token Logprobs",
+            "description": "Logprobs from SGLang: [[logprob, token_id, top_logprob_or_null], ...]. Only present for assistant turns."
+          },
+          "content": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content",
+            "description": "Text content. For tool turns, client tokenizes this with loss_mask=0."
+          },
+          "tool_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tool Name",
+            "description": "Name of the tool called. Only present for tool turns."
           }
         },
-        "additionalProperties": true,
         "type": "object",
-        "required": ["token", "logprob"],
-        "title": "TopLogprob"
+        "required": ["role"],
+        "title": "TurnTokenData",
+        "description": "Token data for a single LLM generation turn in a multi-turn agent interaction.\n\nUsed for RL training to track token IDs and logprobs across all LLM calls,\nnot just the final one. Tool results are included so the client can tokenize\nthem with loss_mask=0 (non-trainable)."
       },
       "UpdateAgent": {
         "properties": {
@@ -48653,6 +48813,105 @@
         "required": ["status"],
         "title": "ToolReturn"
       },
+      "letta__schemas__openai__chat_completion_response__ChatCompletionTokenLogprob": {
+        "properties": {
+          "token": {
+            "type": "string",
+            "title": "Token"
+          },
+          "bytes": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bytes"
+          },
+          "logprob": {
+            "type": "number",
+            "title": "Logprob"
+          },
+          "top_logprobs": {
+            "items": {
+              "$ref": "#/components/schemas/letta__schemas__openai__chat_completion_response__TopLogprob"
+            },
+            "type": "array",
+            "title": "Top Logprobs"
+          }
+        },
+        "type": "object",
+        "required": ["token", "logprob", "top_logprobs"],
+        "title": "ChatCompletionTokenLogprob"
+      },
+      "letta__schemas__openai__chat_completion_response__ChoiceLogprobs": {
+        "properties": {
+          "content": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/letta__schemas__openai__chat_completion_response__ChatCompletionTokenLogprob"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content"
+          },
+          "refusal": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/letta__schemas__openai__chat_completion_response__ChatCompletionTokenLogprob"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Refusal"
+          }
+        },
+        "type": "object",
+        "title": "ChoiceLogprobs"
+      },
+      "letta__schemas__openai__chat_completion_response__TopLogprob": {
+        "properties": {
+          "token": {
+            "type": "string",
+            "title": "Token"
+          },
+          "bytes": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bytes"
+          },
+          "logprob": {
+            "type": "number",
+            "title": "Logprob"
+          }
+        },
+        "type": "object",
+        "required": ["token", "logprob"],
+        "title": "TopLogprob"
+      },
       "letta__serialize_schemas__pydantic_agent_schema__AgentSchema": {
         "properties": {
           "agent_type": {
@@ -48999,6 +49258,42 @@
         "type": "object",
         "title": "ToolExecuteRequest"
       },
+      "openai__types__chat__chat_completion__ChoiceLogprobs": {
+        "properties": {
+          "content": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/openai__types__chat__chat_completion_token_logprob__ChatCompletionTokenLogprob"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content"
+          },
+          "refusal": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/openai__types__chat__chat_completion_token_logprob__ChatCompletionTokenLogprob"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Refusal"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "title": "ChoiceLogprobs",
+        "description": "Log probability information for the choice."
+      },
       "openai__types__chat__chat_completion_message_function_tool_call__Function": {
         "properties": {
           "arguments": {
@@ -49031,6 +49326,73 @@
         "required": ["arguments", "name"],
         "title": "Function",
         "description": "The function that the model called."
+      },
+      "openai__types__chat__chat_completion_token_logprob__ChatCompletionTokenLogprob": {
+        "properties": {
+          "token": {
+            "type": "string",
+            "title": "Token"
+          },
+          "bytes": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bytes"
+          },
+          "logprob": {
+            "type": "number",
+            "title": "Logprob"
+          },
+          "top_logprobs": {
+            "items": {
+              "$ref": "#/components/schemas/openai__types__chat__chat_completion_token_logprob__TopLogprob"
+            },
+            "type": "array",
+            "title": "Top Logprobs"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": ["token", "logprob", "top_logprobs"],
+        "title": "ChatCompletionTokenLogprob"
+      },
+      "openai__types__chat__chat_completion_token_logprob__TopLogprob": {
+        "properties": {
+          "token": {
+            "type": "string",
+            "title": "Token"
+          },
+          "bytes": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bytes"
+          },
+          "logprob": {
+            "type": "number",
+            "title": "Logprob"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": ["token", "logprob"],
+        "title": "TopLogprob"
       },
       "LettaMessageUnion": {
         "oneOf": [

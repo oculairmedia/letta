@@ -112,6 +112,19 @@ class LLMConfig(BaseModel):
         False,
         description="Enable strict mode for tool calling. When true, tool schemas include strict: true and additionalProperties: false, guaranteeing tool outputs match JSON schemas.",
     )
+    return_logprobs: bool = Field(
+        False,
+        description="Whether to return log probabilities of the output tokens. Useful for RL training.",
+    )
+    top_logprobs: Optional[int] = Field(
+        None,
+        description="Number of most likely tokens to return at each position (0-20). Requires return_logprobs=True.",
+    )
+    return_token_ids: bool = Field(
+        False,
+        description="Whether to return token IDs for all LLM generations via SGLang native endpoint. "
+        "Required for multi-turn RL training with loss masking. Only works with SGLang provider.",
+    )
 
     @model_validator(mode="before")
     @classmethod

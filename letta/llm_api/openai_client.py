@@ -511,6 +511,12 @@ class OpenAIClient(LLMClientBase):
         if llm_config.frequency_penalty is not None:
             data.frequency_penalty = llm_config.frequency_penalty
 
+        # Add logprobs configuration for RL training
+        if llm_config.return_logprobs:
+            data.logprobs = True
+            if llm_config.top_logprobs is not None:
+                data.top_logprobs = llm_config.top_logprobs
+
         if tools and supports_parallel_tool_calling(model):
             data.parallel_tool_calls = False
 
