@@ -213,7 +213,7 @@ def assert_tool_call_response(
         "claude-sonnet-4-5-20250929" in model_handle
         or "claude-opus-4-1" in model_handle
         or model_settings.get("provider_type") == "zai"
-        or model_handle.startswith(("ollama/", "vllm/"))
+        or model_handle.startswith(("ollama/", "vllm/", "lmstudio_openai/"))
     )
     if is_extra_assistant_model and index < len(messages) and isinstance(messages[index], AssistantMessage):
         # Skip the extra AssistantMessage and move to the next message
@@ -444,8 +444,8 @@ def get_expected_message_count_range(
             if model_settings.get("provider_type") == "zai":
                 expected_range += 1
 
-    # Self-hosted models (ollama/vllm) may emit an extra AssistantMessage with thinking content
-    if model_handle.startswith(("ollama/", "vllm/")):
+    # Self-hosted models (ollama/vllm/lmstudio) may emit an extra AssistantMessage with thinking content
+    if model_handle.startswith(("ollama/", "vllm/", "lmstudio/", "lmstudio_openai/")):
         expected_range += 1
 
     if tool_call:
@@ -621,7 +621,7 @@ async def test_greeting(
             agent_id=agent_state.id,
             messages=USER_MESSAGE_FORCE_REPLY,
         )
-        run = await wait_for_run_completion(client, run.id, timeout=60.0)
+        run = await wait_for_run_completion(client, run.id, timeout=120.0)
         messages_page = await client.runs.messages.list(run_id=run.id)
         messages = [m for m in messages_page.items if m.message_type != "user_message"]
         run_id = run.id
@@ -687,6 +687,12 @@ async def test_parallel_tool_calls(
     if provider_type in ["google_ai", "google_vertex"]:
         pytest.skip("Gemini models are flaky for this test so we disable them for now")
 
+    if model_handle.startswith("lmstudio"):
+        pytest.skip("LMStudio runs on CPU and times out on parallel tool call tests")
+
+    if model_handle.startswith("vllm"):
+        pytest.skip("vLLM Qwen3 tool call parsers incompatible with streaming parallel tool calls")
+
     if model_handle.startswith("vllm"):
         pytest.skip("vLLM Qwen3 tool call parsers incompatible with streaming parallel tool calls")
 
@@ -710,7 +716,7 @@ async def test_parallel_tool_calls(
             agent_id=agent_state.id,
             messages=USER_MESSAGE_PARALLEL_TOOL_CALL,
         )
-        await wait_for_run_completion(client, run.id, timeout=60.0)
+        await wait_for_run_completion(client, run.id, timeout=120.0)
     else:
         response = await client.agents.messages.stream(
             agent_id=agent_state.id,
@@ -899,7 +905,7 @@ async def test_tool_call(
             agent_id=agent_state.id,
             messages=USER_MESSAGE_ROLL_DICE,
         )
-        run = await wait_for_run_completion(client, run.id, timeout=60.0)
+        run = await wait_for_run_completion(client, run.id, timeout=120.0)
         messages_page = await client.runs.messages.list(run_id=run.id)
         messages = [m for m in messages_page.items if m.message_type != "user_message"]
         run_id = run.id
@@ -1090,7 +1096,7 @@ async def test_conversation_non_streaming_raw_http(
 
 
 @pytest.mark.skipif(
-    os.getenv("LLM_CONFIG_FILE", "").startswith(("ollama", "vllm")),
+    os.getenv("LLM_CONFIG_FILE", "").startswith(("ollama", "vllm", "lmstudio")),
     reason="Structured output not supported on self-hosted providers in CI",
 )
 @pytest.mark.parametrize(

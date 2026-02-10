@@ -233,6 +233,21 @@ async def test_vllm():
     assert len(embedding_models) == 0  # embedding models currently not supported by vLLM
 
 
+@pytest.mark.skipif(model_settings.lmstudio_base_url is None, reason="Only run if LMSTUDIO_BASE_URL is set.")
+@pytest.mark.asyncio
+async def test_lmstudio():
+    from letta.schemas.providers.lmstudio import LMStudioOpenAIProvider
+
+    provider = LMStudioOpenAIProvider(name="lmstudio_openai", base_url=model_settings.lmstudio_base_url)
+    models = await provider.list_llm_models_async()
+    assert len(models) > 0
+    assert models[0].handle == f"{provider.name}/{models[0].model}"
+
+    embedding_models = await provider.list_embedding_models_async()
+    assert len(embedding_models) > 0
+    assert embedding_models[0].handle == f"{provider.name}/{embedding_models[0].embedding_model}"
+
+
 @pytest.mark.skipif(model_settings.sglang_api_base is None, reason="Only run if SGLANG_API_BASE is set.")
 @pytest.mark.asyncio
 async def test_sglang():
