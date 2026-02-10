@@ -21,28 +21,21 @@ class ContextWindowCalculator:
 
     @staticmethod
     def extract_system_components(system_message: str) -> Tuple[str, str, str]:
+        """Extract system prompt + core memory + metadata from a system message.
+
+        Historically, Letta system messages were formatted with:
+        - <base_instructions> ...
+        - <memory_blocks> ...
+        - <memory_metadata> ...
+
+        Git-backed memory agents do NOT wrap their rendered memory in <memory_blocks>.
+        Instead, the memory content typically begins with <memory_filesystem> followed
+        by file-like tags such as <system/human.md>...</system/human.md>.
+        
+        This helper supports both formats so the context window preview can display
+        core memory for git-enabled agents.
         """
-        Extract structured components from a formatted system message.
 
-        Parses the system message to extract three distinct sections marked by XML-style tags:
-        - base_instructions: The core system prompt and agent instructions
-        - memory_blocks: The agent's core memory (persistent context)
-        - memory_metadata: Metadata about external memory systems
-
-        Args:
-            system_message: A formatted system message containing XML-style section markers
-
-        Returns:
-            A tuple of (system_prompt, core_memory, external_memory_summary)
-            Each component will be an empty string if its section is not found
-
-        Note:
-            This method assumes a specific format with sections delimited by:
-            <base_instructions>, <memory_blocks>, and <memory_metadata> tags.
-            For git-memory-enabled agents, <memory_filesystem> is used instead
-            of <memory_blocks> as the core memory delimiter.
-            The extraction is position-based and expects sections in this order.
-        """
         base_start = system_message.find("<base_instructions>")
         memory_blocks_start = system_message.find("<memory_blocks>")
         if memory_blocks_start == -1:
@@ -54,14 +47,39 @@ class ContextWindowCalculator:
         core_memory = ""
         external_memory_summary = ""
 
+        # Always extract metadata if present
+        if metadata_start != -1:
+            external_memory_summary = system_message[metadata_start:].strip()
+
+        # Preferred (legacy) parsing when tags are present
         if base_start != -1 and memory_blocks_start != -1:
             system_prompt = system_message[base_start:memory_blocks_start].strip()
-
         if memory_blocks_start != -1 and metadata_start != -1:
             core_memory = system_message[memory_blocks_start:metadata_start].strip()
 
-        if metadata_start != -1:
-            external_memory_summary = system_message[metadata_start:].strip()
+        # Fallback parsing for git-backed memory rendering (no <memory_blocks> wrapper)
+        if not core_memory and metadata_start != -1:
+            # Identify where the "memory" section begins.
+            candidates = []
+            for marker in (
+                "<memory_filesystem>",
+                "<system/",  # e.g. <system/human.md>
+                "<organization/",  # future-proofing
+            ):
+                pos = system_message.find(marker)
+                if pos != -1:
+                    candidates.append(pos)
+
+            # If <memory_blocks> is present but core_memory wasn't extracted (e.g. missing base tags),
+            # allow it as a candidate as well.
+            if memory_blocks_start != -1:
+                candidates.append(memory_blocks_start)
+
+            if candidates:
+                mem_start = min(candidates)
+                core_memory = system_message[mem_start:metadata_start].strip()
+                if not system_prompt:
+                    system_prompt = system_message[:mem_start].strip()
 
         return system_prompt, core_memory, external_memory_summary
 

@@ -237,24 +237,65 @@ class Memory(BaseModel, validate_assignment=True):
         if not self.blocks:
             return
 
-        # Build tree structure from block labels
-        # e.g. "system/human" -> {"system": {"human": block}}
-        #      "organization" -> {"organization": block}
+        # Build tree structure from block labels.
+        #
+        # IMPORTANT: labels are path-like (e.g. "system/human"). In real filesystems a
+        # path component cannot be both a directory and a file, but our block namespace
+        # can contain collisions like:
+        #   - "system" (a block)
+        #   - "system/human" (a block under a virtual "system/" directory)
+        #
+        # When we detect a collision, we convert the would-be directory node into a
+        # dict and store the colliding leaf block under LEAF_KEY.
+        LEAF_KEY = "__block__"
+
         tree: dict = {}
         for block in self.blocks:
             label = block.label or "block"
-            parts = label.split("/")
-            node = tree
+            parts = [p for p in label.split("/") if p]
+            if not parts:
+                parts = ["block"]
+
+            node: dict = tree
             for part in parts[:-1]:
-                node = node.setdefault(part, {})
-            node[parts[-1]] = block
+                existing = node.get(part)
+                if existing is None:
+                    node[part] = {}
+                elif not isinstance(existing, dict):
+                    # Collision: leaf at `part` and now we need it to be a directory.
+                    node[part] = {LEAF_KEY: existing}
+                node = node[part]  # type: ignore[assignment]
+
+            leaf = parts[-1]
+            existing_leaf = node.get(leaf)
+            if existing_leaf is None:
+                node[leaf] = block
+            elif isinstance(existing_leaf, dict):
+                # Collision: directory at `leaf` already exists; attach the leaf block.
+                existing_leaf[LEAF_KEY] = block
+            else:
+                # Duplicate leaf label; last writer wins.
+                node[leaf] = block
 
         s.write("\n\n<memory_filesystem>\n")
 
         def _render_tree(node: dict, prefix: str = ""):
-            # Sort: directories first, then files
-            dirs = sorted(k for k, v in node.items() if isinstance(v, dict))
-            files = sorted(k for k, v in node.items() if not isinstance(v, dict))
+            # Sort: directories first, then files. If a node is both a directory and a
+            # leaf (LEAF_KEY present), show both <name>/ and <name>.md.
+            dirs = []
+            files = []
+            for name, val in node.items():
+                if name == LEAF_KEY:
+                    continue
+                if isinstance(val, dict):
+                    dirs.append(name)
+                    if LEAF_KEY in val:
+                        files.append(name)
+                else:
+                    files.append(name)
+
+            dirs = sorted(dirs)
+            files = sorted(files)
             entries = [(d, True) for d in dirs] + [(f, False) for f in files]
 
             for i, (name, is_dir) in enumerate(entries):
