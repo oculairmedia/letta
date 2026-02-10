@@ -389,7 +389,7 @@ class GitEnabledBlockManager(BlockManager):
                 # Check which blocks are missing from repo
                 missing_blocks = []
                 for block in blocks:
-                    expected_path = f"memory/{block.label}.md"
+                    expected_path = f"{block.label}.md"
                     if expected_path not in repo_files:
                         missing_blocks.append(block)
 
@@ -552,7 +552,7 @@ class GitEnabledBlockManager(BlockManager):
         if self.memory_repo_manager is None:
             raise ValueError("Memory repo manager not configured")
 
-        path = f"memory/{label}.md" if label else None
+        path = f"{label}.md" if label else None
         return await self.memory_repo_manager.get_history_async(
             agent_id=agent_id,
             actor=actor,

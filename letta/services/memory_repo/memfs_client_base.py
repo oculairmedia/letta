@@ -26,8 +26,7 @@ from letta.utils import enforce_types
 
 logger = get_logger(__name__)
 
-# File paths within the memory repository
-MEMORY_DIR = "memory"
+# File paths within the memory repository (blocks stored at repo root as {label}.md)
 
 # Default local storage path
 DEFAULT_LOCAL_PATH = os.path.expanduser("~/.letta/memfs")
@@ -88,7 +87,7 @@ class MemfsClient:
         initial_files = {}
 
         for block in initial_blocks:
-            file_path = f"{MEMORY_DIR}/{block.label}.md"
+            file_path = f"{block.label}.md"
             initial_files[file_path] = serialize_block(
                 value=block.value or "",
                 description=block.description,
@@ -137,8 +136,8 @@ class MemfsClient:
         # Convert block files to PydanticBlock (metadata is in frontmatter)
         blocks = []
         for file_path, content in files.items():
-            if file_path.startswith(f"{MEMORY_DIR}/") and file_path.endswith(".md"):
-                label = file_path[len(f"{MEMORY_DIR}/") : -3]
+            if file_path.endswith(".md"):
+                label = file_path[:-3]
 
                 parsed = parse_block_markdown(content)
 
@@ -235,7 +234,7 @@ class MemfsClient:
 
         await self._ensure_repo_exists(agent_id, actor)
 
-        file_path = f"{MEMORY_DIR}/{label}.md"
+        file_path = f"{label}.md"
         file_content = serialize_block(
             value=value,
             description=description,
@@ -289,7 +288,7 @@ class MemfsClient:
 
         changes = [
             FileChange(
-                path=f"{MEMORY_DIR}/{block.label}.md",
+                path=f"{block.label}.md",
                 content=file_content,
                 change_type="add",
             ),
@@ -333,7 +332,7 @@ class MemfsClient:
 
         changes = [
             FileChange(
-                path=f"{MEMORY_DIR}/{label}.md",
+                path=f"{label}.md",
                 content=None,
                 change_type="delete",
             ),

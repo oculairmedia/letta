@@ -498,10 +498,10 @@ async def _sync_after_push(actor_id: str, agent_id: str) -> None:
 
         synced = 0
         for file_path, content in files.items():
-            if not file_path.startswith("memory/") or not file_path.endswith(".md"):
+            if not file_path.endswith(".md"):
                 continue
 
-            label = file_path[len("memory/") : -3]
+            label = file_path[:-3]
             expected_labels.add(label)
 
             # Parse frontmatter to extract metadata alongside value
@@ -524,12 +524,12 @@ async def _sync_after_push(actor_id: str, agent_id: str) -> None:
                 logger.exception("Failed to sync block %s to PostgreSQL (agent=%s)", label, agent_id)
 
         if synced == 0:
-            logger.warning("No memory/*.md files found in repo HEAD during post-push sync (agent=%s)", agent_id)
+            logger.warning("No *.md files found in repo HEAD during post-push sync (agent=%s)", agent_id)
         else:
             # Detach blocks that were removed in git.
             #
             # We treat git as the source of truth for which blocks are attached to
-            # this agent. If a memory/*.md file disappears from HEAD, detach the
+            # this agent. If a *.md file disappears from HEAD, detach the
             # corresponding block from the agent in Postgres.
             try:
                 existing_blocks = await _server_instance.agent_manager.list_agent_blocks_async(

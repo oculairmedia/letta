@@ -190,11 +190,49 @@ class Memory(BaseModel, validate_assignment=True):
                 s.write("\n")
         s.write("\n</memory_blocks>")
 
+    def _render_memory_blocks_git(self, s: StringIO):
+        """Render memory blocks as individual file tags with YAML frontmatter.
+
+        Each block is rendered as <label.md>---frontmatter---value</label.md>,
+        matching the format stored in the git repo. Labels without a 'system/'
+        prefix get one added automatically.
+        """
+        renderable = self._get_renderable_blocks()
+        if not renderable:
+            return
+
+        for idx, block in enumerate(renderable):
+            label = block.label or "block"
+            # Ensure system/ prefix
+            if not label.startswith("system/"):
+                label = f"system/{label}"
+            tag = f"{label}.md"
+            value = block.value or ""
+
+            s.write(f"\n\n<{tag}>\n")
+
+            # Build frontmatter (same fields as serialize_block)
+            front_lines = []
+            if block.description:
+                front_lines.append(f"description: {block.description}")
+            if block.limit is not None:
+                front_lines.append(f"limit: {block.limit}")
+            if getattr(block, "read_only", False):
+                front_lines.append("read_only: true")
+
+            if front_lines:
+                s.write("---\n")
+                s.write("\n".join(front_lines))
+                s.write("\n---\n")
+
+            s.write(f"{value}\n")
+            s.write(f"</{tag}>")
+
     def _render_memory_filesystem(self, s: StringIO):
         """Render a filesystem tree view of all memory blocks.
 
-        Only rendered for git-memory-enabled agents. Shows all blocks
-        (system and non-system) as a tree with char counts and descriptions.
+        Only rendered for git-memory-enabled agents. Uses box-drawing
+        characters (├──, └──, │) like the Unix `tree` command.
         """
         if not self.blocks:
             return
@@ -211,26 +249,23 @@ class Memory(BaseModel, validate_assignment=True):
                 node = node.setdefault(part, {})
             node[parts[-1]] = block
 
-        s.write("\n\n<memory_filesystem>\nmemory/\n")
+        s.write("\n\n<memory_filesystem>\n")
 
-        def _render_tree(node: dict, indent: int = 1):
-            prefix = "  " * indent
+        def _render_tree(node: dict, prefix: str = ""):
             # Sort: directories first, then files
             dirs = sorted(k for k, v in node.items() if isinstance(v, dict))
             files = sorted(k for k, v in node.items() if not isinstance(v, dict))
+            entries = [(d, True) for d in dirs] + [(f, False) for f in files]
 
-            for d in dirs:
-                s.write(f"{prefix}{d}/\n")
-                _render_tree(node[d], indent + 1)
-
-            for f in files:
-                block = node[f]
-                chars = len(block.value or "")
-                desc = block.description or ""
-                line = f"{prefix}{f}.md ({chars} chars)"
-                if desc:
-                    line += f" - {desc}"
-                s.write(f"{line}\n")
+            for i, (name, is_dir) in enumerate(entries):
+                is_last = i == len(entries) - 1
+                connector = "└── " if is_last else "├── "
+                if is_dir:
+                    s.write(f"{prefix}{connector}{name}/\n")
+                    extension = "    " if is_last else "│   "
+                    _render_tree(node[name], prefix + extension)
+                else:
+                    s.write(f"{prefix}{connector}{name}.md\n")
 
         _render_tree(tree)
         s.write("</memory_filesystem>")
@@ -353,14 +388,14 @@ class Memory(BaseModel, validate_assignment=True):
 
         # Memory blocks (not for react/workflow). Always include wrapper for preview/tests.
         if not is_react:
-            if is_line_numbered:
+            if self.git_enabled:
+                # Git-enabled: filesystem tree + file-style block rendering
+                self._render_memory_filesystem(s)
+                self._render_memory_blocks_git(s)
+            elif is_line_numbered:
                 self._render_memory_blocks_line_numbered(s)
             else:
                 self._render_memory_blocks_standard(s)
-
-            # For git-memory-enabled agents, render a filesystem tree of all blocks
-            if self.git_enabled:
-                self._render_memory_filesystem(s)
 
         if tool_usage_rules is not None:
             desc = getattr(tool_usage_rules, "description", None) or ""
