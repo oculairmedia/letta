@@ -32,6 +32,7 @@ from openai.types.responses.response_stream_event import ResponseStreamEvent
 from letta.errors import (
     ContextWindowExceededError,
     ErrorCode,
+    LettaError,
     LLMAuthenticationError,
     LLMBadRequestError,
     LLMConnectionError,
@@ -566,7 +567,6 @@ class ChatGPTOAuthClient(LLMClientBase):
         endpoint = llm_config.model_endpoint or CHATGPT_CODEX_ENDPOINT
 
         async def stream_generator():
-            event_count = 0
             # Track output item index for proper event construction
             output_index = 0
             # Track sequence_number in case backend doesn't provide it
@@ -588,7 +588,7 @@ class ChatGPTOAuthClient(LLMClientBase):
                         raise self._handle_http_error_from_status(response.status_code, error_body.decode())
 
                     async for line in response.aiter_lines():
-                        if not line.startswith("data: "):
+                        if not line or not line.startswith("data: "):
                             continue
 
                         data_str = line[6:]
@@ -598,7 +598,24 @@ class ChatGPTOAuthClient(LLMClientBase):
                         try:
                             raw_event = json.loads(data_str)
                             event_type = raw_event.get("type")
-                            event_count += 1
+
+                            # Check for error events from the API (context window, rate limit, etc.)
+                            if event_type == "error":
+                                logger.error(f"ChatGPT SSE error event: {json.dumps(raw_event, default=str)[:1000]}")
+                                raise self._handle_sse_error_event(raw_event)
+
+                            # Check for response.failed or response.incomplete events
+                            if event_type in ("response.failed", "response.incomplete"):
+                                logger.error(f"ChatGPT SSE {event_type} event: {json.dumps(raw_event, default=str)[:1000]}")
+                                resp_obj = raw_event.get("response", {})
+                                error_info = resp_obj.get("error", {})
+                                if error_info:
+                                    raise self._handle_sse_error_event({"error": error_info, "type": event_type})
+                                else:
+                                    raise LLMBadRequestError(
+                                        message=f"ChatGPT request failed with status '{event_type}' (no error details provided)",
+                                        code=ErrorCode.INTERNAL_SERVER_ERROR,
+                                    )
 
                             # Use backend-provided sequence_number if available, else use counter
                             # This ensures proper ordering even if backend doesn't provide it
@@ -954,8 +971,8 @@ class ChatGPTOAuthClient(LLMClientBase):
                 part=part,
             )
 
-        # Unhandled event types - log for debugging
-        logger.debug(f"Unhandled SSE event type: {event_type}")
+        # Unhandled event types
+        logger.warning(f"Unhandled ChatGPT SSE event type: {event_type}")
         return None
 
     def _handle_http_error_from_status(self, status_code: int, error_body: str) -> Exception:
@@ -1011,6 +1028,10 @@ class ChatGPTOAuthClient(LLMClientBase):
         Returns:
             Mapped LLMError subclass.
         """
+        # Already a typed LLM/Letta error (e.g. from SSE error handling) — pass through
+        if isinstance(e, LettaError):
+            return e
+
         if isinstance(e, httpx.HTTPStatusError):
             return self._handle_http_error(e)
 
@@ -1062,4 +1083,50 @@ class ChatGPTOAuthClient(LLMClientBase):
             return LLMBadRequestError(
                 message=f"ChatGPT request failed ({status_code}): {error_message}",
                 code=ErrorCode.INTERNAL_SERVER_ERROR,
+            )
+
+    def _handle_sse_error_event(self, raw_event: dict) -> Exception:
+        """Create appropriate exception from an SSE error or response.failed event.
+
+        The ChatGPT backend can return errors as SSE events within a 200 OK stream,
+        e.g. {"type": "error", "error": {"type": "invalid_request_error",
+        "code": "context_length_exceeded", "message": "..."}}.
+
+        Args:
+            raw_event: Raw SSE event data containing an error.
+
+        Returns:
+            Appropriate LLM exception.
+        """
+        error_obj = raw_event.get("error", {})
+        if isinstance(error_obj, str):
+            error_message = error_obj
+            error_code = None
+        else:
+            error_message = error_obj.get("message", "Unknown ChatGPT SSE error")
+            error_code = error_obj.get("code") or None
+
+        if error_code == "context_length_exceeded":
+            return ContextWindowExceededError(
+                message=f"ChatGPT context window exceeded: {error_message}",
+            )
+        elif error_code == "rate_limit_exceeded":
+            return LLMRateLimitError(
+                message=f"ChatGPT rate limit exceeded: {error_message}",
+                code=ErrorCode.RATE_LIMIT_EXCEEDED,
+            )
+        elif error_code == "authentication_error":
+            return LLMAuthenticationError(
+                message=f"ChatGPT authentication failed: {error_message}",
+                code=ErrorCode.UNAUTHENTICATED,
+            )
+        elif error_code == "server_error":
+            return LLMServerError(
+                message=f"ChatGPT server error: {error_message}",
+                code=ErrorCode.INTERNAL_SERVER_ERROR,
+            )
+        else:
+            return LLMBadRequestError(
+                message=f"ChatGPT SSE error ({error_code or 'unknown'}): {error_message}",
+                code=ErrorCode.INVALID_ARGUMENT,
             )
