@@ -318,14 +318,14 @@ class LettaCoreToolExecutor(ToolExecutor):
         await self.agent_manager.rebuild_system_prompt_async(agent_id=agent_state.id, actor=actor, force=True)
         return None
 
-    async def core_memory_append(self, agent_state: AgentState, actor: User, label: str, content: str) -> Optional[str]:
+    async def core_memory_append(self, agent_state: AgentState, actor: User, label: str, content: str) -> str:
         if agent_state.memory.get_block(label).read_only:
             raise ValueError(f"{READ_ONLY_BLOCK_EDIT_ERROR}")
         current_value = str(agent_state.memory.get_block(label).value)
         new_value = current_value + "\n" + str(content)
         agent_state.memory.update_block_value(label=label, value=new_value)
         await self.agent_manager.update_memory_if_changed_async(agent_id=agent_state.id, new_memory=agent_state.memory, actor=actor)
-        return None
+        return new_value
 
     async def core_memory_replace(
         self,
@@ -334,7 +334,7 @@ class LettaCoreToolExecutor(ToolExecutor):
         label: str,
         old_content: str,
         new_content: str,
-    ) -> Optional[str]:
+    ) -> str:
         if agent_state.memory.get_block(label).read_only:
             raise ValueError(f"{READ_ONLY_BLOCK_EDIT_ERROR}")
         current_value = str(agent_state.memory.get_block(label).value)
@@ -343,7 +343,7 @@ class LettaCoreToolExecutor(ToolExecutor):
         new_value = current_value.replace(str(old_content), str(new_content))
         agent_state.memory.update_block_value(label=label, value=new_value)
         await self.agent_manager.update_memory_if_changed_async(agent_id=agent_state.id, new_memory=agent_state.memory, actor=actor)
-        return None
+        return new_value
 
     async def memory_replace(self, agent_state: AgentState, actor: User, label: str, old_str: str, new_str: str) -> str:
         if agent_state.memory.get_block(label).read_only:
@@ -393,23 +393,7 @@ class LettaCoreToolExecutor(ToolExecutor):
 
         await self.agent_manager.update_memory_if_changed_async(agent_id=agent_state.id, new_memory=agent_state.memory, actor=actor)
 
-        # Create a snippet of the edited section
-        SNIPPET_LINES = 3
-        replacement_line = current_value.split(old_str)[0].count("\n")
-        start_line = max(0, replacement_line - SNIPPET_LINES)
-        end_line = replacement_line + SNIPPET_LINES + new_str.count("\n")
-        snippet = "\n".join(new_value.split("\n")[start_line : end_line + 1])
-
-        # Prepare the success message
-        success_msg = (
-            f"The core memory block with label `{label}` has been successfully edited. "
-            f"Your system prompt has been recompiled with the updated memory contents and is now active in your context. "
-            f"Review the changes and make sure they are as expected (correct indentation, "
-            f"no duplicate lines, etc)."
-        )
-
-        # return None
-        return success_msg
+        return new_value
 
     async def memory_apply_patch(self, agent_state: AgentState, actor: User, label: str, patch: str) -> str:
         """Apply a simplified unified-diff style patch to one or more memory blocks.
@@ -545,11 +529,7 @@ class LettaCoreToolExecutor(ToolExecutor):
             agent_state.memory.update_block_value(label=label, value=new_value)
             await self.agent_manager.update_memory_if_changed_async(agent_id=agent_state.id, new_memory=agent_state.memory, actor=actor)
 
-            return (
-                f"The core memory block with label `{label}` has been successfully edited. "
-                f"Your system prompt has been recompiled with the updated memory contents and is now active in your context. "
-                f"Review the changes and make sure they are as expected (correct indentation, no duplicate lines, etc)."
-            )
+            return new_value
 
         # Extended mode: parse codex-like patch operations for memory blocks
         lines = patch.splitlines()
@@ -753,15 +733,7 @@ class LettaCoreToolExecutor(ToolExecutor):
 
         await self.agent_manager.update_memory_if_changed_async(agent_id=agent_state.id, new_memory=agent_state.memory, actor=actor)
 
-        # Prepare the success message
-        success_msg = (
-            f"The core memory block with label `{label}` has been successfully edited. "
-            f"Your system prompt has been recompiled with the updated memory contents and is now active in your context. "
-            f"Review the changes and make sure they are as expected (correct indentation, "
-            f"no duplicate lines, etc)."
-        )
-
-        return success_msg
+        return new_value
 
     async def memory_rethink(self, agent_state: AgentState, actor: User, label: str, new_memory: str) -> str:
         if agent_state.memory.get_block(label).read_only:
@@ -793,16 +765,7 @@ class LettaCoreToolExecutor(ToolExecutor):
 
         await self.agent_manager.update_memory_if_changed_async(agent_id=agent_state.id, new_memory=agent_state.memory, actor=actor)
 
-        # Prepare the success message
-        success_msg = (
-            f"The core memory block with label `{label}` has been successfully edited. "
-            f"Your system prompt has been recompiled with the updated memory contents and is now active in your context. "
-            f"Review the changes and make sure they are as expected (correct indentation, "
-            f"no duplicate lines, etc)."
-        )
-
-        # return None
-        return success_msg
+        return new_memory
 
     async def memory_finish_edits(self, agent_state: AgentState, actor: User) -> None:
         return None
@@ -965,17 +928,13 @@ class LettaCoreToolExecutor(ToolExecutor):
 
         # Write the new content to the block
         await self.block_manager.update_block_async(block_id=memory_block.id, block_update=BlockUpdate(value=new_value), actor=actor)
+
+        # Keep in-memory AgentState consistent with DB
+        agent_state.memory.update_block_value(label=label, value=new_value)
+
         await self.agent_manager.rebuild_system_prompt_async(agent_id=agent_state.id, actor=actor, force=True)
 
-        # Prepare the success message
-        success_msg = (
-            f"The core memory block with label `{label}` has been successfully edited. "
-            f"Your system prompt has been recompiled with the updated memory contents and is now active in your context. "
-            f"Review the changes and make sure they are as expected (correct indentation, "
-            f"no duplicate lines, etc)."
-        )
-
-        return success_msg
+        return new_value
 
     async def memory_str_insert(self, agent_state: AgentState, actor: User, path: str, insert_text: str, insert_line: int = -1) -> str:
         """Insert text into a memory block at a specific line."""
@@ -1032,17 +991,13 @@ class LettaCoreToolExecutor(ToolExecutor):
 
         # Write into the block
         await self.block_manager.update_block_async(block_id=memory_block.id, block_update=BlockUpdate(value=new_value), actor=actor)
+
+        # Keep in-memory AgentState consistent with DB
+        agent_state.memory.update_block_value(label=label, value=new_value)
+
         await self.agent_manager.rebuild_system_prompt_async(agent_id=agent_state.id, actor=actor, force=True)
 
-        # Prepare the success message
-        success_msg = (
-            f"The core memory block with label `{label}` has been successfully edited. "
-            f"Your system prompt has been recompiled with the updated memory contents and is now active in your context. "
-            f"Review the changes and make sure they are as expected (correct indentation, "
-            f"no duplicate lines, etc)."
-        )
-
-        return success_msg
+        return new_value
 
     async def memory(
         self,
