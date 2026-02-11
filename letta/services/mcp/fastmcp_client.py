@@ -19,6 +19,7 @@ from mcp import Tool as MCPTool
 from letta.errors import LettaMCPConnectionError
 from letta.functions.mcp_client.types import SSEServerConfig, StreamableHTTPServerConfig
 from letta.log import get_logger
+from letta.services.mcp.base_client import _log_mcp_tool_error
 from letta.services.mcp.server_side_oauth import ServerSideOAuth
 
 logger = get_logger(__name__)
@@ -142,21 +143,11 @@ class AsyncFastMCPSSEClient:
         try:
             result = await self.client.call_tool(tool_name, tool_args)
         except Exception as e:
-            # ToolError is raised by fastmcp for input validation errors (e.g., missing required properties)
-            # McpError is raised for other MCP-related errors
-            # Both are expected user-facing issues from external MCP servers
-            # Log at debug level to avoid triggering production alerts for expected failures
-
-            # Handle ExceptionGroup wrapping (Python 3.11+ async TaskGroup can wrap exceptions)
             exception_to_check = e
-            if hasattr(e, "exceptions") and e.exceptions:
-                # If it's an ExceptionGroup with a single wrapped exception, unwrap it
-                if len(e.exceptions) == 1:
-                    exception_to_check = e.exceptions[0]
-
-            if exception_to_check.__class__.__name__ in ("McpError", "ToolError"):
-                logger.debug(f"MCP tool '{tool_name}' execution failed: {str(exception_to_check)}")
-            raise
+            if hasattr(e, "exceptions") and e.exceptions and len(e.exceptions) == 1:
+                exception_to_check = e.exceptions[0]
+            _log_mcp_tool_error(logger, tool_name, exception_to_check)
+            return str(exception_to_check), False
 
         # Parse content from result
         parsed_content = []
@@ -309,21 +300,11 @@ class AsyncFastMCPStreamableHTTPClient:
         try:
             result = await self.client.call_tool(tool_name, tool_args)
         except Exception as e:
-            # ToolError is raised by fastmcp for input validation errors (e.g., missing required properties)
-            # McpError is raised for other MCP-related errors
-            # Both are expected user-facing issues from external MCP servers
-            # Log at debug level to avoid triggering production alerts for expected failures
-
-            # Handle ExceptionGroup wrapping (Python 3.11+ async TaskGroup can wrap exceptions)
             exception_to_check = e
-            if hasattr(e, "exceptions") and e.exceptions:
-                # If it's an ExceptionGroup with a single wrapped exception, unwrap it
-                if len(e.exceptions) == 1:
-                    exception_to_check = e.exceptions[0]
-
-            if exception_to_check.__class__.__name__ in ("McpError", "ToolError"):
-                logger.debug(f"MCP tool '{tool_name}' execution failed: {str(exception_to_check)}")
-            raise
+            if hasattr(e, "exceptions") and e.exceptions and len(e.exceptions) == 1:
+                exception_to_check = e.exceptions[0]
+            _log_mcp_tool_error(logger, tool_name, exception_to_check)
+            return str(exception_to_check), False
 
         # Parse content from result
         parsed_content = []
