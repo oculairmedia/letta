@@ -16,9 +16,12 @@ import uvicorn
 # Enable Python fault handler to get stack traces on segfaults
 faulthandler.enable()
 
+import orjson
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, ORJSONResponse
+
+from letta.helpers.json_helpers import sanitize_unicode_surrogates
 from marshmallow import ValidationError
 from sqlalchemy.exc import DBAPIError, IntegrityError, OperationalError
 from starlette.middleware.cors import CORSMiddleware
@@ -76,6 +79,31 @@ from letta.schemas.letta_message_content import (
     create_letta_user_message_content_union_schema,
 )
 from letta.server.constants import REST_DEFAULT_PORT
+
+
+class SafeORJSONResponse(ORJSONResponse):
+    """ORJSONResponse that handles Python strings containing UTF-8 surrogates.
+
+    LLM responses or user input can occasionally contain surrogate characters
+    (U+D800–U+DFFF) which are valid in Python str but illegal in UTF-8.
+    Standard orjson serialisation rejects them with:
+        TypeError: str is not valid UTF-8: surrogates not allowed
+    This subclass catches that error, strips the surrogates, and retries.
+    """
+
+    def render(self, content) -> bytes:
+        try:
+            return super().render(content)
+        except TypeError as exc:
+            if "surrogates" not in str(exc):
+                raise
+            sanitized = sanitize_unicode_surrogates(content)
+            return orjson.dumps(
+                sanitized,
+                option=orjson.OPT_NON_STR_KEYS | orjson.OPT_SERIALIZE_NUMPY,
+            )
+
+
 from letta.server.db import db_registry
 from letta.server.global_exception_handler import setup_global_exception_handlers
 
@@ -376,7 +404,7 @@ def create_application() -> "FastAPI":
         version=letta_version,
         debug=debug_mode,  # if True, the stack trace will be printed in the response
         lifespan=lifespan,
-        default_response_class=ORJSONResponse,  # Use orjson for 10x faster JSON serialization
+        default_response_class=SafeORJSONResponse,  # Use orjson for 10x faster JSON serialization, with surrogate safety
     )
 
     # === Global Exception Handlers ===
