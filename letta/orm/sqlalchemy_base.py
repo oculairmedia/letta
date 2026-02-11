@@ -6,7 +6,7 @@ from functools import wraps
 from pprint import pformat
 from typing import TYPE_CHECKING, List, Literal, Optional, Tuple, Union
 
-from asyncpg.exceptions import DeadlockDetectedError, QueryCanceledError
+from asyncpg.exceptions import DeadlockDetectedError, LockNotAvailableError as AsyncpgLockNotAvailableError, QueryCanceledError
 from sqlalchemy import Sequence, String, and_, delete, func, or_, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.exc import DBAPIError, IntegrityError, TimeoutError
@@ -20,6 +20,7 @@ from letta.log import get_logger
 from letta.orm.base import Base, CommonSqlalchemyMetaMixins
 from letta.orm.errors import (
     DatabaseDeadlockError,
+    DatabaseLockNotAvailableError,
     DatabaseTimeoutError,
     ForeignKeyConstraintViolationError,
     NoResultFound,
@@ -897,6 +898,14 @@ class SqlalchemyBase(CommonSqlalchemyMetaMixins, Base):
             logger.error(f"Deadlock detected for {cls.__name__}: {e}")
             raise DatabaseDeadlockError(message=f"A database deadlock was detected for {cls.__name__}.", original_exception=e) from e
 
+        # Handle asyncpg LockNotAvailableError (wrapped in DBAPIError)
+        # This occurs when a SELECT ... FOR UPDATE NOWAIT or similar fails to acquire a lock
+        if isinstance(orig, AsyncpgLockNotAvailableError):
+            logger.warning(f"Lock not available for {cls.__name__}: {e}")
+            raise DatabaseLockNotAvailableError(
+                message=f"Could not acquire lock for {cls.__name__}. Another operation is in progress.", original_exception=e
+            ) from e
+
         # Handle SQLite-specific errors
         if "UNIQUE constraint failed" in error_message:
             raise UniqueConstraintViolationError(
@@ -935,6 +944,13 @@ class SqlalchemyBase(CommonSqlalchemyMetaMixins, Base):
         if error_code == "40P01":
             logger.error(f"Deadlock detected for {cls.__name__}: {e}")
             raise DatabaseDeadlockError(message=f"A database deadlock was detected for {cls.__name__}.", original_exception=e) from e
+
+        # Handle lock not available (e.g. NOWAIT or lock_timeout exceeded)
+        if error_code == "55P03":
+            logger.warning(f"Lock not available for {cls.__name__}: {e}")
+            raise DatabaseLockNotAvailableError(
+                message=f"Could not acquire lock for {cls.__name__}. Another operation is in progress.", original_exception=e
+            ) from e
 
         # Re-raise for other unhandled DBAPI errors
         raise

@@ -65,6 +65,7 @@ from letta.jobs.scheduler import start_scheduler_with_leader_election
 from letta.log import get_logger
 from letta.orm.errors import (
     DatabaseDeadlockError,
+    DatabaseLockNotAvailableError,
     DatabaseTimeoutError,
     ForeignKeyConstraintViolationError,
     NoResultFound,
@@ -582,6 +583,15 @@ def create_application() -> "FastAPI":
     app.add_exception_handler(OperationalError, _error_handler_503)
     app.add_exception_handler(LettaServiceUnavailableError, _error_handler_503)
     app.add_exception_handler(LLMProviderOverloaded, _error_handler_503)
+
+    @app.exception_handler(DatabaseLockNotAvailableError)
+    async def database_lock_not_available_handler(request: Request, exc: DatabaseLockNotAvailableError):
+        logger.warning(f"Lock not available: {exc}. Original exception: {exc.original_exception}")
+        return JSONResponse(
+            status_code=409,
+            content={"detail": "The resource is currently locked by another operation. Please retry shortly."},
+            headers={"Retry-After": "1"},
+        )
 
     @app.exception_handler(DatabaseDeadlockError)
     async def database_deadlock_error_handler(request: Request, exc: DatabaseDeadlockError):
