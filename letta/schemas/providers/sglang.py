@@ -47,7 +47,7 @@ class SGLangProvider(Provider):
                     model_endpoint_type="openai",  # SGLang is OpenAI-compatible
                     model_endpoint=base_url,
                     model_wrapper=self.default_prompt_formatter,
-                    context_window=model.get("max_model_len", 8192),
+                    context_window=model.get("max_model_len", 32768),
                     handle=self.get_handle(model_name, base_name=self.handle_base) if self.handle_base else self.get_handle(model_name),
                     max_tokens=self.get_default_max_output_tokens(model_name),
                     provider_name=self.name,
