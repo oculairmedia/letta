@@ -1059,9 +1059,35 @@ class AnthropicClient(LLMClientBase):
                 details={"is_byok": is_byok},
             )
 
+        if isinstance(e, anthropic.InternalServerError):
+            error_str = str(e).lower()
+            if "overflow" in error_str or "upstream connect error" in error_str:
+                logger.warning(f"[Anthropic] Upstream infrastructure error (transient): {str(e)}")
+                return LLMServerError(
+                    message=f"Anthropic upstream infrastructure error (transient, may resolve on retry): {str(e)}",
+                    code=ErrorCode.INTERNAL_SERVER_ERROR,
+                    details={
+                        "status_code": e.status_code if hasattr(e, "status_code") else None,
+                        "transient": True,
+                    },
+                )
+            if "overloaded" in error_str:
+                return LLMProviderOverloaded(
+                    message=f"Anthropic API is overloaded: {str(e)}",
+                    code=ErrorCode.INTERNAL_SERVER_ERROR,
+                )
+            logger.warning(f"[Anthropic] Internal server error: {str(e)}")
+            return LLMServerError(
+                message=f"Anthropic internal server error: {str(e)}",
+                code=ErrorCode.INTERNAL_SERVER_ERROR,
+                details={
+                    "status_code": e.status_code if hasattr(e, "status_code") else None,
+                    "response": str(e.response) if hasattr(e, "response") else None,
+                },
+            )
+
         if isinstance(e, anthropic.APIStatusError):
             logger.warning(f"[Anthropic] API status error: {str(e)}")
-            # Handle 413 Request Entity Too Large - request payload exceeds size limits
             if hasattr(e, "status_code") and e.status_code == 413:
                 logger.warning(f"[Anthropic] Request too large (413): {str(e)}")
                 return ContextWindowExceededError(

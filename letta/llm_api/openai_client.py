@@ -1074,24 +1074,30 @@ class OpenAIClient(LLMClientBase):
 
         if isinstance(e, openai.BadRequestError):
             logger.warning(f"[OpenAI] Bad request (400): {str(e)}")
-            # BadRequestError can signify different issues (e.g., invalid args, context length)
-            # Check for context_length_exceeded error code in the error body
+            error_str = str(e)
+
+            if "<html" in error_str.lower() or (e.body and isinstance(e.body, str) and "<html" in e.body.lower()):
+                logger.warning("[OpenAI] Received HTML error response from upstream endpoint (likely ALB or reverse proxy)")
+                return LLMBadRequestError(
+                    message="Upstream endpoint returned HTML error (400 Bad Request). This usually indicates the configured API endpoint is not an OpenAI-compatible API or the request was rejected by a load balancer.",
+                    code=ErrorCode.INVALID_ARGUMENT,
+                    details={"raw_body_preview": error_str[:500]},
+                )
+
             error_code = None
             if e.body and isinstance(e.body, dict):
                 error_details = e.body.get("error", {})
                 if isinstance(error_details, dict):
                     error_code = error_details.get("code")
 
-            # Check both the error code and message content for context length issues
-            if error_code == "context_length_exceeded" or is_context_window_overflow_message(str(e)):
+            if error_code == "context_length_exceeded" or is_context_window_overflow_message(error_str):
                 return ContextWindowExceededError(
-                    message=f"Bad request to OpenAI (context window exceeded): {str(e)}",
+                    message=f"Bad request to OpenAI (context window exceeded): {error_str}",
                     details={"is_byok": is_byok},
                 )
             else:
                 body_details = e.body if isinstance(e.body, dict) else {"body": e.body}
                 return LLMBadRequestError(
-                    message=f"Bad request to OpenAI: {str(e)}",
                     code=ErrorCode.INVALID_ARGUMENT,
                     details={**body_details, "is_byok": is_byok},
                 )
