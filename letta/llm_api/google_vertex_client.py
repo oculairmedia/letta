@@ -247,7 +247,7 @@ class GoogleVertexClient(LLMClientBase):
         # Per https://ai.google.dev/gemini-api/docs/function-calling?example=meeting#notes_and_limitations
         # * Only a subset of the OpenAPI schema is supported.
         # * Supported parameter types in Python are limited.
-        unsupported_keys = ["default", "exclusiveMaximum", "exclusiveMinimum", "additionalProperties", "$schema", "const"]
+        unsupported_keys = ["default", "exclusiveMaximum", "exclusiveMinimum", "additionalProperties", "$schema", "const", "$ref"]
         keys_to_remove_at_this_level = [key for key in unsupported_keys if key in schema_part]
         for key_to_remove in keys_to_remove_at_this_level:
             logger.debug(f"Removing unsupported keyword 	'{key_to_remove}' from schema part.")
@@ -273,6 +273,49 @@ class GoogleVertexClient(LLMClientBase):
             if key in schema_part and isinstance(schema_part[key], list):
                 for item_schema in schema_part[key]:
                     self._clean_google_ai_schema_properties(item_schema)
+
+    def _resolve_json_schema_refs(self, schema: dict, defs: dict = None) -> dict:
+        """
+        Recursively resolve $ref in JSON schema by inlining definitions.
+        Google GenAI SDK does not support $ref.
+        """
+        if defs is None:
+            # Look for definitions at the top level
+            defs = schema.get("$defs") or schema.get("definitions") or {}
+
+        if not isinstance(schema, dict):
+            return schema
+
+        # If this is a ref, resolve it
+        if "$ref" in schema:
+            ref = schema["$ref"]
+            if isinstance(ref, str):
+                for prefix in ("#/$defs/", "#/definitions/"):
+                    if ref.startswith(prefix):
+                        ref_name = ref.split("/")[-1]
+                        if ref_name in defs:
+                            resolved = defs[ref_name].copy()
+                            return self._resolve_json_schema_refs(resolved, defs)
+                        break
+
+            logger.warning(f"Could not resolve $ref '{ref}' in schema — will be stripped by schema cleaner")
+
+        # Recursively process children
+        new_schema = schema.copy()
+
+        # We need to remove $defs/definitions from the output schema as Google doesn't support them
+        if "$defs" in new_schema:
+            del new_schema["$defs"]
+        if "definitions" in new_schema:
+            del new_schema["definitions"]
+
+        for k, v in new_schema.items():
+            if isinstance(v, dict):
+                new_schema[k] = self._resolve_json_schema_refs(v, defs)
+            elif isinstance(v, list):
+                new_schema[k] = [self._resolve_json_schema_refs(i, defs) if isinstance(i, dict) else i for i in v]
+
+        return new_schema
 
     def convert_tools_to_google_ai_format(self, tools: List[Tool], llm_config: LLMConfig) -> List[dict]:
         """
@@ -336,6 +379,8 @@ class GoogleVertexClient(LLMClientBase):
 
             # Google AI API only supports a subset of OpenAPI 3.0, so unsupported params must be cleaned
             if "parameters" in func and isinstance(func["parameters"], dict):
+                # Resolve $ref in schema because Google AI SDK doesn't support them
+                func["parameters"] = self._resolve_json_schema_refs(func["parameters"])
                 self._clean_google_ai_schema_properties(func["parameters"])
 
             # Add inner thoughts
