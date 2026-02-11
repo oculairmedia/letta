@@ -54,7 +54,7 @@ class SimpleLLMRequestAdapter(LettaLLMRequestAdapter):
         try:
             self.response_data = await self.llm_client.request_async_with_telemetry(request_data, self.llm_config)
         except Exception as e:
-            raise self.llm_client.handle_llm_error(e)
+            raise self.llm_client.handle_llm_error(e, llm_config=self.llm_config)
 
         self.llm_request_finish_timestamp_ns = get_utc_timestamp_ns()
 

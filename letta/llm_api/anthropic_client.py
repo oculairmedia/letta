@@ -37,6 +37,7 @@ from letta.local_llm.constants import INNER_THOUGHTS_KWARG, INNER_THOUGHTS_KWARG
 from letta.log import get_logger
 from letta.otel.tracing import trace_method
 from letta.schemas.agent import AgentType
+from letta.schemas.enums import ProviderCategory
 from letta.schemas.llm_config import LLMConfig
 from letta.schemas.message import Message as PydanticMessage
 from letta.schemas.openai.chat_completion_request import Tool as OpenAITool
@@ -937,7 +938,9 @@ class AnthropicClient(LLMClientBase):
         )
 
     @trace_method
-    def handle_llm_error(self, e: Exception) -> Exception:
+    def handle_llm_error(self, e: Exception, llm_config: Optional[LLMConfig] = None) -> Exception:
+        is_byok = (llm_config.provider_category == ProviderCategory.byok) if llm_config else None
+
         # make sure to check for overflow errors, regardless of error type
         error_str = str(e).lower()
         if (
@@ -952,6 +955,7 @@ class AnthropicClient(LLMClientBase):
             logger.warning(f"[Anthropic] Context window exceeded: {str(e)}")
             return ContextWindowExceededError(
                 message=f"Context window exceeded for Anthropic: {str(e)}",
+                details={"is_byok": is_byok},
             )
 
         if isinstance(e, anthropic.APITimeoutError):
@@ -959,7 +963,7 @@ class AnthropicClient(LLMClientBase):
             return LLMTimeoutError(
                 message=f"Request to Anthropic timed out: {str(e)}",
                 code=ErrorCode.TIMEOUT,
-                details={"cause": str(e.__cause__) if e.__cause__ else None},
+                details={"cause": str(e.__cause__) if e.__cause__ else None, "is_byok": is_byok},
             )
 
         if isinstance(e, anthropic.APIConnectionError):
@@ -967,7 +971,7 @@ class AnthropicClient(LLMClientBase):
             return LLMConnectionError(
                 message=f"Failed to connect to Anthropic: {str(e)}",
                 code=ErrorCode.INTERNAL_SERVER_ERROR,
-                details={"cause": str(e.__cause__) if e.__cause__ else None},
+                details={"cause": str(e.__cause__) if e.__cause__ else None, "is_byok": is_byok},
             )
 
         # Handle httpx.RemoteProtocolError which can occur during streaming
@@ -978,7 +982,7 @@ class AnthropicClient(LLMClientBase):
             return LLMConnectionError(
                 message=f"Connection error during Anthropic streaming: {str(e)}",
                 code=ErrorCode.INTERNAL_SERVER_ERROR,
-                details={"cause": str(e.__cause__) if e.__cause__ else None},
+                details={"cause": str(e.__cause__) if e.__cause__ else None, "is_byok": is_byok},
             )
 
         # Handle httpx network errors which can occur during streaming
@@ -988,7 +992,7 @@ class AnthropicClient(LLMClientBase):
             return LLMConnectionError(
                 message=f"Network error during Anthropic streaming: {str(e)}",
                 code=ErrorCode.INTERNAL_SERVER_ERROR,
-                details={"cause": str(e.__cause__) if e.__cause__ else None, "error_type": type(e).__name__},
+                details={"cause": str(e.__cause__) if e.__cause__ else None, "error_type": type(e).__name__, "is_byok": is_byok},
             )
 
         if isinstance(e, anthropic.RateLimitError):
@@ -996,6 +1000,7 @@ class AnthropicClient(LLMClientBase):
             return LLMRateLimitError(
                 message=f"Rate limited by Anthropic: {str(e)}",
                 code=ErrorCode.RATE_LIMIT_EXCEEDED,
+                details={"is_byok": is_byok},
             )
 
         if isinstance(e, anthropic.BadRequestError):
@@ -1013,11 +1018,13 @@ class AnthropicClient(LLMClientBase):
                 # 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'input length and `max_tokens` exceed context limit: 173298 + 32000 > 200000, decrease input length or `max_tokens` and try again'}}
                 return ContextWindowExceededError(
                     message=f"Bad request to Anthropic (context window exceeded): {str(e)}",
+                    details={"is_byok": is_byok},
                 )
             else:
                 return LLMBadRequestError(
                     message=f"Bad request to Anthropic: {str(e)}",
                     code=ErrorCode.INTERNAL_SERVER_ERROR,
+                    details={"is_byok": is_byok},
                 )
 
         if isinstance(e, anthropic.AuthenticationError):
@@ -1025,6 +1032,7 @@ class AnthropicClient(LLMClientBase):
             return LLMAuthenticationError(
                 message=f"Authentication failed with Anthropic: {str(e)}",
                 code=ErrorCode.INTERNAL_SERVER_ERROR,
+                details={"is_byok": is_byok},
             )
 
         if isinstance(e, anthropic.PermissionDeniedError):
@@ -1032,6 +1040,7 @@ class AnthropicClient(LLMClientBase):
             return LLMPermissionDeniedError(
                 message=f"Permission denied by Anthropic: {str(e)}",
                 code=ErrorCode.INTERNAL_SERVER_ERROR,
+                details={"is_byok": is_byok},
             )
 
         if isinstance(e, anthropic.NotFoundError):
@@ -1039,6 +1048,7 @@ class AnthropicClient(LLMClientBase):
             return LLMNotFoundError(
                 message=f"Resource not found in Anthropic: {str(e)}",
                 code=ErrorCode.INTERNAL_SERVER_ERROR,
+                details={"is_byok": is_byok},
             )
 
         if isinstance(e, anthropic.UnprocessableEntityError):
@@ -1046,6 +1056,7 @@ class AnthropicClient(LLMClientBase):
             return LLMUnprocessableEntityError(
                 message=f"Invalid request content for Anthropic: {str(e)}",
                 code=ErrorCode.INTERNAL_SERVER_ERROR,
+                details={"is_byok": is_byok},
             )
 
         if isinstance(e, anthropic.APIStatusError):
@@ -1055,11 +1066,13 @@ class AnthropicClient(LLMClientBase):
                 logger.warning(f"[Anthropic] Request too large (413): {str(e)}")
                 return ContextWindowExceededError(
                     message=f"Request too large for Anthropic (413): {str(e)}",
+                    details={"is_byok": is_byok},
                 )
             if "overloaded" in str(e).lower():
                 return LLMProviderOverloaded(
                     message=f"Anthropic API is overloaded: {str(e)}",
                     code=ErrorCode.INTERNAL_SERVER_ERROR,
+                    details={"is_byok": is_byok},
                 )
             return LLMServerError(
                 message=f"Anthropic API error: {str(e)}",
@@ -1067,10 +1080,11 @@ class AnthropicClient(LLMClientBase):
                 details={
                     "status_code": e.status_code if hasattr(e, "status_code") else None,
                     "response": str(e.response) if hasattr(e, "response") else None,
+                    "is_byok": is_byok,
                 },
             )
 
-        return super().handle_llm_error(e)
+        return super().handle_llm_error(e, llm_config=llm_config)
 
     def extract_usage_statistics(self, response_data: dict | None, llm_config: LLMConfig) -> LettaUsageStatistics:
         """Extract usage statistics from Anthropic response and return as LettaUsageStatistics."""

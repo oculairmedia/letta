@@ -1019,29 +1019,33 @@ class ChatGPTOAuthClient(LLMClientBase):
         return "o1" in model or "o3" in model or "o4" in model or "gpt-5" in model
 
     @trace_method
-    def handle_llm_error(self, e: Exception) -> Exception:
+    def handle_llm_error(self, e: Exception, llm_config: Optional[LLMConfig] = None) -> Exception:
         """Map ChatGPT-specific errors to common LLMError types.
 
         Args:
             e: Original exception.
+            llm_config: Optional LLM config to determine if this is a BYOK key.
 
         Returns:
             Mapped LLMError subclass.
         """
+        is_byok = (llm_config.provider_category == ProviderCategory.byok) if llm_config else None
+
         # Already a typed LLM/Letta error (e.g. from SSE error handling) — pass through
         if isinstance(e, LettaError):
             return e
 
         if isinstance(e, httpx.HTTPStatusError):
-            return self._handle_http_error(e)
+            return self._handle_http_error(e, is_byok=is_byok)
 
-        return super().handle_llm_error(e)
+        return super().handle_llm_error(e, llm_config=llm_config)
 
-    def _handle_http_error(self, e: httpx.HTTPStatusError) -> Exception:
+    def _handle_http_error(self, e: httpx.HTTPStatusError, is_byok: bool | None = None) -> Exception:
         """Handle HTTP status errors from ChatGPT backend.
 
         Args:
             e: HTTP status error.
+            is_byok: Whether the request used a BYOK key.
 
         Returns:
             Appropriate LLMError subclass.
@@ -1059,30 +1063,36 @@ class ChatGPTOAuthClient(LLMClientBase):
             return LLMAuthenticationError(
                 message=f"ChatGPT authentication failed: {error_message}",
                 code=ErrorCode.UNAUTHENTICATED,
+                details={"is_byok": is_byok},
             )
         elif status_code == 429:
             return LLMRateLimitError(
                 message=f"ChatGPT rate limit exceeded: {error_message}",
                 code=ErrorCode.RATE_LIMIT_EXCEEDED,
+                details={"is_byok": is_byok},
             )
         elif status_code == 400:
             if "context" in error_message.lower() or "token" in error_message.lower():
                 return ContextWindowExceededError(
                     message=f"ChatGPT context window exceeded: {error_message}",
+                    details={"is_byok": is_byok},
                 )
             return LLMBadRequestError(
                 message=f"ChatGPT bad request: {error_message}",
                 code=ErrorCode.INVALID_ARGUMENT,
+                details={"is_byok": is_byok},
             )
         elif status_code >= 500:
             return LLMServerError(
                 message=f"ChatGPT server error: {error_message}",
                 code=ErrorCode.INTERNAL_SERVER_ERROR,
+                details={"is_byok": is_byok},
             )
         else:
             return LLMBadRequestError(
                 message=f"ChatGPT request failed ({status_code}): {error_message}",
                 code=ErrorCode.INTERNAL_SERVER_ERROR,
+                details={"is_byok": is_byok},
             )
 
     def _handle_sse_error_event(self, raw_event: dict) -> Exception:

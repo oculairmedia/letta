@@ -40,6 +40,7 @@ from letta.log import get_logger
 from letta.otel.tracing import trace_method
 from letta.schemas.agent import AgentType
 from letta.schemas.embedding_config import EmbeddingConfig
+from letta.schemas.enums import ProviderCategory
 from letta.schemas.letta_message_content import MessageContentType
 from letta.schemas.llm_config import LLMConfig
 from letta.schemas.message import Message as PydanticMessage
@@ -1015,10 +1016,11 @@ class OpenAIClient(LLMClientBase):
         return results
 
     @trace_method
-    def handle_llm_error(self, e: Exception) -> Exception:
+    def handle_llm_error(self, e: Exception, llm_config: Optional[LLMConfig] = None) -> Exception:
         """
         Maps OpenAI-specific errors to common LLMError types.
         """
+        is_byok = (llm_config.provider_category == ProviderCategory.byok) if llm_config else None
         if isinstance(e, openai.APITimeoutError):
             timeout_duration = getattr(e, "timeout", "unknown")
             logger.warning(f"[OpenAI] Request timeout after {timeout_duration} seconds: {e}")
@@ -1028,6 +1030,7 @@ class OpenAIClient(LLMClientBase):
                 details={
                     "timeout_duration": timeout_duration,
                     "cause": str(e.__cause__) if e.__cause__ else None,
+                    "is_byok": is_byok,
                 },
             )
 
@@ -1036,7 +1039,7 @@ class OpenAIClient(LLMClientBase):
             return LLMConnectionError(
                 message=f"Failed to connect to OpenAI: {str(e)}",
                 code=ErrorCode.INTERNAL_SERVER_ERROR,
-                details={"cause": str(e.__cause__) if e.__cause__ else None},
+                details={"cause": str(e.__cause__) if e.__cause__ else None, "is_byok": is_byok},
             )
 
         # Handle httpx.RemoteProtocolError which can occur during streaming
@@ -1047,7 +1050,7 @@ class OpenAIClient(LLMClientBase):
             return LLMConnectionError(
                 message=f"Connection error during OpenAI streaming: {str(e)}",
                 code=ErrorCode.INTERNAL_SERVER_ERROR,
-                details={"cause": str(e.__cause__) if e.__cause__ else None},
+                details={"cause": str(e.__cause__) if e.__cause__ else None, "is_byok": is_byok},
             )
 
         # Handle httpx network errors which can occur during streaming
@@ -1057,15 +1060,16 @@ class OpenAIClient(LLMClientBase):
             return LLMConnectionError(
                 message=f"Network error during OpenAI streaming: {str(e)}",
                 code=ErrorCode.INTERNAL_SERVER_ERROR,
-                details={"cause": str(e.__cause__) if e.__cause__ else None, "error_type": type(e).__name__},
+                details={"cause": str(e.__cause__) if e.__cause__ else None, "error_type": type(e).__name__, "is_byok": is_byok},
             )
 
         if isinstance(e, openai.RateLimitError):
             logger.warning(f"[OpenAI] Rate limited (429). Consider backoff. Error: {e}")
+            body_details = e.body if isinstance(e.body, dict) else {"body": e.body}
             return LLMRateLimitError(
                 message=f"Rate limited by OpenAI: {str(e)}",
                 code=ErrorCode.RATE_LIMIT_EXCEEDED,
-                details=e.body,  # Include body which often has rate limit details
+                details={**body_details, "is_byok": is_byok},
             )
 
         if isinstance(e, openai.BadRequestError):
@@ -1082,12 +1086,14 @@ class OpenAIClient(LLMClientBase):
             if error_code == "context_length_exceeded" or is_context_window_overflow_message(str(e)):
                 return ContextWindowExceededError(
                     message=f"Bad request to OpenAI (context window exceeded): {str(e)}",
+                    details={"is_byok": is_byok},
                 )
             else:
+                body_details = e.body if isinstance(e.body, dict) else {"body": e.body}
                 return LLMBadRequestError(
                     message=f"Bad request to OpenAI: {str(e)}",
-                    code=ErrorCode.INVALID_ARGUMENT,  # Or more specific if detectable
-                    details=e.body,
+                    code=ErrorCode.INVALID_ARGUMENT,
+                    details={**body_details, "is_byok": is_byok},
                 )
 
         # NOTE: The OpenAI Python SDK may raise a generic `openai.APIError` while *iterating*
@@ -1104,34 +1110,46 @@ class OpenAIClient(LLMClientBase):
                     message=f"OpenAI request exceeded the context window: {msg}",
                     details={
                         "provider_exception_type": type(e).__name__,
-                        # Best-effort extraction (may not exist on APIError)
                         "body": getattr(e, "body", None),
+                        "is_byok": is_byok,
                     },
                 )
 
         if isinstance(e, openai.AuthenticationError):
             logger.error(f"[OpenAI] Authentication error (401): {str(e)}")  # More severe log level
+            body_details = e.body if isinstance(e.body, dict) else {"body": e.body}
             return LLMAuthenticationError(
-                message=f"Authentication failed with OpenAI: {str(e)}", code=ErrorCode.UNAUTHENTICATED, details=e.body
+                message=f"Authentication failed with OpenAI: {str(e)}",
+                code=ErrorCode.UNAUTHENTICATED,
+                details={**body_details, "is_byok": is_byok},
             )
 
         if isinstance(e, openai.PermissionDeniedError):
             logger.error(f"[OpenAI] Permission denied (403): {str(e)}")  # More severe log level
+            body_details = e.body if isinstance(e.body, dict) else {"body": e.body}
             return LLMPermissionDeniedError(
-                message=f"Permission denied by OpenAI: {str(e)}", code=ErrorCode.PERMISSION_DENIED, details=e.body
+                message=f"Permission denied by OpenAI: {str(e)}",
+                code=ErrorCode.PERMISSION_DENIED,
+                details={**body_details, "is_byok": is_byok},
             )
 
         if isinstance(e, openai.NotFoundError):
             logger.warning(f"[OpenAI] Resource not found (404): {str(e)}")
             # Could be invalid model name, etc.
-            return LLMNotFoundError(message=f"Resource not found in OpenAI: {str(e)}", code=ErrorCode.NOT_FOUND, details=e.body)
+            body_details = e.body if isinstance(e.body, dict) else {"body": e.body}
+            return LLMNotFoundError(
+                message=f"Resource not found in OpenAI: {str(e)}",
+                code=ErrorCode.NOT_FOUND,
+                details={**body_details, "is_byok": is_byok},
+            )
 
         if isinstance(e, openai.UnprocessableEntityError):
             logger.warning(f"[OpenAI] Unprocessable entity (422): {str(e)}")
+            body_details = e.body if isinstance(e.body, dict) else {"body": e.body}
             return LLMUnprocessableEntityError(
                 message=f"Invalid request content for OpenAI: {str(e)}",
-                code=ErrorCode.INVALID_ARGUMENT,  # Usually validation errors
-                details=e.body,
+                code=ErrorCode.INVALID_ARGUMENT,
+                details={**body_details, "is_byok": is_byok},
             )
 
         # General API error catch-all
@@ -1141,6 +1159,7 @@ class OpenAIClient(LLMClientBase):
             if e.status_code == 413:
                 return ContextWindowExceededError(
                     message=f"Request too large for OpenAI (413): {str(e)}",
+                    details={"is_byok": is_byok},
                 )
             # Map based on status code potentially
             if e.status_code >= 500:
@@ -1158,11 +1177,12 @@ class OpenAIClient(LLMClientBase):
                     "status_code": e.status_code,
                     "response": str(e.response),
                     "body": e.body,
+                    "is_byok": is_byok,
                 },
             )
 
         # Fallback for unexpected errors
-        return super().handle_llm_error(e)
+        return super().handle_llm_error(e, llm_config=llm_config)
 
 
 def fill_image_content_in_messages(openai_message_list: List[dict], pydantic_message_list: List[PydanticMessage]) -> List[dict]:

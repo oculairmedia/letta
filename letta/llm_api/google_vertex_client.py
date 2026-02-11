@@ -37,6 +37,7 @@ from letta.local_llm.json_parser import clean_json_string_extra_backslash
 from letta.log import get_logger
 from letta.otel.tracing import trace_method
 from letta.schemas.agent import AgentType
+from letta.schemas.enums import ProviderCategory
 from letta.schemas.llm_config import LLMConfig
 from letta.schemas.message import Message as PydanticMessage
 from letta.schemas.openai.chat_completion_request import Tool, Tool as OpenAITool
@@ -93,7 +94,7 @@ class GoogleVertexClient(LLMClientBase):
                 code=ErrorCode.INTERNAL_SERVER_ERROR,
             )
         except Exception as e:
-            raise self.handle_llm_error(e)
+            raise self.handle_llm_error(e, llm_config=llm_config)
 
     @trace_method
     async def request_async(self, request_data: dict, llm_config: LLMConfig) -> dict:
@@ -135,11 +136,11 @@ class GoogleVertexClient(LLMClientBase):
                     logger.warning(f"Received {e}, retrying {retry_count}/{self.MAX_RETRIES}")
                     retry_count += 1
                     if retry_count > self.MAX_RETRIES:
-                        raise self.handle_llm_error(e)
+                        raise self.handle_llm_error(e, llm_config=llm_config)
                     continue
-                raise self.handle_llm_error(e)
+                raise self.handle_llm_error(e, llm_config=llm_config)
             except Exception as e:
-                raise self.handle_llm_error(e)
+                raise self.handle_llm_error(e, llm_config=llm_config)
             response_data = response.model_dump()
             is_malformed_function_call = self.is_malformed_function_call(response_data)
             if is_malformed_function_call:
@@ -211,9 +212,9 @@ class GoogleVertexClient(LLMClientBase):
             if e.code == 499:
                 logger.info(f"{self._provider_prefix()} Stream cancelled by client (499): {e}")
                 return
-            raise self.handle_llm_error(e)
+            raise self.handle_llm_error(e, llm_config=llm_config)
         except errors.APIError as e:
-            raise self.handle_llm_error(e)
+            raise self.handle_llm_error(e, llm_config=llm_config)
 
     @staticmethod
     def add_dummy_model_messages(messages: List[dict]) -> List[dict]:
@@ -851,7 +852,9 @@ class GoogleVertexClient(LLMClientBase):
         return False
 
     @trace_method
-    def handle_llm_error(self, e: Exception) -> Exception:
+    def handle_llm_error(self, e: Exception, llm_config: Optional[LLMConfig] = None) -> Exception:
+        is_byok = (llm_config.provider_category == ProviderCategory.byok) if llm_config else None
+
         # Handle Google GenAI specific errors
         if isinstance(e, errors.ClientError):
             if e.code == 499:
@@ -859,7 +862,7 @@ class GoogleVertexClient(LLMClientBase):
                 return LLMConnectionError(
                     message=f"Request to {self._provider_name()} was cancelled (client disconnected): {str(e)}",
                     code=ErrorCode.INTERNAL_SERVER_ERROR,
-                    details={"status_code": 499, "cause": "client_cancelled"},
+                    details={"status_code": 499, "cause": "client_cancelled", "is_byok": is_byok},
                 )
 
             logger.warning(f"{self._provider_prefix()} Client error ({e.code}): {e}")
@@ -870,43 +873,50 @@ class GoogleVertexClient(LLMClientBase):
                 if "context" in error_str and ("exceed" in error_str or "limit" in error_str or "too long" in error_str):
                     return ContextWindowExceededError(
                         message=f"Bad request to {self._provider_name()} (context window exceeded): {str(e)}",
+                        details={"is_byok": is_byok},
                     )
                 else:
                     return LLMBadRequestError(
                         message=f"Bad request to {self._provider_name()}: {str(e)}",
                         code=ErrorCode.INTERNAL_SERVER_ERROR,
+                        details={"is_byok": is_byok},
                     )
             elif e.code == 401:
                 return LLMAuthenticationError(
                     message=f"Authentication failed with {self._provider_name()}: {str(e)}",
                     code=ErrorCode.INTERNAL_SERVER_ERROR,
+                    details={"is_byok": is_byok},
                 )
             elif e.code == 403:
                 return LLMPermissionDeniedError(
                     message=f"Permission denied by {self._provider_name()}: {str(e)}",
                     code=ErrorCode.INTERNAL_SERVER_ERROR,
+                    details={"is_byok": is_byok},
                 )
             elif e.code == 404:
                 return LLMNotFoundError(
                     message=f"Resource not found in {self._provider_name()}: {str(e)}",
                     code=ErrorCode.INTERNAL_SERVER_ERROR,
+                    details={"is_byok": is_byok},
                 )
             elif e.code == 408:
                 return LLMTimeoutError(
                     message=f"Request to {self._provider_name()} timed out: {str(e)}",
                     code=ErrorCode.TIMEOUT,
-                    details={"cause": str(e.__cause__) if e.__cause__ else None},
+                    details={"cause": str(e.__cause__) if e.__cause__ else None, "is_byok": is_byok},
                 )
             elif e.code == 422:
                 return LLMUnprocessableEntityError(
                     message=f"Invalid request content for {self._provider_name()}: {str(e)}",
                     code=ErrorCode.INTERNAL_SERVER_ERROR,
+                    details={"is_byok": is_byok},
                 )
             elif e.code == 429:
                 logger.warning(f"{self._provider_prefix()} Rate limited (429). Consider backoff.")
                 return LLMRateLimitError(
                     message=f"Rate limited by {self._provider_name()}: {str(e)}",
                     code=ErrorCode.RATE_LIMIT_EXCEEDED,
+                    details={"is_byok": is_byok},
                 )
             else:
                 return LLMServerError(
@@ -915,6 +925,7 @@ class GoogleVertexClient(LLMClientBase):
                     details={
                         "status_code": e.code,
                         "response_json": getattr(e, "response_json", None),
+                        "is_byok": is_byok,
                     },
                 )
 
@@ -929,13 +940,14 @@ class GoogleVertexClient(LLMClientBase):
                     details={
                         "status_code": e.code,
                         "response_json": getattr(e, "response_json", None),
+                        "is_byok": is_byok,
                     },
                 )
             elif e.code == 502:
                 return LLMConnectionError(
                     message=f"Bad gateway from {self._provider_name()}: {str(e)}",
                     code=ErrorCode.INTERNAL_SERVER_ERROR,
-                    details={"cause": str(e.__cause__) if e.__cause__ else None},
+                    details={"cause": str(e.__cause__) if e.__cause__ else None, "is_byok": is_byok},
                 )
             elif e.code == 503:
                 return LLMServerError(
@@ -944,13 +956,14 @@ class GoogleVertexClient(LLMClientBase):
                     details={
                         "status_code": e.code,
                         "response_json": getattr(e, "response_json", None),
+                        "is_byok": is_byok,
                     },
                 )
             elif e.code == 504:
                 return LLMTimeoutError(
                     message=f"Gateway timeout from {self._provider_name()}: {str(e)}",
                     code=ErrorCode.TIMEOUT,
-                    details={"cause": str(e.__cause__) if e.__cause__ else None},
+                    details={"cause": str(e.__cause__) if e.__cause__ else None, "is_byok": is_byok},
                 )
             else:
                 return LLMServerError(
@@ -959,6 +972,7 @@ class GoogleVertexClient(LLMClientBase):
                     details={
                         "status_code": e.code,
                         "response_json": getattr(e, "response_json", None),
+                        "is_byok": is_byok,
                     },
                 )
 
@@ -970,6 +984,7 @@ class GoogleVertexClient(LLMClientBase):
                 details={
                     "status_code": e.code,
                     "response_json": getattr(e, "response_json", None),
+                    "is_byok": is_byok,
                 },
             )
 
@@ -981,7 +996,7 @@ class GoogleVertexClient(LLMClientBase):
             return LLMConnectionError(
                 message=f"Connection error during {self._provider_name()} streaming: {str(e)}",
                 code=ErrorCode.INTERNAL_SERVER_ERROR,
-                details={"cause": str(e.__cause__) if e.__cause__ else None},
+                details={"cause": str(e.__cause__) if e.__cause__ else None, "is_byok": is_byok},
             )
 
         # Handle httpx network errors which can occur during streaming
@@ -991,7 +1006,7 @@ class GoogleVertexClient(LLMClientBase):
             return LLMConnectionError(
                 message=f"Network error during {self._provider_name()} streaming: {str(e)}",
                 code=ErrorCode.INTERNAL_SERVER_ERROR,
-                details={"cause": str(e.__cause__) if e.__cause__ else None, "error_type": type(e).__name__},
+                details={"cause": str(e.__cause__) if e.__cause__ else None, "error_type": type(e).__name__, "is_byok": is_byok},
             )
 
         # Handle connection-related errors
@@ -1000,11 +1015,11 @@ class GoogleVertexClient(LLMClientBase):
             return LLMConnectionError(
                 message=f"Failed to connect to {self._provider_name()}: {str(e)}",
                 code=ErrorCode.INTERNAL_SERVER_ERROR,
-                details={"cause": str(e.__cause__) if e.__cause__ else None},
+                details={"cause": str(e.__cause__) if e.__cause__ else None, "is_byok": is_byok},
             )
 
         # Fallback to base implementation for other errors
-        return super().handle_llm_error(e)
+        return super().handle_llm_error(e, llm_config=llm_config)
 
     async def count_tokens(self, messages: List[dict] = None, model: str = None, tools: List[OpenAITool] = None) -> int:
         """

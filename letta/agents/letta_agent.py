@@ -1547,7 +1547,7 @@ class LettaAgent(BaseAgent):
                 step_id=step_id,
             )
         else:
-            raise llm_client.handle_llm_error(e)
+            raise llm_client.handle_llm_error(e, llm_config=llm_config)
 
     @trace_method
     async def _rebuild_context_window(

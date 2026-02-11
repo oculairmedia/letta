@@ -151,7 +151,7 @@ class SimpleLLMStreamAdapter(LettaLLMStreamAdapter):
                 error_msg=str(e),
                 error_type=type(e).__name__,
             )
-            raise self.llm_client.handle_llm_error(e)
+            raise self.llm_client.handle_llm_error(e, llm_config=self.llm_config)
 
         # Process the stream and yield chunks immediately for TTFT
         try:
@@ -169,7 +169,7 @@ class SimpleLLMStreamAdapter(LettaLLMStreamAdapter):
                 error_msg=str(e),
                 error_type=type(e).__name__,
             )
-            raise self.llm_client.handle_llm_error(e)
+            raise self.llm_client.handle_llm_error(e, llm_config=self.llm_config)
 
         # After streaming completes, extract the accumulated data
         self.llm_request_finish_timestamp_ns = get_utc_timestamp_ns()

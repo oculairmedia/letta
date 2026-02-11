@@ -592,7 +592,7 @@ async def simple_summary(
     except Exception as e:
         # handle LLM error (likely a context window exceeded error)
         try:
-            raise llm_client.handle_llm_error(e)
+            raise llm_client.handle_llm_error(e, llm_config=llm_config)
         except ContextWindowExceededError as context_error:
             logger.warning(f"Context window exceeded during summarization. Applying clamping fallbacks. Original error: {context_error}")
 
@@ -667,7 +667,7 @@ async def simple_summary(
                 except Exception as fallback_error_b:
                     logger.error(f"Transcript truncation fallback also failed: {fallback_error_b}. Propagating error.")
                     logger.info(f"Full fallback summarization payload: {request_data}")
-                    raise llm_client.handle_llm_error(fallback_error_b)
+                    raise llm_client.handle_llm_error(fallback_error_b, llm_config=llm_config)
 
     logger.info(f"Summarized {len(messages)}: {summary}")
 

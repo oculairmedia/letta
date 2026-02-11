@@ -226,7 +226,7 @@ class LLMClientBase:
                 )
             log_event(name="llm_response_received", attributes=response_data)
         except Exception as e:
-            raise self.handle_llm_error(e)
+            raise self.handle_llm_error(e, llm_config=llm_config)
 
         return await self.convert_response_to_chat_completion(response_data, messages, llm_config)
 
@@ -261,7 +261,7 @@ class LLMClientBase:
 
             log_event(name="llm_response_received", attributes=response_data)
         except Exception as e:
-            raise self.handle_llm_error(e)
+            raise self.handle_llm_error(e, llm_config=llm_config)
 
         return await self.convert_response_to_chat_completion(response_data, messages, llm_config)
 
@@ -353,17 +353,20 @@ class LLMClientBase:
         raise NotImplementedError
 
     @abstractmethod
-    def handle_llm_error(self, e: Exception) -> Exception:
+    def handle_llm_error(self, e: Exception, llm_config: Optional["LLMConfig"] = None) -> Exception:
         """
         Maps provider-specific errors to common LLMError types.
         Each LLM provider should implement this to translate their specific errors.
 
         Args:
             e: The original provider-specific exception
+            llm_config: Optional LLM config to determine if this is a BYOK key
 
         Returns:
             An LLMError subclass that represents the error in a provider-agnostic way
         """
+        is_byok = (llm_config.provider_category == ProviderCategory.byok) if llm_config else None
+
         # Handle httpx.RemoteProtocolError which can occur during streaming
         # when the remote server closes the connection unexpectedly
         # (e.g., "peer closed connection without sending complete message body")
@@ -375,10 +378,10 @@ class LLMClientBase:
             return LLMConnectionError(
                 message=f"Connection error during streaming: {str(e)}",
                 code=ErrorCode.INTERNAL_SERVER_ERROR,
-                details={"cause": str(e.__cause__) if e.__cause__ else None},
+                details={"cause": str(e.__cause__) if e.__cause__ else None, "is_byok": is_byok},
             )
 
-        return LLMError(f"Unhandled LLM error: {str(e)}")
+        return LLMError(message=f"Unhandled LLM error: {str(e)}", details={"is_byok": is_byok})
 
     def get_byok_overrides(self, llm_config: LLMConfig) -> Tuple[Optional[str], Optional[str], Optional[str]]:
         """

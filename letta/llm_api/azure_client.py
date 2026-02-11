@@ -97,7 +97,7 @@ class AzureClient(OpenAIClient):
                 response: ChatCompletion = await client.chat.completions.create(**request_data)
                 return response.model_dump()
         except Exception as e:
-            raise self.handle_llm_error(e)
+            raise self.handle_llm_error(e, llm_config=llm_config)
 
     @trace_method
     async def stream_async(self, request_data: dict, llm_config: LLMConfig) -> AsyncStream[ChatCompletionChunk | ResponseStreamEvent]:
