@@ -54,6 +54,7 @@ from letta.errors import (
     LettaUnsupportedFileUploadError,
     LettaUserNotFoundError,
     LLMAuthenticationError,
+    LLMBadRequestError,
     LLMError,
     LLMProviderOverloaded,
     LLMRateLimitError,
@@ -724,6 +725,19 @@ def create_application() -> "FastAPI":
                 "error": {
                     "type": "mcp_connection_error",
                     "message": "Failed to connect to MCP server.",
+                    "detail": str(exc),
+                }
+            },
+        )
+
+    @app.exception_handler(LLMBadRequestError)
+    async def llm_bad_request_error_handler(request: Request, exc: LLMBadRequestError):
+        return JSONResponse(
+            status_code=400,
+            content={
+                "error": {
+                    "type": "llm_bad_request",
+                    "message": "The request to the LLM model provider was invalid.",
                     "detail": str(exc),
                 }
             },

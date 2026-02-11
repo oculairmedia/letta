@@ -200,6 +200,8 @@ class GoogleVertexClient(LLMClientBase):
                 f"Please check your tool definitions. Error: {str(e)}",
                 code=ErrorCode.INTERNAL_SERVER_ERROR,
             )
+        except errors.APIError as e:
+            raise self.handle_llm_error(e)
         except Exception as e:
             logger.error(f"Error streaming {self._provider_name()} request: {e} with request data: {json.dumps(request_data)}")
             raise e
@@ -878,7 +880,7 @@ class GoogleVertexClient(LLMClientBase):
                 else:
                     return LLMBadRequestError(
                         message=f"Bad request to {self._provider_name()}: {str(e)}",
-                        code=ErrorCode.INTERNAL_SERVER_ERROR,
+                        code=ErrorCode.INVALID_ARGUMENT,
                         details={"is_byok": is_byok},
                     )
             elif e.code == 401:
