@@ -30242,6 +30242,60 @@
             "title": "Core Memory",
             "description": "The content of the core memory."
           },
+          "num_tokens_memory_filesystem": {
+            "type": "integer",
+            "title": "Num Tokens Memory Filesystem",
+            "description": "The number of tokens in the memory filesystem section (git-enabled agents only).",
+            "default": 0
+          },
+          "memory_filesystem": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Memory Filesystem",
+            "description": "The content of the memory filesystem section."
+          },
+          "num_tokens_tool_usage_rules": {
+            "type": "integer",
+            "title": "Num Tokens Tool Usage Rules",
+            "description": "The number of tokens in the tool usage rules section.",
+            "default": 0
+          },
+          "tool_usage_rules": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tool Usage Rules",
+            "description": "The content of the tool usage rules section."
+          },
+          "num_tokens_directories": {
+            "type": "integer",
+            "title": "Num Tokens Directories",
+            "description": "The number of tokens in the directories section (attached sources).",
+            "default": 0
+          },
+          "directories": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Directories",
+            "description": "The content of the directories section."
+          },
           "num_tokens_summary_memory": {
             "type": "integer",
             "title": "Num Tokens Summary Memory",

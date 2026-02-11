@@ -125,6 +125,9 @@ class BaseAgent(ABC):
 
             # extract the dynamic section that includes memory blocks, tool rules, and directories
             # this avoids timestamp comparison issues
+            # TODO: This is a separate position-based parser for the same system message format
+            # parsed by ContextWindowCalculator.extract_system_components(). Consider unifying
+            # to avoid divergence. See PR #9398 for context.
             def extract_dynamic_section(text):
                 start_marker = "</base_instructions>"
                 end_marker = "<memory_metadata>"

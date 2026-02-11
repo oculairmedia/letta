@@ -43,6 +43,17 @@ class ContextWindowOverview(BaseModel):
     num_tokens_core_memory: int = Field(..., description="The number of tokens in the core memory.")
     core_memory: str = Field(..., description="The content of the core memory.")
 
+    num_tokens_memory_filesystem: int = Field(
+        0, description="The number of tokens in the memory filesystem section (git-enabled agents only)."
+    )
+    memory_filesystem: Optional[str] = Field(None, description="The content of the memory filesystem section.")
+
+    num_tokens_tool_usage_rules: int = Field(0, description="The number of tokens in the tool usage rules section.")
+    tool_usage_rules: Optional[str] = Field(None, description="The content of the tool usage rules section.")
+
+    num_tokens_directories: int = Field(0, description="The number of tokens in the directories section (attached sources).")
+    directories: Optional[str] = Field(None, description="The content of the directories section.")
+
     num_tokens_summary_memory: int = Field(..., description="The number of tokens in the summary memory.")
     summary_memory: Optional[str] = Field(None, description="The content of the summary memory.")
 
