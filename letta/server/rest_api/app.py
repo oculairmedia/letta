@@ -11,6 +11,7 @@ from functools import partial
 from pathlib import Path
 from typing import Optional
 
+import anyio
 import uvicorn
 
 # Enable Python fault handler to get stack traces on segfaults
@@ -414,6 +415,12 @@ def create_application() -> "FastAPI":
 
     # === Exception Handlers ===
     # TODO (cliandy): move to separate file
+
+    @app.exception_handler(anyio.BrokenResourceError)
+    @app.exception_handler(anyio.ClosedResourceError)
+    async def client_disconnect_handler(request: Request, exc: Exception):
+        logger.info(f"Client disconnected: {request.method} {request.url.path}")
+        return JSONResponse(status_code=499, content={"detail": "Client disconnected"})
 
     @app.exception_handler(Exception)
     async def generic_error_handler(request: Request, exc: Exception):
