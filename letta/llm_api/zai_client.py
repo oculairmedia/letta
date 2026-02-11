@@ -17,7 +17,12 @@ from letta.settings import model_settings
 
 def is_zai_reasoning_model(model_name: str) -> bool:
     """Check if the model is a ZAI reasoning model (GLM-4.5+)."""
-    return model_name.startswith("glm-4.5") or model_name.startswith("glm-4.6") or model_name.startswith("glm-4.7")
+    return (
+        model_name.startswith("glm-4.5")
+        or model_name.startswith("glm-4.6")
+        or model_name.startswith("glm-4.7")
+        or model_name.startswith("glm-5")
+    )
 
 
 class ZAIClient(OpenAIClient):

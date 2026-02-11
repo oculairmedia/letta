@@ -473,7 +473,10 @@ class LLMConfig(BaseModel):
     @classmethod
     def is_zai_reasoning_model(cls, config: "LLMConfig") -> bool:
         return config.model_endpoint_type == "zai" and (
-            config.model.startswith("glm-4.5") or config.model.startswith("glm-4.6") or config.model.startswith("glm-4.7")
+            config.model.startswith("glm-4.5")
+            or config.model.startswith("glm-4.6")
+            or config.model.startswith("glm-4.7")
+            or config.model.startswith("glm-5")
         )
 
     @classmethod
@@ -499,7 +502,7 @@ class LLMConfig(BaseModel):
         if "gemini" in model:
             return True
         # ZAI GLM reasoning models
-        if "glm-4.5" in model or "glm-4.6" in model or "glm-4.7" in model:
+        if "glm-4.5" in model or "glm-4.6" in model or "glm-4.7" in model or "glm-5" in model:
             return True
         # DeepSeek reasoning models
         if "deepseek-r1" in model or "deepseek-reasoner" in model:

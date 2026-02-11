@@ -37,7 +37,7 @@ all_configs = [
     "openai-gpt-5.json",
     "claude-4-5-sonnet.json",
     "gemini-2.5-pro.json",
-    "zai-glm-4.6.json",
+    "zai-glm-5.json",
 ]
 
 
