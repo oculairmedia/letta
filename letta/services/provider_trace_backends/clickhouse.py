@@ -1,7 +1,6 @@
 """ClickHouse provider trace backend.
 
-Writes traces to the llm_traces table with denormalized columns for cost analytics.
-Reads from the OTEL traces table (will eventually cut over to llm_traces).
+Writes and reads from the llm_traces table with denormalized columns for cost analytics.
 """
 
 import json
@@ -22,12 +21,7 @@ logger = get_logger(__name__)
 
 
 class ClickhouseProviderTraceBackend(ProviderTraceBackendClient):
-    """
-    ClickHouse backend for provider traces.
-
-    - Writes go to llm_traces table (denormalized for cost analytics)
-    - Reads come from OTEL traces table (will cut over to llm_traces later)
-    """
+    """ClickHouse backend for provider traces (reads and writes from llm_traces table)."""
 
     def __init__(self):
         self._reader = ClickhouseProviderTraceReader()
@@ -71,7 +65,7 @@ class ClickhouseProviderTraceBackend(ProviderTraceBackendClient):
         step_id: str,
         actor: User,
     ) -> ProviderTrace | None:
-        """Read from OTEL traces table (will cut over to llm_traces later)."""
+        """Read provider trace from llm_traces table by step_id."""
         return await self._reader.get_provider_trace_by_step_id_async(
             step_id=step_id,
             organization_id=actor.organization_id,
