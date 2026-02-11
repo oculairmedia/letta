@@ -1532,11 +1532,17 @@ class Message(BaseMessage):
         message_dicts = []
 
         if self.role == "system":
-            assert len(self.content) == 1 and isinstance(self.content[0], TextContent), vars(self)
+            text_parts = [c.text for c in (self.content or []) if isinstance(c, TextContent)]
+            if not text_parts:
+                logger.warning(
+                    f"System message {self.id} has no text content, skipping: roles={[type(c).__name__ for c in (self.content or [])]}"
+                )
+                return message_dicts
+            system_text = "\n\n".join(text_parts)
             message_dicts.append(
                 {
                     "role": "developer",
-                    "content": self.content[0].text,
+                    "content": system_text,
                 }
             )
 
@@ -1847,10 +1853,20 @@ class Message(BaseMessage):
         if self.role == "system":
             # NOTE: this is not for system instructions, but instead system "events"
 
-            assert text_content is not None, vars(self)
+            system_text = text_content
+            if system_text is None:
+                text_parts = [c.text for c in (self.content or []) if isinstance(c, TextContent)]
+                if not text_parts:
+                    from letta.log import get_logger as _get_logger
+
+                    _get_logger(__name__).warning(
+                        f"System message {self.id} has no text content, skipping: roles={[type(c).__name__ for c in (self.content or [])]}"
+                    )
+                    return None
+                system_text = "\n\n".join(text_parts)
             # Two options here, we would use system.package_system_message,
             # or use a more Anthropic-specific packaging ie xml tags
-            user_system_event = add_xml_tag(string=f"SYSTEM ALERT: {text_content}", xml_tag="event")
+            user_system_event = add_xml_tag(string=f"SYSTEM ALERT: {system_text}", xml_tag="event")
             anthropic_message = {
                 "content": user_system_event,
                 "role": "user",
