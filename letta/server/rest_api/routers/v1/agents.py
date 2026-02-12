@@ -313,8 +313,8 @@ async def export_agent(
         raise HTTPException(status_code=400, detail="Legacy format is not supported")
     actor = await server.user_manager.get_actor_or_default_async(actor_id=headers.actor_id)
     agent_file_schema = await server.agent_serialization_manager.export(
-        agent_ids=[agent_id], 
-        actor=actor, 
+        agent_ids=[agent_id],
+        actor=actor,
         conversation_id=conversation_id,
         scrub_messages=scrub_messages,
     )
@@ -2306,6 +2306,7 @@ async def reset_messages(
         actor=actor,
         add_default_initial_messages=request.add_default_initial_messages,
         needs_agent_state=not is_1_0_sdk_version(headers),
+        rebuild_system_prompt=True,
     )
 
 

@@ -202,7 +202,7 @@ class LettaAgentV3(LettaAgentV2):
             input_messages_to_persist = [input_messages_to_persist[0]]
 
         self.in_context_messages = curr_in_context_messages
-        
+
         # Check if we should use SGLang native adapter for multi-turn RL training
         use_sglang_native = (
             self.agent_state.llm_config.return_token_ids
@@ -210,7 +210,7 @@ class LettaAgentV3(LettaAgentV2):
             and self.agent_state.llm_config.handle.startswith("sglang/")
         )
         self.return_token_ids = use_sglang_native
-        
+
         if use_sglang_native:
             # Use SGLang native adapter for multi-turn RL training
             llm_adapter = SGLangNativeAdapter(
@@ -399,7 +399,7 @@ class LettaAgentV3(LettaAgentV2):
             and self.agent_state.llm_config.handle.startswith("sglang/")
         )
         self.return_token_ids = use_sglang_native
-        
+
         if stream_tokens:
             llm_adapter = SimpleLLMStreamAdapter(
                 llm_client=self.llm_client,
@@ -977,6 +977,10 @@ class LettaAgentV3(LettaAgentV2):
                                         trigger="context_window_exceeded",
                                     )
 
+                                # Ensure system prompt is recompiled before summarization so compaction
+                                # operates on the latest system+memory state (including recent repairs).
+                                messages = await self._refresh_messages(messages, force_system_prompt_refresh=True)
+
                                 summary_message, messages, summary_text = await self.compact(
                                     messages,
                                     trigger_threshold=self.agent_state.llm_config.context_window,
@@ -986,6 +990,15 @@ class LettaAgentV3(LettaAgentV2):
                                     trigger="context_window_exceeded",
                                     context_tokens_before=context_tokens_before,
                                     messages_count_before=messages_count_before,
+                                )
+
+                                # Recompile the persisted system prompt after compaction so subsequent
+                                # turns load the repaired system+memory state from message_ids[0].
+                                await self.agent_manager.rebuild_system_prompt_async(
+                                    agent_id=self.agent_state.id,
+                                    actor=self.actor,
+                                    force=True,
+                                    update_timestamp=True,
                                 )
                                 # Force system prompt rebuild after compaction to update memory blocks and timestamps
                                 messages = await self._refresh_messages(messages, force_system_prompt_refresh=True)
@@ -1038,15 +1051,19 @@ class LettaAgentV3(LettaAgentV2):
                 # Extract logprobs if present (for RL training)
                 if llm_adapter.logprobs is not None:
                     self.logprobs = llm_adapter.logprobs
-                
+
                 # Track turn data for multi-turn RL training (SGLang native mode)
                 if self.return_token_ids and hasattr(llm_adapter, "output_ids") and llm_adapter.output_ids:
-                    self.turns.append(TurnTokenData(
-                        role="assistant",
-                        output_ids=llm_adapter.output_ids,
-                        output_token_logprobs=llm_adapter.output_token_logprobs,
-                        content=llm_adapter.chat_completions_response.choices[0].message.content if llm_adapter.chat_completions_response else None,
-                    ))
+                    self.turns.append(
+                        TurnTokenData(
+                            role="assistant",
+                            output_ids=llm_adapter.output_ids,
+                            output_token_logprobs=llm_adapter.output_token_logprobs,
+                            content=llm_adapter.chat_completions_response.choices[0].message.content
+                            if llm_adapter.chat_completions_response
+                            else None,
+                        )
+                    )
 
                 # Handle the AI response with the extracted data (supports multiple tool calls)
                 # Gather tool calls - check for multi-call API first, then fall back to single
@@ -1093,7 +1110,7 @@ class LettaAgentV3(LettaAgentV2):
             # extend trackers with new messages
             self.response_messages.extend(new_messages)
             messages.extend(new_messages)
-            
+
             # Track tool return turns for multi-turn RL training
             if self.return_token_ids:
                 for msg in new_messages:
@@ -1105,7 +1122,7 @@ class LettaAgentV3(LettaAgentV2):
                             # Aggregate all tool returns into content (func_response is the actual content)
                             parts = []
                             for tr in msg.tool_returns:
-                                if hasattr(tr, 'func_response') and tr.func_response:
+                                if hasattr(tr, "func_response") and tr.func_response:
                                     if isinstance(tr.func_response, str):
                                         parts.append(tr.func_response)
                                     else:
@@ -1116,11 +1133,13 @@ class LettaAgentV3(LettaAgentV2):
                         if hasattr(msg, "name"):
                             tool_name = msg.name
                         if tool_content:
-                            self.turns.append(TurnTokenData(
-                                role="tool",
-                                content=tool_content,
-                                tool_name=tool_name,
-                            ))
+                            self.turns.append(
+                                TurnTokenData(
+                                    role="tool",
+                                    content=tool_content,
+                                    tool_name=tool_name,
+                                )
+                            )
 
             # step(...) has successfully completed! now we can persist messages and update the in-context messages + save metrics
             # persistence needs to happen before streaming to minimize chances of agent getting into an inconsistent state
@@ -1177,6 +1196,10 @@ class LettaAgentV3(LettaAgentV2):
                     )
 
                 try:
+                    # Ensure system prompt is recompiled before summarization so compaction
+                    # operates on the latest system+memory state (including recent repairs).
+                    messages = await self._refresh_messages(messages, force_system_prompt_refresh=True)
+
                     summary_message, messages, summary_text = await self.compact(
                         messages,
                         trigger_threshold=self.agent_state.llm_config.context_window,
@@ -1186,6 +1209,15 @@ class LettaAgentV3(LettaAgentV2):
                         trigger="post_step_context_check",
                         context_tokens_before=context_tokens_before,
                         messages_count_before=messages_count_before,
+                    )
+
+                    # Recompile the persisted system prompt after compaction so subsequent
+                    # turns load the repaired system+memory state from message_ids[0].
+                    await self.agent_manager.rebuild_system_prompt_async(
+                        agent_id=self.agent_state.id,
+                        actor=self.actor,
+                        force=True,
+                        update_timestamp=True,
                     )
                     # Force system prompt rebuild after compaction to update memory blocks and timestamps
                     messages = await self._refresh_messages(messages, force_system_prompt_refresh=True)

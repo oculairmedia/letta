@@ -333,7 +333,7 @@ Some directory content
         )
         result = ContextWindowCalculator.extract_system_components(system_message)
 
-        # memory_filesystem should be the tree view only
+        # memory_filesystem should preserve tree connectors with deterministic ordering
         assert result["memory_filesystem"] is not None
         assert "\u251c\u2500\u2500 system/" in result["memory_filesystem"]
 

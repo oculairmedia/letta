@@ -243,7 +243,8 @@ class Memory(BaseModel, validate_assignment=True):
         """Render a filesystem tree view of all memory blocks.
 
         Only rendered for git-memory-enabled agents. Uses box-drawing
-        characters (├──, └──, │) like the Unix `tree` command.
+        characters (├──, └──, │) like the Unix `tree` command, while keeping
+        deterministic ordering (directories first, then files, alphabetically).
         """
         if not self.blocks:
             return

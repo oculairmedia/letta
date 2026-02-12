@@ -551,19 +551,16 @@ class BlockManager:
             result = await session.execute(query)
             blocks = result.scalars().all()
 
-            # Convert to Pydantic models
+            # Convert to Pydantic models and preserve caller-provided ID order
             pydantic_blocks = [block.to_pydantic() for block in blocks]
+            blocks_by_id = {b.id: b for b in pydantic_blocks}
+            ordered_blocks = [blocks_by_id.get(block_id) for block_id in block_ids]
 
-            # For backward compatibility, add None for missing blocks
+            # For backward compatibility, include None for missing blocks
             if len(pydantic_blocks) < len(block_ids):
-                {block.id for block in pydantic_blocks}
-                result_blocks = []
-                for block_id in block_ids:
-                    block = next((b for b in pydantic_blocks if b.id == block_id), None)
-                    result_blocks.append(block)
-                return result_blocks
+                return ordered_blocks
 
-            return pydantic_blocks
+            return ordered_blocks
 
     @enforce_types
     @trace_method

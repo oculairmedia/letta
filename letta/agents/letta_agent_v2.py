@@ -704,19 +704,18 @@ class LettaAgentV2(BaseAgentV2):
         Returns:
             Refreshed in-context messages.
         """
-        # Always attempt to rebuild the system prompt if the memory section changed.
-        # This method is careful to skip rebuilds when the memory section is unchanged.
-        try:
-            in_context_messages = await self._rebuild_memory(
-                in_context_messages,
-                num_messages=None,
-                num_archival_memories=None,
-            )
-        except Exception as e:
-            # If callers requested a forced refresh, surface the error.
-            if force_system_prompt_refresh:
+        # Only rebuild when explicitly forced (e.g., after compaction).
+        # Normal turns should not trigger system prompt recompilation.
+        if force_system_prompt_refresh:
+            try:
+                in_context_messages = await self._rebuild_memory(
+                    in_context_messages,
+                    num_messages=None,
+                    num_archival_memories=None,
+                    force=True,
+                )
+            except Exception as e:
                 raise
-            self.logger.warning(f"Failed to refresh system prompt/memory: {e}")
 
         # Always scrub inner thoughts regardless of system prompt refresh
         in_context_messages = scrub_inner_thoughts_from_messages(in_context_messages, self.agent_state.llm_config)
@@ -728,6 +727,7 @@ class LettaAgentV2(BaseAgentV2):
         in_context_messages: list[Message],
         num_messages: int | None,
         num_archival_memories: int | None,
+        force: bool = False,
     ):
         agent_state = await self.agent_manager.refresh_memory_async(agent_state=self.agent_state, actor=self.actor)
 
@@ -748,51 +748,24 @@ class LettaAgentV2(BaseAgentV2):
         else:
             archive_tags = None
 
-        # TODO: This is a pretty brittle pattern established all over our code, need to get rid of this
         curr_system_message = in_context_messages[0]
         curr_system_message_text = curr_system_message.content[0].text
-
-        # Extract the memory section that includes <memory_blocks>, tool rules, and directories.
-        # This avoids timestamp comparison issues in <memory_metadata>, which is dynamic.
-        def extract_memory_section(text: str) -> str:
-            # Primary pattern: everything from <memory_blocks> up to <memory_metadata>
-            mem_start = text.find("<memory_blocks>")
-            meta_start = text.find("<memory_metadata>")
-            if mem_start != -1:
-                if meta_start != -1 and meta_start > mem_start:
-                    return text[mem_start:meta_start]
-                return text[mem_start:]
-
-            # Fallback pattern used in some legacy prompts: between </base_instructions> and <memory_metadata>
-            base_end = text.find("</base_instructions>")
-            if base_end != -1:
-                if meta_start != -1 and meta_start > base_end:
-                    return text[base_end + len("</base_instructions>") : meta_start]
-                return text[base_end + len("</base_instructions>") :]
-
-            # Last resort: return full text
-            return text
-
-        curr_memory_section = extract_memory_section(curr_system_message_text)
 
         # refresh files
         agent_state = await self.agent_manager.refresh_file_blocks(agent_state=agent_state, actor=self.actor)
 
-        # generate just the memory string with current state for comparison
+        # generate memory string with current state
         curr_memory_str = agent_state.memory.compile(
             tool_usage_rules=tool_constraint_block,
             sources=agent_state.sources,
             max_files_open=agent_state.max_files_open,
             llm_config=agent_state.llm_config,
         )
-        new_memory_section = extract_memory_section(curr_memory_str)
 
-        # Compare just the memory sections (memory blocks, tool rules, directories).
-        # Also ensure the configured system prompt is still present; if the system prompt
-        # changed (e.g. via UpdateAgent(system=...)), we must rebuild.
+        # Skip rebuild unless explicitly forced and unless system/memory content actually changed.
         system_prompt_changed = agent_state.system not in curr_system_message_text
-
-        if (not system_prompt_changed) and (curr_memory_section.strip() == new_memory_section.strip()):
+        memory_changed = curr_memory_str not in curr_system_message_text
+        if (not force) and (not system_prompt_changed) and (not memory_changed):
             self.logger.debug(
                 f"Memory, sources, and system prompt haven't changed for agent id={agent_state.id} and actor=({self.actor.id}, {self.actor.name}), skipping system prompt rebuild"
             )
