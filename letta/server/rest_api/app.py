@@ -54,6 +54,7 @@ from letta.errors import (
     LLMAuthenticationError,
     LLMBadRequestError,
     LLMError,
+    LLMInsufficientCreditsError,
     LLMProviderOverloaded,
     LLMRateLimitError,
     LLMTimeoutError,
@@ -699,6 +700,24 @@ def create_application() -> "FastAPI":
             content={
                 "error": {
                     "type": "llm_rate_limit",
+                    "message": message,
+                    "detail": str(exc),
+                }
+            },
+        )
+
+    @app.exception_handler(LLMInsufficientCreditsError)
+    async def llm_insufficient_credits_handler(request: Request, exc: LLMInsufficientCreditsError):
+        is_byok = exc.details.get("is_byok") if isinstance(exc.details, dict) else None
+        if is_byok:
+            message = "Insufficient credits on your API key. Please add credits with your LLM provider."
+        else:
+            message = "Insufficient credits for LLM request. Please check your account."
+        return JSONResponse(
+            status_code=402,
+            content={
+                "error": {
+                    "type": "llm_insufficient_credits",
                     "message": message,
                     "detail": str(exc),
                 }

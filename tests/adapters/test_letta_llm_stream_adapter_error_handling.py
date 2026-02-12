@@ -1,10 +1,18 @@
 import anthropic
 import httpx
+import openai
 import pytest
 from google.genai import errors as google_errors
 
 from letta.adapters.letta_llm_stream_adapter import LettaLLMStreamAdapter
-from letta.errors import ContextWindowExceededError, LLMBadRequestError, LLMConnectionError, LLMError, LLMServerError
+from letta.errors import (
+    ContextWindowExceededError,
+    LLMBadRequestError,
+    LLMConnectionError,
+    LLMError,
+    LLMInsufficientCreditsError,
+    LLMServerError,
+)
 from letta.llm_api.anthropic_client import AnthropicClient
 from letta.llm_api.google_vertex_client import GoogleVertexClient
 from letta.schemas.enums import LLMCallType
@@ -235,3 +243,48 @@ def test_google_client_handle_llm_error_generic_400_returns_bad_request():
     result = client.handle_llm_error(error)
     assert isinstance(result, LLMBadRequestError)
     assert not isinstance(result, ContextWindowExceededError)
+
+
+@pytest.mark.parametrize(
+    "error_message",
+    [
+        "Insufficient credits. Add more using https://openrouter.ai/settings/credits",
+        "This request requires more credits, or fewer max_tokens. You requested up to 65536 tokens, but can only afford 2679.",
+        "You exceeded your current quota, please check your plan and billing details.",
+    ],
+    ids=["openrouter-402", "openrouter-streaming-afford", "openai-quota-exceeded"],
+)
+def test_openai_client_handle_llm_error_insufficient_credits(error_message):
+    """Credit/quota errors should map to LLMInsufficientCreditsError."""
+    from letta.llm_api.openai_client import OpenAIClient
+
+    client = OpenAIClient()
+    request = httpx.Request("POST", "https://api.openai.com/v1/chat/completions")
+    error = openai.APIError(message=error_message, request=request, body=None)
+    result = client.handle_llm_error(error)
+    assert isinstance(result, LLMInsufficientCreditsError)
+
+
+def test_openai_client_handle_llm_error_402_status_code():
+    """402 APIStatusError should map to LLMInsufficientCreditsError."""
+    from letta.llm_api.openai_client import OpenAIClient
+
+    client = OpenAIClient()
+    request = httpx.Request("POST", "https://openrouter.ai/api/v1/chat/completions")
+    response = httpx.Response(status_code=402, request=request)
+    body = {"error": {"message": "Insufficient credits", "code": 402}}
+    error = openai.APIStatusError("Insufficient credits", response=response, body=body)
+    result = client.handle_llm_error(error)
+    assert isinstance(result, LLMInsufficientCreditsError)
+
+
+def test_openai_client_handle_llm_error_non_credit_api_error():
+    """Non-credit bare APIError should map to LLMBadRequestError, not LLMInsufficientCreditsError."""
+    from letta.llm_api.openai_client import OpenAIClient
+
+    client = OpenAIClient()
+    request = httpx.Request("POST", "https://api.openai.com/v1/chat/completions")
+    error = openai.APIError(message="Some other API error occurred", request=request, body=None)
+    result = client.handle_llm_error(error)
+    assert isinstance(result, LLMBadRequestError)
+    assert not isinstance(result, LLMInsufficientCreditsError)

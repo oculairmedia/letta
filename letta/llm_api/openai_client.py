@@ -20,6 +20,7 @@ from letta.errors import (
     LLMAuthenticationError,
     LLMBadRequestError,
     LLMConnectionError,
+    LLMInsufficientCreditsError,
     LLMNotFoundError,
     LLMPermissionDeniedError,
     LLMRateLimitError,
@@ -28,7 +29,7 @@ from letta.errors import (
     LLMUnprocessableEntityError,
 )
 from letta.helpers.json_helpers import sanitize_unicode_surrogates
-from letta.llm_api.error_utils import is_context_window_overflow_message
+from letta.llm_api.error_utils import is_context_window_overflow_message, is_insufficient_credits_message
 from letta.llm_api.helpers import (
     add_inner_thoughts_to_functions,
     convert_response_format_to_responses_api,
@@ -1110,7 +1111,7 @@ class OpenAIClient(LLMClientBase):
         #
         # Example message:
         #   "Your input exceeds the context window of this model. Please adjust your input and try again."
-        if isinstance(e, openai.APIError):
+        if isinstance(e, openai.APIError) and not isinstance(e, openai.APIStatusError):
             msg = str(e)
             if is_context_window_overflow_message(msg):
                 return ContextWindowExceededError(
@@ -1121,6 +1122,25 @@ class OpenAIClient(LLMClientBase):
                         "is_byok": is_byok,
                     },
                 )
+            if is_insufficient_credits_message(msg):
+                return LLMInsufficientCreditsError(
+                    message=f"Insufficient credits (BYOK): {msg}" if is_byok else f"Insufficient credits: {msg}",
+                    code=ErrorCode.PAYMENT_REQUIRED,
+                    details={
+                        "provider_exception_type": type(e).__name__,
+                        "body": getattr(e, "body", None),
+                        "is_byok": is_byok,
+                    },
+                )
+            return LLMBadRequestError(
+                message=f"OpenAI API error: {msg}",
+                code=ErrorCode.INVALID_ARGUMENT,
+                details={
+                    "provider_exception_type": type(e).__name__,
+                    "body": getattr(e, "body", None),
+                    "is_byok": is_byok,
+                },
+            )
 
         if isinstance(e, openai.AuthenticationError):
             logger.error(f"[OpenAI] Authentication error (401): {str(e)}")  # More severe log level
@@ -1167,6 +1187,14 @@ class OpenAIClient(LLMClientBase):
                 return ContextWindowExceededError(
                     message=f"Request too large for OpenAI (413): {str(e)}",
                     details={"is_byok": is_byok},
+                )
+            # Handle 402 Payment Required or credit-related messages
+            if e.status_code == 402 or is_insufficient_credits_message(str(e)):
+                msg = str(e)
+                return LLMInsufficientCreditsError(
+                    message=f"Insufficient credits (BYOK): {msg}" if is_byok else f"Insufficient credits: {msg}",
+                    code=ErrorCode.PAYMENT_REQUIRED,
+                    details={"status_code": e.status_code, "body": e.body, "is_byok": is_byok},
                 )
             # Map based on status code potentially
             if e.status_code >= 500:

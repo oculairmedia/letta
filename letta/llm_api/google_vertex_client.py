@@ -23,6 +23,7 @@ from letta.errors import (
     LLMAuthenticationError,
     LLMBadRequestError,
     LLMConnectionError,
+    LLMInsufficientCreditsError,
     LLMNotFoundError,
     LLMPermissionDeniedError,
     LLMRateLimitError,
@@ -32,6 +33,7 @@ from letta.errors import (
 )
 from letta.helpers.datetime_helpers import get_utc_time_int
 from letta.helpers.json_helpers import json_dumps, json_loads, sanitize_unicode_surrogates
+from letta.llm_api.error_utils import is_insufficient_credits_message
 from letta.llm_api.llm_client_base import LLMClientBase
 from letta.local_llm.json_parser import clean_json_string_extra_backslash
 from letta.log import get_logger
@@ -931,6 +933,13 @@ class GoogleVertexClient(LLMClientBase):
                     message=f"Request to {self._provider_name()} timed out: {str(e)}",
                     code=ErrorCode.TIMEOUT,
                     details={"cause": str(e.__cause__) if e.__cause__ else None, "is_byok": is_byok},
+                )
+            elif e.code == 402 or is_insufficient_credits_message(str(e)):
+                msg = str(e)
+                return LLMInsufficientCreditsError(
+                    message=f"Insufficient credits (BYOK): {msg}" if is_byok else f"Insufficient credits: {msg}",
+                    code=ErrorCode.PAYMENT_REQUIRED,
+                    details={"status_code": e.code, "is_byok": is_byok},
                 )
             elif e.code == 422:
                 return LLMUnprocessableEntityError(

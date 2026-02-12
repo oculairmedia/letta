@@ -20,6 +20,7 @@ class ErrorCode(Enum):
     TIMEOUT = "TIMEOUT"
     CONFLICT = "CONFLICT"
     EXPIRED = "EXPIRED"
+    PAYMENT_REQUIRED = "PAYMENT_REQUIRED"
 
 
 class LettaError(Exception):
@@ -254,6 +255,10 @@ class LLMRateLimitError(LLMError):
 
 class LLMBadRequestError(LLMError):
     """Error when LLM service cannot process request"""
+
+
+class LLMInsufficientCreditsError(LLMError):
+    """Error when LLM provider reports insufficient credits or quota"""
 
 
 class LLMAuthenticationError(LLMError):

@@ -19,6 +19,7 @@ from letta.errors import (
     LLMAuthenticationError,
     LLMBadRequestError,
     LLMConnectionError,
+    LLMInsufficientCreditsError,
     LLMNotFoundError,
     LLMPermissionDeniedError,
     LLMProviderOverloaded,
@@ -31,6 +32,7 @@ from letta.helpers.datetime_helpers import get_utc_time_int
 from letta.helpers.decorators import deprecated
 from letta.helpers.json_helpers import sanitize_unicode_surrogates
 from letta.llm_api.anthropic_constants import ANTHROPIC_MAX_STRICT_TOOLS, ANTHROPIC_STRICT_MODE_ALLOWLIST
+from letta.llm_api.error_utils import is_insufficient_credits_message
 from letta.llm_api.helpers import add_inner_thoughts_to_functions, unpack_all_inner_thoughts_from_kwargs
 from letta.llm_api.llm_client_base import LLMClientBase
 from letta.local_llm.constants import INNER_THOUGHTS_KWARG, INNER_THOUGHTS_KWARG_DESCRIPTION
@@ -1088,6 +1090,13 @@ class AnthropicClient(LLMClientBase):
 
         if isinstance(e, anthropic.APIStatusError):
             logger.warning(f"[Anthropic] API status error: {str(e)}")
+            if hasattr(e, "status_code") and e.status_code == 402 or is_insufficient_credits_message(str(e)):
+                msg = str(e)
+                return LLMInsufficientCreditsError(
+                    message=f"Insufficient credits (BYOK): {msg}" if is_byok else f"Insufficient credits: {msg}",
+                    code=ErrorCode.PAYMENT_REQUIRED,
+                    details={"status_code": getattr(e, "status_code", None), "is_byok": is_byok},
+                )
             if hasattr(e, "status_code") and e.status_code == 413:
                 logger.warning(f"[Anthropic] Request too large (413): {str(e)}")
                 return ContextWindowExceededError(
