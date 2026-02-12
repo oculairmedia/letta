@@ -68,6 +68,32 @@ class ZAIClient(OpenAIClient):
                     }
                 }
 
+        # Sanitize empty text content — ZAI rejects empty text blocks
+        if "messages" in data:
+            for msg in data["messages"]:
+                content = msg.get("content") if isinstance(msg, dict) else getattr(msg, "content", None)
+                # String content: replace empty with None (assistant+tool_calls) or "."
+                if isinstance(content, str) and not content.strip():
+                    role = msg.get("role") if isinstance(msg, dict) else getattr(msg, "role", None)
+                    has_tool_calls = msg.get("tool_calls") if isinstance(msg, dict) else getattr(msg, "tool_calls", None)
+                    if role == "assistant" and has_tool_calls:
+                        # assistant + tool_calls: null content is valid in OpenAI format
+                        if isinstance(msg, dict):
+                            msg["content"] = None
+                        else:
+                            msg.content = None
+                    else:
+                        if isinstance(msg, dict):
+                            msg["content"] = "."
+                        else:
+                            msg.content = "."
+                # List content: fix empty text blocks within arrays
+                elif isinstance(content, list):
+                    for block in content:
+                        if isinstance(block, dict) and block.get("type") == "text":
+                            if not block.get("text", "").strip():
+                                block["text"] = "."
+
         return data
 
     @trace_method
