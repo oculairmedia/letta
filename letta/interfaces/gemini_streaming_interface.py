@@ -97,9 +97,11 @@ class SimpleGeminiStreamingInterface:
 
     def get_content(self) -> List[ReasoningContent | TextContent | ToolCallContent]:
         """This is (unusually) in chunked format, instead of merged"""
+        has_reasoning = any(isinstance(c, ReasoningContent) for c in self.content_parts)
         for content in self.content_parts:
             if isinstance(content, ReasoningContent):
-                # This assumes there is only one signature per turn
+                content.signature = self.thinking_signature
+            elif isinstance(content, TextContent) and not has_reasoning and self.thinking_signature:
                 content.signature = self.thinking_signature
         return self.content_parts
 
