@@ -34,8 +34,8 @@ def serialize_block(
 ) -> str:
     """Serialize a block to Markdown with optional YAML frontmatter.
 
-    Only non-default fields are included in the frontmatter.
-    If all fields are at their defaults, no frontmatter is emitted.
+    This is used for initial file creation. For updates to existing files,
+    prefer `merge_frontmatter_with_body` to preserve user formatting.
     """
     # description and limit are always included in frontmatter.
     # read_only and metadata are only included when non-default.
@@ -52,6 +52,102 @@ def serialize_block(
     # Use block style for cleaner YAML, default_flow_style=False
     yaml_str = yaml.dump(front, default_flow_style=False, sort_keys=False, allow_unicode=True).rstrip("\n")
     return f"---\n{yaml_str}\n---\n{value}"
+
+
+def _extract_frontmatter(content: str) -> tuple[Optional[str], str]:
+    """Return (frontmatter_yaml, body).
+
+    If no valid opening/closing frontmatter delimiters are found, returns
+    (None, original_content).
+    """
+    if not content.startswith("---\n"):
+        return None, content
+
+    end_idx = content.find("\n---\n", 4)
+    if end_idx == -1:
+        return None, content
+
+    yaml_str = content[4:end_idx]
+    body = content[end_idx + 5 :]
+    return yaml_str, body
+
+
+def merge_frontmatter_with_body(
+    existing_content: str,
+    *,
+    value: str,
+    description: Optional[str],
+    limit: Optional[int],
+    read_only: bool,
+    metadata: Optional[dict],
+) -> str:
+    """Update block content while preserving existing frontmatter formatting when possible.
+
+    Behavior:
+    - If existing content has YAML frontmatter, parse it and update keys in-memory,
+      then splice back using the exact original YAML text when values are unchanged.
+    - If keys changed or missing, emit normalized frontmatter only for changed keys,
+      while preserving body exactly as provided.
+    - If no frontmatter exists, create one.
+    """
+    yaml_str, _existing_body = _extract_frontmatter(existing_content)
+
+    if yaml_str is None:
+        return serialize_block(
+            value=value,
+            description=description,
+            limit=limit,
+            read_only=read_only,
+            metadata=metadata,
+        )
+
+    try:
+        parsed = yaml.safe_load(yaml_str) or {}
+    except yaml.YAMLError:
+        parsed = {}
+
+    if not isinstance(parsed, dict):
+        parsed = {}
+
+    # Desired values
+    desired_description = description
+    desired_limit = limit if limit is not None else _get_field_default("limit")
+    desired_read_only = read_only
+    desired_metadata = metadata if metadata is not None else _get_field_default("metadata")
+
+    # Track whether anything semantically changes in frontmatter.
+    changed = False
+
+    if "description" not in parsed or parsed.get("description") != desired_description:
+        parsed["description"] = desired_description
+        changed = True
+
+    if "limit" not in parsed or parsed.get("limit") != desired_limit:
+        parsed["limit"] = desired_limit
+        changed = True
+
+    if desired_read_only != _get_field_default("read_only"):
+        if parsed.get("read_only") != desired_read_only:
+            parsed["read_only"] = desired_read_only
+            changed = True
+    elif "read_only" in parsed:
+        del parsed["read_only"]
+        changed = True
+
+    if desired_metadata and desired_metadata != _get_field_default("metadata"):
+        if parsed.get("metadata") != desired_metadata:
+            parsed["metadata"] = desired_metadata
+            changed = True
+    elif "metadata" in parsed:
+        del parsed["metadata"]
+        changed = True
+
+    # If frontmatter semantics unchanged, preserve original YAML formatting verbatim.
+    if not changed:
+        return f"---\n{yaml_str}\n---\n{value}"
+
+    normalized_yaml = yaml.dump(parsed, default_flow_style=False, sort_keys=False, allow_unicode=True).rstrip("\n")
+    return f"---\n{normalized_yaml}\n---\n{value}"
 
 
 def parse_block_markdown(content: str) -> Dict[str, Any]:

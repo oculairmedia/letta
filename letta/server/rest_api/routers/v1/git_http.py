@@ -496,6 +496,17 @@ async def _sync_after_push(actor_id: str, agent_id: str) -> None:
         expected_labels = set()
         from letta.services.memory_repo.block_markdown import parse_block_markdown
 
+        md_file_paths = sorted([file_path for file_path in files if file_path.endswith(".md")])
+        nested_md_file_paths = [file_path for file_path in md_file_paths if "/" in file_path[:-3]]
+        logger.info(
+            "Post-push sync file scan: agent=%s total_files=%d md_files=%d nested_md_files=%d sample_md_paths=%s",
+            agent_id,
+            len(files),
+            len(md_file_paths),
+            len(nested_md_file_paths),
+            md_file_paths[:10],
+        )
+
         synced = 0
         for file_path, content in files.items():
             if not file_path.endswith(".md"):
@@ -521,7 +532,13 @@ async def _sync_after_push(actor_id: str, agent_id: str) -> None:
                 synced += 1
                 logger.info("Synced block %s to PostgreSQL", label)
             except Exception:
-                logger.exception("Failed to sync block %s to PostgreSQL (agent=%s)", label, agent_id)
+                logger.exception(
+                    "Failed to sync block %s to PostgreSQL (agent=%s) [path=%s nested=%s]",
+                    label,
+                    agent_id,
+                    file_path,
+                    "/" in label,
+                )
 
         if synced == 0:
             logger.warning("No *.md files found in repo HEAD during post-push sync (agent=%s)", agent_id)

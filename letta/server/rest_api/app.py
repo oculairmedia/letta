@@ -21,8 +21,6 @@ import orjson
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, ORJSONResponse
-
-from letta.helpers.json_helpers import sanitize_unicode_surrogates
 from marshmallow import ValidationError
 from sqlalchemy.exc import DBAPIError, IntegrityError, OperationalError
 from starlette.middleware.cors import CORSMiddleware
@@ -59,9 +57,11 @@ from letta.errors import (
     LLMProviderOverloaded,
     LLMRateLimitError,
     LLMTimeoutError,
+    MemoryRepoBusyError,
     NoActiveRunsToCancelError,
     PendingApprovalError,
 )
+from letta.helpers.json_helpers import sanitize_unicode_surrogates
 from letta.helpers.pinecone_utils import get_pinecone_indices, should_use_pinecone, upsert_pinecone_indices
 from letta.jobs.scheduler import start_scheduler_with_leader_election
 from letta.log import get_logger
@@ -574,6 +574,7 @@ def create_application() -> "FastAPI":
     app.add_exception_handler(IntegrityError, _error_handler_409)
     app.add_exception_handler(ConcurrentUpdateError, _error_handler_409)
     app.add_exception_handler(ConversationBusyError, _error_handler_409)
+    app.add_exception_handler(MemoryRepoBusyError, _error_handler_409)
     app.add_exception_handler(PendingApprovalError, _error_handler_409)
     app.add_exception_handler(NoActiveRunsToCancelError, _error_handler_409)
 
