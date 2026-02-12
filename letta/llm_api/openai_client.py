@@ -1098,6 +1098,7 @@ class OpenAIClient(LLMClientBase):
             else:
                 body_details = e.body if isinstance(e.body, dict) else {"body": e.body}
                 return LLMBadRequestError(
+                    message=f"Bad request to OpenAI-compatible endpoint: {str(e)}",
                     code=ErrorCode.INVALID_ARGUMENT,
                     details={**body_details, "is_byok": is_byok},
                 )

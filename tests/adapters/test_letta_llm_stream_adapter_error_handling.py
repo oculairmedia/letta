@@ -1,10 +1,12 @@
 import anthropic
 import httpx
 import pytest
+from google.genai import errors as google_errors
 
 from letta.adapters.letta_llm_stream_adapter import LettaLLMStreamAdapter
-from letta.errors import ContextWindowExceededError, LLMConnectionError, LLMServerError
+from letta.errors import ContextWindowExceededError, LLMBadRequestError, LLMConnectionError, LLMError, LLMServerError
 from letta.llm_api.anthropic_client import AnthropicClient
+from letta.llm_api.google_vertex_client import GoogleVertexClient
 from letta.schemas.enums import LLMCallType
 from letta.schemas.llm_config import LLMConfig
 
@@ -188,3 +190,48 @@ def test_anthropic_client_handle_llm_error_request_too_large_string():
 
     assert isinstance(result, ContextWindowExceededError)
     assert "request_too_large" in result.message.lower() or "context window exceeded" in result.message.lower()
+
+
+@pytest.mark.parametrize(
+    "error_message",
+    [
+        "The input token count exceeds the maximum number of tokens allowed 1048576.",
+        "Token count of 1500000 exceeds the model limit of 1048576 tokens allowed.",
+    ],
+    ids=["gemini-token-count-exceeds", "gemini-tokens-allowed-limit"],
+)
+def test_google_client_handle_llm_error_token_limit_returns_context_window_exceeded(error_message):
+    """Google 400 errors about token limits should map to ContextWindowExceededError."""
+    client = GoogleVertexClient.__new__(GoogleVertexClient)
+    response_json = {
+        "message": f'{{"error": {{"code": 400, "message": "{error_message}", "status": "INVALID_ARGUMENT"}}}}',
+        "status": "Bad Request",
+    }
+    error = google_errors.ClientError(400, response_json)
+    result = client.handle_llm_error(error)
+    assert isinstance(result, ContextWindowExceededError)
+
+
+def test_google_client_handle_llm_error_context_exceeded_returns_context_window_exceeded():
+    """Google 400 errors with 'context' + 'exceeded' should map to ContextWindowExceededError."""
+    client = GoogleVertexClient.__new__(GoogleVertexClient)
+    response_json = {
+        "message": '{"error": {"code": 400, "message": "Request context window exceeded the limit.", "status": "INVALID_ARGUMENT"}}',
+        "status": "Bad Request",
+    }
+    error = google_errors.ClientError(400, response_json)
+    result = client.handle_llm_error(error)
+    assert isinstance(result, ContextWindowExceededError)
+
+
+def test_google_client_handle_llm_error_generic_400_returns_bad_request():
+    """Google 400 errors without token/context keywords should map to LLMBadRequestError."""
+    client = GoogleVertexClient.__new__(GoogleVertexClient)
+    response_json = {
+        "message": '{"error": {"code": 400, "message": "Invalid argument: unsupported parameter.", "status": "INVALID_ARGUMENT"}}',
+        "status": "Bad Request",
+    }
+    error = google_errors.ClientError(400, response_json)
+    result = client.handle_llm_error(error)
+    assert isinstance(result, LLMBadRequestError)
+    assert not isinstance(result, ContextWindowExceededError)

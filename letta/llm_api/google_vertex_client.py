@@ -895,7 +895,9 @@ class GoogleVertexClient(LLMClientBase):
             # Handle specific error codes
             if e.code == 400:
                 error_str = str(e).lower()
-                if "context" in error_str and ("exceed" in error_str or "limit" in error_str or "too long" in error_str):
+                if ("context" in error_str or "token count" in error_str or "tokens allowed" in error_str) and (
+                    "exceed" in error_str or "limit" in error_str or "too long" in error_str
+                ):
                     return ContextWindowExceededError(
                         message=f"Bad request to {self._provider_name()} (context window exceeded): {str(e)}",
                         details={"is_byok": is_byok},

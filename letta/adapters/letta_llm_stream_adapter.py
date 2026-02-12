@@ -1,6 +1,7 @@
 from typing import AsyncGenerator
 
 from letta.adapters.letta_llm_adapter import LettaLLMAdapter
+from letta.errors import LLMError
 from letta.helpers.datetime_helpers import get_utc_timestamp_ns
 from letta.interfaces.anthropic_streaming_interface import AnthropicStreamingInterface
 from letta.interfaces.openai_streaming_interface import OpenAIStreamingInterface
@@ -133,6 +134,8 @@ class LettaLLMStreamAdapter(LettaLLMAdapter):
                 error_msg=str(e),
                 error_type=type(e).__name__,
             )
+            if isinstance(e, LLMError):
+                raise
             raise self.llm_client.handle_llm_error(e, llm_config=self.llm_config)
 
         # After streaming completes, extract the accumulated data
