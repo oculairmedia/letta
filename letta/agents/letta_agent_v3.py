@@ -1,4 +1,3 @@
-import asyncio
 import json
 import uuid
 from typing import Any, AsyncGenerator, Dict, Literal, Optional
@@ -65,7 +64,7 @@ from letta.services.summarizer.summarizer_config import CompactionSettings
 from letta.services.summarizer.summarizer_sliding_window import count_tokens
 from letta.settings import settings, summarizer_settings
 from letta.system import package_function_response, package_summarize_message_no_counts
-from letta.utils import log_telemetry, validate_function_response
+from letta.utils import log_telemetry, safe_create_task_with_return, validate_function_response
 
 
 def extract_compaction_stats_from_message(message: Message) -> CompactionStats | None:
@@ -237,10 +236,19 @@ class LettaAgentV3(LettaAgentV2):
                 user_id=self.actor.id,
             )
 
+        credit_task = None
         for i in range(max_steps):
             if i == 1 and follow_up_messages:
                 input_messages_to_persist = follow_up_messages
                 follow_up_messages = []
+
+            # Await credit check from previous iteration before running next step
+            if credit_task is not None:
+                if not await credit_task:
+                    self.should_continue = False
+                    self.stop_reason = LettaStopReason(stop_reason=StopReasonType.insufficient_credits)
+                    break
+                credit_task = None
 
             response = self._step(
                 # we append input_messages_to_persist since they aren't checkpointed as in-context until the end of the step (may be rolled back)
@@ -288,6 +296,9 @@ class LettaAgentV3(LettaAgentV2):
 
             if not self.should_continue:
                 break
+
+            # Fire credit check to run in parallel with loop overhead / next step setup
+            credit_task = safe_create_task_with_return(self._check_credits())
 
             # input_messages_to_persist = []
 
@@ -453,10 +464,20 @@ class LettaAgentV3(LettaAgentV2):
                 input_messages_to_persist = [input_messages_to_persist[0]]
 
             self.in_context_messages = in_context_messages
+            credit_task = None
             for i in range(max_steps):
                 if i == 1 and follow_up_messages:
                     input_messages_to_persist = follow_up_messages
                     follow_up_messages = []
+
+                # Await credit check from previous iteration before running next step
+                if credit_task is not None:
+                    if not await credit_task:
+                        self.should_continue = False
+                        self.stop_reason = LettaStopReason(stop_reason=StopReasonType.insufficient_credits)
+                        break
+                    credit_task = None
+
                 response = self._step(
                     # we append input_messages_to_persist since they aren't checkpointed as in-context until the end of the step (may be rolled back)
                     messages=list(self.in_context_messages + input_messages_to_persist),
@@ -485,6 +506,9 @@ class LettaAgentV3(LettaAgentV2):
 
                 if not self.should_continue:
                     break
+
+                # Fire credit check to run in parallel with loop overhead / next step setup
+                credit_task = safe_create_task_with_return(self._check_credits())
 
                 if i == max_steps - 1 and self.stop_reason is None:
                     self.stop_reason = LettaStopReason(stop_reason=StopReasonType.max_steps.value)

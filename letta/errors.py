@@ -451,6 +451,16 @@ class AgentFileImportError(Exception):
     """Exception raised during agent file import operations"""
 
 
+class InsufficientCreditsError(LettaError):
+    """Raised when an organization has no remaining credits."""
+
+    def __init__(self):
+        super().__init__(
+            message="Insufficient credits to process this request.",
+            details={"error_code": "INSUFFICIENT_CREDITS"},
+        )
+
+
 class RunCancelError(LettaError):
     """Error raised when a run cannot be cancelled."""
 

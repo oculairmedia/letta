@@ -20,7 +20,7 @@ from letta.agents.helpers import (
     generate_step_id,
 )
 from letta.constants import DEFAULT_MAX_STEPS, NON_USER_MSG_PREFIX, REQUEST_HEARTBEAT_PARAM
-from letta.errors import ContextWindowExceededError, LLMError
+from letta.errors import ContextWindowExceededError, InsufficientCreditsError, LLMError
 from letta.helpers import ToolRulesSolver
 from letta.helpers.datetime_helpers import get_utc_time, get_utc_timestamp_ns, ns_to_ms
 from letta.helpers.reasoning_helper import scrub_inner_thoughts_from_messages
@@ -58,6 +58,7 @@ from letta.server.rest_api.utils import (
 from letta.services.agent_manager import AgentManager
 from letta.services.archive_manager import ArchiveManager
 from letta.services.block_manager import BlockManager
+from letta.services.credit_verification_service import CreditVerificationService
 from letta.services.helpers.tool_parser_helper import runtime_override_tool_json_schema
 from letta.services.message_manager import MessageManager
 from letta.services.passage_manager import PassageManager
@@ -70,7 +71,7 @@ from letta.services.tool_executor.tool_execution_manager import ToolExecutionMan
 from letta.settings import model_settings, settings, summarizer_settings
 from letta.system import package_function_response
 from letta.types import JsonDict
-from letta.utils import log_telemetry, safe_create_task, united_diff, validate_function_response
+from letta.utils import log_telemetry, safe_create_task, safe_create_task_with_return, united_diff, validate_function_response
 
 
 class LettaAgentV2(BaseAgentV2):
@@ -106,6 +107,7 @@ class LettaAgentV2(BaseAgentV2):
         self.passage_manager = PassageManager()
         self.step_manager = StepManager()
         self.telemetry_manager = TelemetryManager()
+        self.credit_verification_service = CreditVerificationService()
 
         ## TODO: Expand to more
         # if summarizer_settings.enable_summarization and model_settings.openai_api_key:
@@ -209,8 +211,17 @@ class LettaAgentV2(BaseAgentV2):
         )
         in_context_messages = in_context_messages + input_messages_to_persist
         response_letta_messages = []
+        credit_task = None
         for i in range(max_steps):
             remaining_turns = max_steps - i - 1
+
+            # Await credit check from previous iteration before running next step
+            if credit_task is not None:
+                if not await credit_task:
+                    self.should_continue = False
+                    self.stop_reason = LettaStopReason(stop_reason=StopReasonType.insufficient_credits)
+                    break
+                credit_task = None
 
             response = self._step(
                 messages=in_context_messages + self.response_messages,
@@ -237,6 +248,9 @@ class LettaAgentV2(BaseAgentV2):
 
             if not self.should_continue:
                 break
+
+            # Fire credit check to run in parallel with loop overhead / next step setup
+            credit_task = safe_create_task_with_return(self._check_credits())
 
             input_messages_to_persist = []
 
@@ -332,7 +346,16 @@ class LettaAgentV2(BaseAgentV2):
                 input_messages, self.agent_state, self.message_manager, self.actor, run_id
             )
             in_context_messages = in_context_messages + input_messages_to_persist
+            credit_task = None
             for i in range(max_steps):
+                # Await credit check from previous iteration before running next step
+                if credit_task is not None:
+                    if not await credit_task:
+                        self.should_continue = False
+                        self.stop_reason = LettaStopReason(stop_reason=StopReasonType.insufficient_credits)
+                        break
+                    credit_task = None
+
                 response = self._step(
                     messages=in_context_messages + self.response_messages,
                     input_messages_to_persist=input_messages_to_persist,
@@ -350,6 +373,9 @@ class LettaAgentV2(BaseAgentV2):
 
                 if not self.should_continue:
                     break
+
+                # Fire credit check to run in parallel with loop overhead / next step setup
+                credit_task = safe_create_task_with_return(self._check_credits())
 
                 input_messages_to_persist = []
 
@@ -675,6 +701,15 @@ class LettaAgentV2(BaseAgentV2):
         self.job_update_metadata = None
         self.last_function_response = None
         self.response_messages = []
+
+    async def _check_credits(self) -> bool:
+        """Check if the organization still has credits. Returns True if OK or not configured."""
+        try:
+            await self.credit_verification_service.verify_credits(self.actor.organization_id)
+            return True
+        except InsufficientCreditsError:
+            self.logger.warning(f"Insufficient credits for organization {self.actor.organization_id}, stopping agent loop")
+            return False
 
     @trace_method
     async def _check_run_cancellation(self, run_id) -> bool:
