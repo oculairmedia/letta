@@ -17869,6 +17869,161 @@
         }
       }
     },
+    "/v1/agents/search/count": {
+      "get": {
+        "description": "Count deployed agents matching search criteria",
+        "summary": "Count Deployed Agents",
+        "tags": ["agents"],
+        "parameters": [
+          {
+            "name": "search",
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "field": {
+                        "type": "string",
+                        "enum": ["version"]
+                      },
+                      "value": {
+                        "type": "string"
+                      }
+                    },
+                    "required": ["field", "value"]
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "field": {
+                        "type": "string",
+                        "enum": ["name"]
+                      },
+                      "operator": {
+                        "type": "string",
+                        "enum": ["eq", "contains"]
+                      },
+                      "value": {
+                        "type": "string"
+                      }
+                    },
+                    "required": ["field", "operator", "value"]
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "field": {
+                        "type": "string",
+                        "enum": ["tags"]
+                      },
+                      "operator": {
+                        "type": "string",
+                        "enum": ["contains"]
+                      },
+                      "value": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "required": ["field", "operator", "value"]
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "field": {
+                        "type": "string",
+                        "enum": ["identity"]
+                      },
+                      "operator": {
+                        "type": "string",
+                        "enum": ["eq"]
+                      },
+                      "value": {
+                        "type": "string"
+                      }
+                    },
+                    "required": ["field", "operator", "value"]
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "field": {
+                        "type": "string",
+                        "enum": ["templateName"]
+                      },
+                      "operator": {
+                        "type": "string",
+                        "enum": ["eq"]
+                      },
+                      "value": {
+                        "type": "string"
+                      }
+                    },
+                    "required": ["field", "operator", "value"]
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "field": {
+                        "type": "string",
+                        "enum": ["agentId"]
+                      },
+                      "operator": {
+                        "type": "string",
+                        "enum": ["eq"]
+                      },
+                      "value": {
+                        "type": "string"
+                      }
+                    },
+                    "required": ["field", "operator", "value"]
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "name": "project_id",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "combinator",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": ["AND"]
+            }
+          }
+        ],
+        "operationId": "agents.countDeployedAgents",
+        "responses": {
+          "200": {
+            "description": "200",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "count": {
+                      "type": "number"
+                    }
+                  },
+                  "required": ["count"]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/agents/{agent_id}/core-memory/variables": {
       "get": {
         "description": "Get the variables associated with an agent",
