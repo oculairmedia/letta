@@ -682,7 +682,7 @@ async def test_anthropic_system_prompt_stability(async_client: AsyncLetta):
             logger.info(diff_output[:2000])  # Truncate if too long
             logger.info("=" * 80)
 
-            if "Memory blocks were last modified" in diff_output:
+            if "System prompt last recompiled" in diff_output:
                 logger.error("⚠️  TIMESTAMP IS CHANGING IN ACTUAL REQUESTS!")
                 logger.error("   → This is the root cause of cache misses")
 
@@ -1054,7 +1054,7 @@ async def test_gemini_request_prefix_stability(async_client: AsyncLetta):
                 lineterm="",
             )
             diff_output = "\n".join(diff)
-            if "Memory blocks were last modified" in diff_output or "timestamp" in diff_output.lower():
+            if "System prompt last recompiled" in diff_output or "timestamp" in diff_output.lower():
                 logger.error("⚠️  TIMESTAMP IN SYSTEM INSTRUCTION IS CHANGING!")
                 logger.error("   → This breaks Gemini implicit caching (prefix must match)")
         else:
