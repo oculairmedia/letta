@@ -161,7 +161,11 @@ class LLMClientBase:
             return
 
         if response_json is None:
-            return
+            if error_msg:
+                response_json = {"error": error_msg, "error_type": error_type}
+            else:
+                logger.warning(f"Skipping telemetry: no response_json or error_msg (call_type={self._telemetry_call_type})")
+                return
 
         try:
             pydantic_actor = self.actor.to_pydantic() if hasattr(self.actor, "to_pydantic") else self.actor

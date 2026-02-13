@@ -542,27 +542,35 @@ async def simple_summary(
             )
 
             # AnthropicClient.stream_async sets request_data["stream"] = True internally.
-            stream = await llm_client.stream_async(req_data, summarizer_llm_config)
-            async for _chunk in interface.process(stream):
-                # We don't emit anything; we just want the fully-accumulated content.
-                pass
+            try:
+                stream = await llm_client.stream_async(req_data, summarizer_llm_config)
+                async for _chunk in interface.process(stream):
+                    pass
 
-            content_parts = interface.get_content()
-            text = "".join(part.text for part in content_parts if isinstance(part, TextContent)).strip()
+                content_parts = interface.get_content()
+                text = "".join(part.text for part in content_parts if isinstance(part, TextContent)).strip()
 
-            # Log telemetry after stream processing
-            await llm_client.log_provider_trace_async(
-                request_data=req_data,
-                response_json={
-                    "content": text,
-                    "model": summarizer_llm_config.model,
-                    "usage": {
-                        "input_tokens": getattr(interface, "input_tokens", None),
-                        "output_tokens": getattr(interface, "output_tokens", None),
+                await llm_client.log_provider_trace_async(
+                    request_data=req_data,
+                    response_json={
+                        "content": text,
+                        "model": summarizer_llm_config.model,
+                        "usage": {
+                            "input_tokens": getattr(interface, "input_tokens", None),
+                            "output_tokens": getattr(interface, "output_tokens", None),
+                        },
                     },
-                },
-                llm_config=summarizer_llm_config,
-            )
+                    llm_config=summarizer_llm_config,
+                )
+            except Exception as e:
+                await llm_client.log_provider_trace_async(
+                    request_data=req_data,
+                    response_json=None,
+                    llm_config=summarizer_llm_config,
+                    error_msg=str(e),
+                    error_type=type(e).__name__,
+                )
+                raise
 
             if not text:
                 logger.warning("No content returned from summarizer (streaming path)")
