@@ -4,7 +4,7 @@ import xml.etree.ElementTree as ET
 from typing import Any, Dict, List, Optional, Tuple
 from uuid import UUID, uuid4
 
-from letta.errors import PendingApprovalError
+from letta.errors import LettaError, PendingApprovalError
 from letta.helpers import ToolRulesSolver
 from letta.helpers.datetime_helpers import get_utc_time
 from letta.log import get_logger
@@ -233,6 +233,11 @@ async def _prepare_in_context_messages_no_persist_async(
             current_in_context_messages = [system_message]
     else:
         # Default mode: load messages from agent_state.message_ids
+        if not agent_state.message_ids:
+            raise LettaError(
+                message=f"Agent {agent_state.id} has no in-context messages. "
+                "This typically means the agent's system message was not initialized correctly.",
+            )
         if agent_state.message_buffer_autoclear:
             # If autoclear is enabled, only include the most recent system message (usually at index 0)
             current_in_context_messages = [
