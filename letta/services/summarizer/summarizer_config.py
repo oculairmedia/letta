@@ -1,8 +1,8 @@
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
-from letta.prompts.summarizer_prompt import ANTHROPIC_SUMMARY_PROMPT, SHORTER_SUMMARY_PROMPT
+from letta.prompts.summarizer_prompt import ALL_PROMPT, SLIDING_PROMPT
 from letta.schemas.model import ModelSettingsUnion
 from letta.settings import summarizer_settings
 
@@ -28,7 +28,7 @@ class CompactionSettings(BaseModel):
         description="Optional model settings used to override defaults for the summarizer model.",
     )
 
-    prompt: str = Field(default=SHORTER_SUMMARY_PROMPT, description="The prompt to use for summarization.")
+    prompt: str | None = Field(default=None, description="The prompt to use for summarization. If None, uses mode-specific default.")
     prompt_acknowledgement: bool = Field(
         default=False, description="Whether to include an acknowledgement post-prompt (helps prevent non-summary outputs)."
     )
@@ -41,3 +41,13 @@ class CompactionSettings(BaseModel):
         default_factory=lambda: summarizer_settings.partial_evict_summarizer_percentage,
         description="The percentage of the context window to keep post-summarization (only used in sliding window mode).",
     )
+
+    @model_validator(mode="after")
+    def set_mode_specific_prompt(self):
+        """Set mode-specific default prompt if none provided."""
+        if self.prompt is None:
+            if self.mode == "all":
+                self.prompt = ALL_PROMPT
+            else:  # sliding_window
+                self.prompt = SLIDING_PROMPT
+        return self
