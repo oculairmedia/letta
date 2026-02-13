@@ -144,14 +144,15 @@ async def test_minimax():
     provider = MiniMaxProvider(name="minimax")
     models = await provider.list_llm_models_async()
 
-    # Should have exactly 3 models: M2.1, M2.1-lightning, M2
-    assert len(models) == 3
+    # Should have exactly 3 models: M2.1, M2.1-lightning, M2, M2.5
+    assert len(models) == 4
 
     # Verify model properties
     model_names = {m.model for m in models}
     assert "MiniMax-M2.1" in model_names
     assert "MiniMax-M2.1-lightning" in model_names
     assert "MiniMax-M2" in model_names
+    assert "MiniMax-M2.5" in model_names
 
     # Verify handle format
     for model in models:
