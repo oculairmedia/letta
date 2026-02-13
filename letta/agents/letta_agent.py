@@ -20,7 +20,7 @@ from letta.agents.helpers import (
     generate_step_id,
 )
 from letta.constants import DEFAULT_MAX_STEPS, NON_USER_MSG_PREFIX, REQUEST_HEARTBEAT_PARAM
-from letta.errors import ContextWindowExceededError
+from letta.errors import ContextWindowExceededError, LLMError
 from letta.helpers import ToolRulesSolver
 from letta.helpers.datetime_helpers import AsyncTimer, get_utc_time, get_utc_timestamp_ns, ns_to_ms
 from letta.helpers.reasoning_helper import scrub_inner_thoughts_from_messages
@@ -1546,6 +1546,8 @@ class LettaAgent(BaseAgent):
                 run_id=run_id,
                 step_id=step_id,
             )
+        elif isinstance(e, LLMError):
+            raise
         else:
             raise llm_client.handle_llm_error(e, llm_config=llm_config)
 

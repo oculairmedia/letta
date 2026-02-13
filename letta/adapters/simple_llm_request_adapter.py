@@ -1,6 +1,7 @@
 from typing import AsyncGenerator
 
 from letta.adapters.letta_llm_request_adapter import LettaLLMRequestAdapter
+from letta.errors import LLMError
 from letta.helpers.datetime_helpers import get_utc_timestamp_ns
 from letta.schemas.enums import LLMCallType
 from letta.schemas.letta_message import LettaMessage
@@ -54,6 +55,8 @@ class SimpleLLMRequestAdapter(LettaLLMRequestAdapter):
         try:
             self.response_data = await self.llm_client.request_async_with_telemetry(request_data, self.llm_config)
         except Exception as e:
+            if isinstance(e, LLMError):
+                raise
             raise self.llm_client.handle_llm_error(e, llm_config=self.llm_config)
 
         self.llm_request_finish_timestamp_ns = get_utc_timestamp_ns()

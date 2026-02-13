@@ -2,6 +2,7 @@ import json
 from typing import AsyncGenerator, List
 
 from letta.adapters.letta_llm_stream_adapter import LettaLLMStreamAdapter
+from letta.errors import LLMError
 from letta.log import get_logger
 
 logger = get_logger(__name__)
@@ -151,6 +152,8 @@ class SimpleLLMStreamAdapter(LettaLLMStreamAdapter):
                 error_msg=str(e),
                 error_type=type(e).__name__,
             )
+            if isinstance(e, LLMError):
+                raise
             raise self.llm_client.handle_llm_error(e, llm_config=self.llm_config)
 
         # Process the stream and yield chunks immediately for TTFT
@@ -169,6 +172,8 @@ class SimpleLLMStreamAdapter(LettaLLMStreamAdapter):
                 error_msg=str(e),
                 error_type=type(e).__name__,
             )
+            if isinstance(e, LLMError):
+                raise
             raise self.llm_client.handle_llm_error(e, llm_config=self.llm_config)
 
         # After streaming completes, extract the accumulated data
