@@ -1061,7 +1061,7 @@ class ChatGPTOAuthClient(LLMClientBase):
             )
         elif status_code >= 500:
             return LLMServerError(
-                message=f"ChatGPT server error: {error_body}",
+                message=f"ChatGPT API error: {error_body}",
                 code=ErrorCode.INTERNAL_SERVER_ERROR,
             )
         else:
@@ -1164,7 +1164,7 @@ class ChatGPTOAuthClient(LLMClientBase):
             )
         elif status_code >= 500:
             return LLMServerError(
-                message=f"ChatGPT server error: {error_message}",
+                message=f"ChatGPT API error: {error_message}",
                 code=ErrorCode.INTERNAL_SERVER_ERROR,
                 details={"is_byok": is_byok},
             )
@@ -1212,7 +1212,7 @@ class ChatGPTOAuthClient(LLMClientBase):
             )
         elif error_code == "server_error":
             return LLMServerError(
-                message=f"ChatGPT server error: {error_message}",
+                message=f"ChatGPT API error: {error_message}",
                 code=ErrorCode.INTERNAL_SERVER_ERROR,
             )
         else:
