@@ -1189,3 +1189,217 @@ async def test_json_schema_response_format(
     finally:
         # Cleanup
         await client.agents.delete(agent_state.id)
+
+
+# Large memory block to exceed OpenAI's 1024 token caching threshold.
+# This ensures the system prompt is large enough for OpenAI to cache it.
+_LARGE_PERSONA_BLOCK = """
+You are an advanced AI assistant with extensive knowledge across multiple domains.
+
+# Core Capabilities
+
+## Technical Knowledge
+- Software Engineering: Expert in Python, JavaScript, TypeScript, Go, Rust, and many other languages
+- System Design: Deep understanding of distributed systems, microservices, and cloud architecture
+- DevOps: Proficient in Docker, Kubernetes, CI/CD pipelines, and infrastructure as code
+- Databases: Experience with SQL (PostgreSQL, MySQL) and NoSQL (MongoDB, Redis, Cassandra) databases
+- Machine Learning: Knowledge of neural networks, transformers, and modern ML frameworks
+
+## Problem Solving Approach
+When tackling problems, you follow a structured methodology:
+1. Understand the requirements thoroughly
+2. Break down complex problems into manageable components
+3. Consider multiple solution approaches
+4. Evaluate trade-offs between different options
+5. Implement solutions with clean, maintainable code
+6. Test thoroughly and iterate based on feedback
+
+## Communication Style
+- Clear and concise explanations
+- Use examples and analogies when helpful
+- Adapt technical depth to the audience
+- Ask clarifying questions when requirements are ambiguous
+- Provide context and rationale for recommendations
+
+# Domain Expertise
+
+## Web Development
+You have deep knowledge of:
+- Frontend: React, Vue, Angular, Next.js, modern CSS frameworks
+- Backend: Node.js, Express, FastAPI, Django, Flask
+- API Design: REST, GraphQL, gRPC
+- Authentication: OAuth, JWT, session management
+- Performance: Caching strategies, CDNs, lazy loading
+
+## Data Engineering
+You understand:
+- ETL pipelines and data transformation
+- Data warehousing concepts (Snowflake, BigQuery, Redshift)
+- Stream processing (Kafka, Kinesis)
+- Data modeling and schema design
+- Data quality and validation
+
+## Cloud Platforms
+You're familiar with:
+- AWS: EC2, S3, Lambda, RDS, DynamoDB, CloudFormation
+- GCP: Compute Engine, Cloud Storage, Cloud Functions, BigQuery
+- Azure: Virtual Machines, Blob Storage, Azure Functions
+- Serverless architectures and best practices
+- Cost optimization strategies
+
+## Security
+You consider:
+- Common vulnerabilities (OWASP Top 10)
+- Secure coding practices
+- Encryption and key management
+- Access control and authorization patterns
+- Security audit and compliance requirements
+
+# Interaction Principles
+
+## Helpfulness
+- Provide actionable guidance
+- Share relevant resources and documentation
+- Offer multiple approaches when appropriate
+- Point out potential pitfalls and edge cases
+
+## Accuracy
+- Verify information before sharing
+- Acknowledge uncertainty when appropriate
+- Correct mistakes promptly
+- Stay up-to-date with best practices
+
+## Efficiency
+- Get to the point quickly
+- Avoid unnecessary verbosity
+- Focus on what's most relevant
+- Provide code examples when they clarify concepts
+""" + "\n\n".join(
+    [
+        f"Section {i + 1}: "
+        + """
+You have deep expertise in software development, including but not limited to:
+- Programming languages: Python, JavaScript, TypeScript, Java, C++, Rust, Go, Swift, Kotlin, Ruby, PHP, Scala
+- Web frameworks: React, Vue, Angular, Django, Flask, FastAPI, Express, Next.js, Nuxt, SvelteKit, Remix, Astro
+- Databases: PostgreSQL, MySQL, MongoDB, Redis, Cassandra, DynamoDB, ElasticSearch, Neo4j, InfluxDB, TimescaleDB
+- Cloud platforms: AWS (EC2, S3, Lambda, ECS, EKS, RDS), GCP (Compute Engine, Cloud Run, GKE), Azure (VMs, Functions, AKS)
+- DevOps tools: Docker, Kubernetes, Terraform, Ansible, Jenkins, GitHub Actions, GitLab CI, CircleCI, ArgoCD
+- Testing frameworks: pytest, Jest, Mocha, JUnit, unittest, Cypress, Playwright, Selenium, TestNG, RSpec
+- Architecture patterns: Microservices, Event-driven, Serverless, Monolithic, CQRS, Event Sourcing, Hexagonal
+- API design: REST, GraphQL, gRPC, WebSockets, Server-Sent Events, tRPC, JSON-RPC
+"""
+        for i in range(4)
+    ]
+)
+
+# Models that support prompt_cache_key + prompt_cache_retention="24h":
+# gpt-4.1, gpt-5 family (but not gpt-5-mini or gpt-5.2-codex).
+_PROMPT_CACHE_RETENTION_PREFIXES = ("gpt-4.1", "gpt-5")
+
+PROMPT_CACHE_MODEL_CONFIGS: List[Tuple[str, dict]] = [
+    (handle, settings)
+    for handle, settings in TESTED_MODEL_CONFIGS
+    if settings.get("provider_type") == "openai" and any(handle.split("/")[-1].startswith(p) for p in _PROMPT_CACHE_RETENTION_PREFIXES)
+]
+
+
+@pytest.mark.skip(reason="the prompt caching is flaky")
+@pytest.mark.parametrize(
+    "model_config",
+    PROMPT_CACHE_MODEL_CONFIGS,
+    ids=[handle for handle, _ in PROMPT_CACHE_MODEL_CONFIGS],
+)
+@pytest.mark.asyncio(loop_scope="function")
+async def test_openai_prompt_cache_integration(
+    disable_e2b_api_key: Any,
+    client: AsyncLetta,
+    model_config: Tuple[str, dict],
+) -> None:
+    """
+    Integration test verifying OpenAI prompt caching works end-to-end.
+
+    Tests models that support both prompt_cache_key and prompt_cache_retention="24h".
+    Validates that these fields are accepted by OpenAI's API and produce cache hits.
+
+    Strategy:
+    1. Create an agent with a large persona block (>1024 tokens, OpenAI's caching threshold)
+    2. Send message 1 -> primes the cache (cached_input_tokens should be 0 or small)
+    3. Send message 2 -> should hit the cache (cached_input_tokens > 0)
+
+    The prompt_cache_key (letta:{agent_id}:{conversation_id}) improves cache routing
+    so that subsequent requests land on the same machine with warm KV tensors.
+    """
+    from letta_client.types import CreateBlockParam
+
+    model_handle, model_settings = model_config
+
+    agent = await client.agents.create(
+        name=f"prompt-cache-test-{uuid.uuid4().hex[:8]}",
+        agent_type="letta_v1_agent",
+        model=model_handle,
+        model_settings=model_settings,
+        embedding="openai/text-embedding-3-small",
+        include_base_tools=False,
+        memory_blocks=[
+            CreateBlockParam(
+                label="persona",
+                value=_LARGE_PERSONA_BLOCK,
+            )
+        ],
+    )
+
+    try:
+        # Message 1: Prime the cache. First request typically has cached_input_tokens=0.
+        response1 = await client.agents.messages.create(
+            agent_id=agent.id,
+            messages=[MessageCreateParam(role="user", content="Hello! Please introduce yourself briefly.")],
+        )
+        assert response1.usage is not None, "First message should return usage data"
+        assert response1.usage.prompt_tokens > 0, "First message should have prompt_tokens > 0"
+
+        logger.info(
+            f"[{model_handle}] Message 1 usage: "
+            f"prompt={response1.usage.prompt_tokens}, "
+            f"completion={response1.usage.completion_tokens}, "
+            f"cached_input={response1.usage.cached_input_tokens}"
+        )
+
+        # Verify we exceeded the 1024 token threshold for OpenAI caching
+        total_input_tokens = response1.usage.prompt_tokens + (response1.usage.cached_input_tokens or 0)
+        assert total_input_tokens >= 1024, f"Total input tokens ({total_input_tokens}) must be >= 1024 for OpenAI caching to activate"
+
+        # Message 2: Should hit the cache thanks to prompt_cache_key routing.
+        response2 = await client.agents.messages.create(
+            agent_id=agent.id,
+            messages=[MessageCreateParam(role="user", content="What are your main areas of expertise?")],
+        )
+        assert response2.usage is not None, "Second message should return usage data"
+        assert response2.usage.prompt_tokens > 0, "Second message should have prompt_tokens > 0"
+
+        logger.info(
+            f"[{model_handle}] Message 2 usage: "
+            f"prompt={response2.usage.prompt_tokens}, "
+            f"completion={response2.usage.completion_tokens}, "
+            f"cached_input={response2.usage.cached_input_tokens}"
+        )
+
+        # CRITICAL: The second message should show cached_input_tokens > 0.
+        # This proves that prompt_cache_key and prompt_cache_retention are being
+        # sent correctly and OpenAI is caching the prompt prefix.
+        cached_tokens = response2.usage.cached_input_tokens
+        assert cached_tokens is not None and cached_tokens > 0, (
+            f"[{model_handle}] Expected cached_input_tokens > 0 on second message, got {cached_tokens}. "
+            "This means prompt caching is not working (prompt_cache_key may not be sent or cache miss occurred)."
+        )
+
+        # Cache hit ratio should be significant (most of the system prompt should be cached)
+        total_input_msg2 = response2.usage.prompt_tokens + (response2.usage.cached_input_tokens or 0)
+        cache_hit_ratio = cached_tokens / total_input_msg2 if total_input_msg2 > 0 else 0
+        logger.info(f"[{model_handle}] Cache hit ratio: {cache_hit_ratio:.2%}")
+
+        assert cache_hit_ratio >= 0.20, (
+            f"[{model_handle}] Expected cache hit ratio >= 20%, got {cache_hit_ratio:.2%}. The large persona block should be mostly cached."
+        )
+
+    finally:
+        await client.agents.delete(agent.id)
