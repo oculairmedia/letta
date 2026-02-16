@@ -705,10 +705,15 @@ class LettaAgentV2(BaseAgentV2):
     async def _check_credits(self) -> bool:
         """Check if the organization still has credits. Returns True if OK or not configured."""
         try:
-            await self.credit_verification_service.verify_credits(self.actor.organization_id)
+            await self.credit_verification_service.verify_credits(
+                self.actor.organization_id, self.agent_state.id
+            )
             return True
         except InsufficientCreditsError:
-            self.logger.warning(f"Insufficient credits for organization {self.actor.organization_id}, stopping agent loop")
+            self.logger.warning(
+                f"Insufficient credits for organization {self.actor.organization_id}, "
+                f"agent {self.agent_state.id}, stopping agent loop"
+            )
             return False
 
     @trace_method

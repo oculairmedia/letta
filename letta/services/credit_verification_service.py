@@ -15,9 +15,13 @@ class CreditVerificationService:
         self.endpoint = os.getenv("STEP_ORCHESTRATOR_ENDPOINT")
         self.auth_key = os.getenv("STEP_COMPLETE_KEY")
 
-    async def verify_credits(self, organization_id: str) -> bool:
+    async def verify_credits(self, organization_id: str, agent_id: str) -> bool:
         """
-        Check if an organization has enough credits to proceed.
+        Check if an organization has enough credits to proceed with a specific agent.
+
+        Args:
+            organization_id: The organization's core ID
+            agent_id: The agent's ID (used to determine model-specific costs)
 
         Returns True if credits are available or if the service is not configured.
         Raises InsufficientCreditsError if no credits remain.
@@ -32,7 +36,7 @@ class CreditVerificationService:
 
             async with httpx.AsyncClient(timeout=5.0) as client:
                 response = await client.get(
-                    f"{self.endpoint}/validate/core-organizations/{organization_id}",
+                    f"{self.endpoint}/validate/core-organizations/{organization_id}/agents/{agent_id}",
                     headers=headers,
                 )
                 response.raise_for_status()
@@ -46,11 +50,11 @@ class CreditVerificationService:
         except InsufficientCreditsError:
             raise
         except httpx.TimeoutException:
-            logger.warning(f"Timeout verifying credits for organization {organization_id}")
+            logger.warning(f"Timeout verifying credits for organization {organization_id}, agent {agent_id}")
             return True
         except httpx.HTTPStatusError as e:
-            logger.warning(f"HTTP error verifying credits for organization {organization_id}: {e.response.status_code}")
+            logger.warning(f"HTTP error verifying credits for organization {organization_id}, agent {agent_id}: {e.response.status_code}")
             return True
         except Exception as e:
-            logger.error(f"Unexpected error verifying credits for organization {organization_id}: {e}")
+            logger.error(f"Unexpected error verifying credits for organization {organization_id}, agent {agent_id}: {e}")
             return True
