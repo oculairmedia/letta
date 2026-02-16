@@ -105,7 +105,7 @@ class ChatGPTOAuthClient(LLMClientBase):
 
     MAX_RETRIES = 3
     # Transient httpx errors that are safe to retry (connection drops, transport-level failures)
-    _RETRYABLE_ERRORS = (httpx.ReadError, httpx.WriteError, httpx.ConnectError, httpx.RemoteProtocolError)
+    _RETRYABLE_ERRORS = (httpx.ReadError, httpx.WriteError, httpx.ConnectError, httpx.RemoteProtocolError, LLMConnectionError)
 
     @trace_method
     async def _get_provider_and_credentials_async(self, llm_config: LLMConfig) -> tuple[ChatGPTOAuthProvider, ChatGPTOAuthCredentials]:
@@ -392,7 +392,16 @@ class ChatGPTOAuthClient(LLMClientBase):
                         return await self._accumulate_sse_response(response)
 
             except httpx.HTTPStatusError as e:
-                raise self._handle_http_error(e)
+                mapped = self._handle_http_error(e)
+                if isinstance(mapped, tuple(self._RETRYABLE_ERRORS)) and attempt < self.MAX_RETRIES - 1:
+                    wait = 2**attempt
+                    logger.warning(
+                        f"[ChatGPT] Retryable HTTP error on request (attempt {attempt + 1}/{self.MAX_RETRIES}), "
+                        f"retrying in {wait}s: {type(mapped).__name__}: {mapped}"
+                    )
+                    await asyncio.sleep(wait)
+                    continue
+                raise mapped
             except httpx.TimeoutException:
                 raise LLMTimeoutError(
                     message="ChatGPT backend request timed out",
@@ -1019,6 +1028,12 @@ class ChatGPTOAuthClient(LLMClientBase):
         logger.warning(f"Unhandled ChatGPT SSE event type: {event_type}")
         return None
 
+    @staticmethod
+    def _is_upstream_connection_error(error_body: str) -> bool:
+        """Check if an error body indicates an upstream connection/proxy failure."""
+        lower = error_body.lower()
+        return "upstream connect error" in lower or "reset before headers" in lower or "connection termination" in lower
+
     def _handle_http_error_from_status(self, status_code: int, error_body: str) -> Exception:
         """Create appropriate exception from HTTP status code.
 
@@ -1038,6 +1053,11 @@ class ChatGPTOAuthClient(LLMClientBase):
             return LLMRateLimitError(
                 message=f"ChatGPT rate limit exceeded: {error_body}",
                 code=ErrorCode.RATE_LIMIT_EXCEEDED,
+            )
+        elif status_code == 502 or (status_code >= 500 and self._is_upstream_connection_error(error_body)):
+            return LLMConnectionError(
+                message=f"ChatGPT upstream connection error: {error_body}",
+                code=ErrorCode.INTERNAL_SERVER_ERROR,
             )
         elif status_code >= 500:
             return LLMServerError(
@@ -1134,6 +1154,12 @@ class ChatGPTOAuthClient(LLMClientBase):
             return LLMBadRequestError(
                 message=f"ChatGPT bad request: {error_message}",
                 code=ErrorCode.INVALID_ARGUMENT,
+                details={"is_byok": is_byok},
+            )
+        elif status_code == 502 or (status_code >= 500 and self._is_upstream_connection_error(error_message)):
+            return LLMConnectionError(
+                message=f"ChatGPT upstream connection error: {error_message}",
+                code=ErrorCode.INTERNAL_SERVER_ERROR,
                 details={"is_byok": is_byok},
             )
         elif status_code >= 500:
