@@ -767,7 +767,12 @@ class Message(BaseMessage):
                     func_args = parse_json(tool_call.function.arguments)
                     message_string = validate_function_response(func_args[assistant_message_tool_kwarg], 0, truncate=False)
                 except KeyError:
-                    raise ValueError(f"Function call {tool_call.function.name} missing {assistant_message_tool_kwarg} argument")
+                    logger.error(
+                        "Function call %s missing %s argument; skipping assistant message conversion",
+                        tool_call.function.name,
+                        assistant_message_tool_kwarg,
+                    )
+                    continue
 
                 # Ensure content is a string (validate_function_response can return dict)
                 if isinstance(message_string, dict):
