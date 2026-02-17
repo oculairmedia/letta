@@ -143,6 +143,7 @@ class ChatCompletionRequest(BaseModel):
     temperature: Optional[float] = 1
     top_p: Optional[float] = 1
     user: Optional[str] = None  # unique ID of the end-user (for monitoring)
+    prompt_cache_retention: Optional[Literal["in_memory", "24h"]] = None
     parallel_tool_calls: Optional[bool] = None
     instructions: Optional[str] = None
     verbosity: Optional[Literal["low", "medium", "high"]] = None  # For verbosity control in GPT-5 models

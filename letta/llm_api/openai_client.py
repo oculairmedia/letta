@@ -245,6 +245,64 @@ class OpenAIClient(LLMClientBase):
     def supports_structured_output(self, llm_config: LLMConfig) -> bool:
         return supports_structured_output(llm_config)
 
+    def _is_openrouter_request(self, llm_config: LLMConfig) -> bool:
+        return (llm_config.model_endpoint and "openrouter.ai" in llm_config.model_endpoint) or (llm_config.provider_name == "openrouter")
+
+    def _is_true_openai_request(self, llm_config: LLMConfig) -> bool:
+        if llm_config.model_endpoint_type != "openai":
+            return False
+
+        if self._is_openrouter_request(llm_config):
+            return False
+
+        # Keep Letta inference endpoint behavior unchanged.
+        if llm_config.model_endpoint == LETTA_MODEL_ENDPOINT:
+            return False
+
+        # If provider_name is explicitly set and not openai, don't apply OpenAI-specific prompt caching fields.
+        if llm_config.provider_name and llm_config.provider_name != "openai":
+            return False
+
+        return True
+
+    def _normalize_model_name(self, model: Optional[str]) -> Optional[str]:
+        if not model:
+            return None
+        return model.split("/", 1)[-1]
+
+    def _supports_extended_prompt_cache_retention(self, model: Optional[str]) -> bool:
+        normalized_model = self._normalize_model_name(model)
+        if not normalized_model:
+            return False
+
+        # Per OpenAI docs: extended retention is available on gpt-4.1 and gpt-5 family models.
+        # gpt-5-mini is excluded (not listed in docs).
+        return normalized_model == "gpt-4.1" or (normalized_model.startswith("gpt-5") and normalized_model != "gpt-5-mini")
+
+    def _apply_prompt_cache_settings(
+        self,
+        llm_config: LLMConfig,
+        model: Optional[str],
+        messages: List[PydanticMessage],
+        request_obj: Any,
+    ) -> None:
+        """Apply OpenAI prompt cache settings to the request.
+
+        We intentionally do NOT set prompt_cache_key. OpenAI's default routing
+        (based on a hash of the first ~256 tokens of the prompt) already provides
+        good cache affinity for Letta agents, since each agent has a unique system
+        prompt. Setting an explicit key can disrupt existing warm caches and reduce
+        hit rates.
+
+        We only set prompt_cache_retention to "24h" for models that support extended
+        retention, which keeps cached prefixes active longer (up to 24h vs 5-10min).
+        """
+        if not self._is_true_openai_request(llm_config):
+            return
+
+        if self._supports_extended_prompt_cache_retention(model):
+            request_obj.prompt_cache_retention = "24h"
+
     @trace_method
     def build_request_data_responses(
         self,
@@ -385,6 +443,13 @@ class OpenAIClient(LLMClientBase):
 
             data.model = "memgpt-openai"
 
+        self._apply_prompt_cache_settings(
+            llm_config=llm_config,
+            model=model,
+            messages=messages,
+            request_obj=data,
+        )
+
         request_data = data.model_dump(exclude_unset=True)
         # print("responses request data", request_data)
         return request_data
@@ -453,9 +518,7 @@ class OpenAIClient(LLMClientBase):
             model = None
 
         # TODO: we may need to extend this to more models using proxy?
-        is_openrouter = (llm_config.model_endpoint and "openrouter.ai" in llm_config.model_endpoint) or (
-            llm_config.provider_name == "openrouter"
-        )
+        is_openrouter = self._is_openrouter_request(llm_config)
         if is_openrouter:
             try:
                 model = llm_config.handle.split("/", 1)[-1]
@@ -557,6 +620,13 @@ class OpenAIClient(LLMClientBase):
                             tool.function.parameters["required"].remove(REQUEST_HEARTBEAT_PARAM)
                     new_tools.append(tool.model_copy(deep=True))
                 data.tools = new_tools
+
+        self._apply_prompt_cache_settings(
+            llm_config=llm_config,
+            model=model,
+            messages=messages,
+            request_obj=data,
+        )
 
         # Note: Tools are already processed by enable_strict_mode() in the workflow/agent code
         # (temporal_letta_v1_agent_workflow.py or letta_agent_v3.py) before reaching here.
