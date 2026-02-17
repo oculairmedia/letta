@@ -1,4 +1,7 @@
-from typing import Any, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
+
+if TYPE_CHECKING:
+    from letta.services.summarizer.summarizer_config import CompactionSettings
 
 import numpy as np
 from anthropic.types.beta.messages import BetaMessageBatch, BetaMessageBatchIndividualResponse
@@ -113,7 +116,7 @@ def deserialize_embedding_config(data: Optional[Dict]) -> Optional[EmbeddingConf
 # --------------------------
 
 
-def serialize_compaction_settings(config: Union[Optional["CompactionSettings"], Dict]) -> Optional[Dict]:  # noqa: F821
+def serialize_compaction_settings(config: Union[Optional["CompactionSettings"], Dict]) -> Optional[Dict]:
     """Convert a CompactionSettings object into a JSON-serializable dictionary."""
     if config:
         # Import here to avoid circular dependency
@@ -124,7 +127,7 @@ def serialize_compaction_settings(config: Union[Optional["CompactionSettings"], 
     return config
 
 
-def deserialize_compaction_settings(data: Optional[Dict]) -> Optional["CompactionSettings"]:  # noqa: F821
+def deserialize_compaction_settings(data: Optional[Dict]) -> Optional["CompactionSettings"]:
     """Convert a dictionary back into a CompactionSettings object."""
     if data:
         # Import here to avoid circular dependency

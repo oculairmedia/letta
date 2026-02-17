@@ -3,7 +3,17 @@ import json
 import logging
 import threading
 from random import uniform
-from typing import Any, Dict, List, Optional, Type, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Type, Union
+
+if TYPE_CHECKING:
+    from letta.agents.letta_agent import LettaAgent as Agent
+    from letta.schemas.agent import AgentState
+    from letta.server.server import SyncServer
+
+    try:
+        from langchain.tools.base import BaseTool as LangChainBaseTool
+    except ImportError:
+        LangChainBaseTool = None
 
 import humps
 from pydantic import BaseModel, Field, create_model
@@ -21,6 +31,8 @@ from letta.server.rest_api.dependencies import get_letta_server
 from letta.settings import settings
 from letta.utils import safe_create_task
 
+_background_tasks: set[asyncio.Task] = set()
+
 
 # TODO needed?
 def generate_mcp_tool_wrapper(mcp_tool_name: str) -> tuple[str, str]:
@@ -36,8 +48,8 @@ def {mcp_tool_name}(**kwargs):
 
 
 def generate_langchain_tool_wrapper(
-    tool: "LangChainBaseTool",  # noqa: F821
-    additional_imports_module_attr_map: dict[str, str] = None,
+    tool: "LangChainBaseTool",
+    additional_imports_module_attr_map: dict[str, str] | None = None,
 ) -> tuple[str, str]:
     tool_name = tool.__class__.__name__
     import_statement = f"from langchain_community.tools import {tool_name}"
@@ -73,7 +85,7 @@ def _assert_code_gen_compilable(code_str):
         print(f"Syntax error in code: {e}")
 
 
-def _assert_all_classes_are_imported(tool: Union["LangChainBaseTool"], additional_imports_module_attr_map: dict[str, str]) -> None:  # noqa: F821
+def _assert_all_classes_are_imported(tool: Union["LangChainBaseTool"], additional_imports_module_attr_map: dict[str, str]) -> None:
     # Safety check that user has passed in all required imports:
     tool_name = tool.__class__.__name__
     current_class_imports = {tool_name}
@@ -87,7 +99,7 @@ def _assert_all_classes_are_imported(tool: Union["LangChainBaseTool"], additiona
         raise RuntimeError(err_msg)
 
 
-def _find_required_class_names_for_import(obj: Union["LangChainBaseTool", BaseModel]) -> list[str]:  # noqa: F821
+def _find_required_class_names_for_import(obj: Union["LangChainBaseTool", BaseModel]) -> list[str]:
     """
     Finds all the class names for required imports when instantiating the `obj`.
     NOTE: This does not return the full import path, only the class name.
@@ -225,7 +237,7 @@ def _parse_letta_response_for_assistant_message(
 
 
 async def async_execute_send_message_to_agent(
-    sender_agent: "Agent",  # noqa: F821
+    sender_agent: "Agent",
     messages: List[MessageCreate],
     other_agent_id: str,
     log_prefix: str,
@@ -256,7 +268,7 @@ async def async_execute_send_message_to_agent(
 
 
 def execute_send_message_to_agent(
-    sender_agent: "Agent",  # noqa: F821
+    sender_agent: "Agent",
     messages: List[MessageCreate],
     other_agent_id: str,
     log_prefix: str,
@@ -269,7 +281,7 @@ def execute_send_message_to_agent(
 
 
 async def _send_message_to_agent_no_stream(
-    server: "SyncServer",  # noqa: F821
+    server: "SyncServer",
     agent_id: str,
     actor: User,
     messages: List[MessageCreate],
@@ -302,8 +314,8 @@ async def _send_message_to_agent_no_stream(
 
 
 async def _async_send_message_with_retries(
-    server: "SyncServer",  # noqa: F821
-    sender_agent: "Agent",  # noqa: F821
+    server: "SyncServer",
+    sender_agent: "Agent",
     target_agent_id: str,
     messages: List[MessageCreate],
     max_retries: int,
@@ -353,7 +365,7 @@ async def _async_send_message_with_retries(
 
 
 def fire_and_forget_send_to_agent(
-    sender_agent: "Agent",  # noqa: F821
+    sender_agent: "Agent",
     messages: List[MessageCreate],
     other_agent_id: str,
     log_prefix: str,
@@ -429,18 +441,18 @@ def fire_and_forget_send_to_agent(
     # 4) Try to schedule the coroutine in an existing loop, else spawn a thread
     try:
         loop = asyncio.get_running_loop()
-        # If we get here, a loop is running; schedule the coroutine in background
-        loop.create_task(background_task())
+        task = loop.create_task(background_task())
+        _background_tasks.add(task)
+        task.add_done_callback(_background_tasks.discard)
     except RuntimeError:
-        # Means no event loop is running in this thread
         run_in_background_thread(background_task())
 
 
 async def _send_message_to_agents_matching_tags_async(
-    sender_agent: "Agent",  # noqa: F821
-    server: "SyncServer",  # noqa: F821
+    sender_agent: "Agent",
+    server: "SyncServer",
     messages: List[MessageCreate],
-    matching_agents: List["AgentState"],  # noqa: F821
+    matching_agents: List["AgentState"],
 ) -> List[str]:
     async def _send_single(agent_state):
         return await _async_send_message_with_retries(
@@ -464,7 +476,7 @@ async def _send_message_to_agents_matching_tags_async(
     return final
 
 
-async def _send_message_to_all_agents_in_group_async(sender_agent: "Agent", message: str) -> List[str]:  # noqa: F821
+async def _send_message_to_all_agents_in_group_async(sender_agent: "Agent", message: str) -> List[str]:
     server = get_letta_server()
 
     augmented_message = (
@@ -522,7 +534,9 @@ def generate_model_from_args_json_schema(schema: Dict[str, Any]) -> Type[BaseMod
     return _create_model_from_schema(schema.get("title", "DynamicModel"), schema, nested_models)
 
 
-def _create_model_from_schema(name: str, model_schema: Dict[str, Any], nested_models: Dict[str, Type[BaseModel]] = None) -> Type[BaseModel]:
+def _create_model_from_schema(
+    name: str, model_schema: Dict[str, Any], nested_models: Dict[str, Type[BaseModel]] | None = None
+) -> Type[BaseModel]:
     fields = {}
     for field_name, field_schema in model_schema["properties"].items():
         field_type = _get_field_type(field_schema, nested_models)
@@ -533,7 +547,7 @@ def _create_model_from_schema(name: str, model_schema: Dict[str, Any], nested_mo
     return create_model(name, **fields)
 
 
-def _get_field_type(field_schema: Dict[str, Any], nested_models: Dict[str, Type[BaseModel]] = None) -> Any:
+def _get_field_type(field_schema: Dict[str, Any], nested_models: Dict[str, Type[BaseModel]] | None = None) -> Any:
     """Helper to convert JSON schema types to Python types."""
     if field_schema.get("type") == "string":
         return str

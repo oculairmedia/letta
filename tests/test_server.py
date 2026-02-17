@@ -83,7 +83,7 @@ async def custom_anthropic_provider(server: SyncServer, user_id: str):
 
 @pytest.fixture
 async def agent(server: SyncServer, user: User):
-    actor = await server.user_manager.get_actor_or_default_async()
+    await server.user_manager.get_actor_or_default_async()
     agent = await server.create_agent_async(
         CreateAgent(
             agent_type="memgpt_v2_agent",
@@ -129,7 +129,6 @@ async def test_messages_with_provider_override(server: SyncServer, custom_anthro
         run_id=run.id,
     )
     usage = response.usage
-    messages = response.messages
 
     get_messages_response = await server.message_manager.list_messages(agent_id=agent.id, actor=actor, after=existing_messages[-1].id)
 
@@ -228,7 +227,6 @@ async def test_messages_with_provider_override_legacy_agent(server: SyncServer, 
         run_id=run.id,
     )
     usage = response.usage
-    messages = response.messages
 
     get_messages_response = await server.message_manager.list_messages(agent_id=agent.id, actor=actor, after=existing_messages[-1].id)
 

@@ -1,5 +1,10 @@
 import uuid
-from typing import List
+from typing import TYPE_CHECKING, List
+
+if TYPE_CHECKING:
+    from letta.orm.agent import Agent
+    from letta.orm.block import Block
+    from letta.orm.organization import Organization
 
 from sqlalchemy import String, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSON
@@ -36,11 +41,11 @@ class Identity(SqlalchemyBase, OrganizationMixin, ProjectMixin):
     )
 
     # relationships
-    organization: Mapped["Organization"] = relationship("Organization", back_populates="identities")  # noqa: F821
-    agents: Mapped[List["Agent"]] = relationship(  # noqa: F821
+    organization: Mapped["Organization"] = relationship("Organization", back_populates="identities")
+    agents: Mapped[List["Agent"]] = relationship(
         "Agent", secondary="identities_agents", lazy="selectin", passive_deletes=True, back_populates="identities"
     )
-    blocks: Mapped[List["Block"]] = relationship(  # noqa: F821
+    blocks: Mapped[List["Block"]] = relationship(
         "Block", secondary="identities_blocks", lazy="selectin", passive_deletes=True, back_populates="identities"
     )
 

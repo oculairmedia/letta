@@ -1,5 +1,10 @@
 import uuid
-from typing import List, Optional
+from typing import TYPE_CHECKING, List, Optional
+
+if TYPE_CHECKING:
+    from letta.orm.agent import Agent
+    from letta.orm.block import Block
+    from letta.orm.organization import Organization
 
 from sqlalchemy import JSON, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -27,12 +32,12 @@ class Group(SqlalchemyBase, OrganizationMixin, ProjectMixin, TemplateMixin):
     hidden: Mapped[Optional[bool]] = mapped_column(nullable=True, doc="If set to True, the group will be hidden.")
 
     # relationships
-    organization: Mapped["Organization"] = relationship("Organization", back_populates="groups")  # noqa: F821
+    organization: Mapped["Organization"] = relationship("Organization", back_populates="groups")
     agent_ids: Mapped[List[str]] = mapped_column(JSON, nullable=False, doc="Ordered list of agent IDs in this group")
-    agents: Mapped[List["Agent"]] = relationship(  # noqa: F821
+    agents: Mapped[List["Agent"]] = relationship(
         "Agent", secondary="groups_agents", lazy="selectin", passive_deletes=True, back_populates="groups"
     )
-    shared_blocks: Mapped[List["Block"]] = relationship(  # noqa: F821
+    shared_blocks: Mapped[List["Block"]] = relationship(
         "Block", secondary="groups_blocks", lazy="selectin", passive_deletes=True, back_populates="groups"
     )
-    manager_agent: Mapped["Agent"] = relationship("Agent", lazy="joined", back_populates="multi_agent_group")  # noqa: F821
+    manager_agent: Mapped["Agent"] = relationship("Agent", lazy="joined", back_populates="multi_agent_group")

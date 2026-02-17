@@ -644,7 +644,7 @@ class LettaAgentV3(LettaAgentV2):
             message.conversation_id = self.conversation_id
 
         # persist the new message objects - ONLY place where messages are persisted
-        persisted_messages = await self.message_manager.create_many_messages_async(
+        await self.message_manager.create_many_messages_async(
             new_messages,
             actor=self.actor,
             run_id=run_id,
@@ -799,7 +799,7 @@ class LettaAgentV3(LettaAgentV2):
         step_progression = StepProgression.START
         caught_exception = None
         # TODO(@caren): clean this up
-        tool_calls, content, agent_step_span, first_chunk, step_id, logged_step, step_start_ns, step_metrics = (
+        tool_calls, content, agent_step_span, _first_chunk, step_id, logged_step, _step_start_ns, step_metrics = (
             None,
             None,
             None,
@@ -971,7 +971,6 @@ class LettaAgentV3(LettaAgentV2):
                         async for chunk in invocation:
                             if llm_adapter.supports_token_streaming():
                                 if include_return_message_types is None or chunk.message_type in include_return_message_types:
-                                    first_chunk = True
                                     yield chunk
                         # If you've reached this point without an error, break out of retry loop
                         break
@@ -1659,10 +1658,10 @@ class LettaAgentV3(LettaAgentV2):
             # Decide continuation for this tool
             if has_prefill_error:
                 cont = False
-                hb_reason = None
+                _hb_reason = None
                 sr = LettaStopReason(stop_reason=StopReasonType.invalid_tool_call.value)
             else:
-                cont, hb_reason, sr = self._decide_continuation(
+                cont, _hb_reason, sr = self._decide_continuation(
                     agent_state=self.agent_state,
                     tool_call_name=spec["name"],
                     tool_rule_violated=spec["violated"],

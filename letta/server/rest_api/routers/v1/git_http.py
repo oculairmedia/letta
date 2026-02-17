@@ -65,7 +65,8 @@ from letta.server.rest_api.dependencies import HeaderParams, get_headers, get_le
 
 logger = get_logger(__name__)
 
-# Routes are proxied to dulwich running on a separate port.
+_background_tasks: set[asyncio.Task] = set()
+
 router = APIRouter(prefix="/git", tags=["git"], include_in_schema=False)
 
 # Global storage for the server instance (set during app startup)
@@ -718,8 +719,9 @@ async def proxy_git_http(
                 actor = await server.user_manager.get_actor_or_default_async(actor_id=headers.actor_id)
                 # Authorization check: ensure the actor can access this agent.
                 await server.agent_manager.get_agent_by_id_async(agent_id=agent_id, actor=actor, include_relationships=[])
-                # Fire-and-forget; do not block git client response.
-                asyncio.create_task(_sync_after_push(actor.id, agent_id))
+                task = asyncio.create_task(_sync_after_push(actor.id, agent_id))
+                _background_tasks.add(task)
+                task.add_done_callback(_background_tasks.discard)
             except Exception:
                 logger.exception("Failed to trigger post-push sync (agent_id=%s)", agent_id)
 

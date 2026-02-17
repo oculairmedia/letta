@@ -201,7 +201,7 @@ def add_pre_execution_message(tool_schema: Dict[str, Any], description: Optional
 
     # Ensure pre-execution message is the first required field
     if PRE_EXECUTION_MESSAGE_ARG not in required:
-        required = [PRE_EXECUTION_MESSAGE_ARG] + required
+        required = [PRE_EXECUTION_MESSAGE_ARG, *required]
 
     # Update the schema with ordered properties and required list
     schema["parameters"] = {

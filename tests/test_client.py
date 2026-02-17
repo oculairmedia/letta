@@ -60,7 +60,7 @@ def mock_openai_server():
             self.end_headers()
             self.wfile.write(body)
 
-        def do_GET(self):  # noqa: N802
+        def do_GET(self):
             # Support OpenAI model listing used during provider sync.
             if self.path in ("/v1/models", "/models"):
                 self._send_json(
@@ -78,7 +78,7 @@ def mock_openai_server():
 
             self._send_json(404, {"error": {"message": f"Not found: {self.path}"}})
 
-        def do_POST(self):  # noqa: N802
+        def do_POST(self):
             # Support embeddings endpoint
             if self.path not in ("/v1/embeddings", "/embeddings"):
                 self._send_json(404, {"error": {"message": f"Not found: {self.path}"}})
@@ -739,7 +739,7 @@ def test_initial_sequence(client: Letta):
 
     # list messages
     messages = client.agents.messages.list(agent_id=agent.id).items
-    response = client.agents.messages.create(
+    client.agents.messages.create(
         agent_id=agent.id,
         messages=[
             MessageCreateParam(
@@ -803,7 +803,7 @@ def test_attach_sleeptime_block(client: Letta):
     group_id = agent.multi_agent_group.id
     group = client.groups.retrieve(group_id=group_id)
     agent_ids = group.agent_ids
-    sleeptime_id = [id for id in agent_ids if id != agent.id][0]
+    sleeptime_id = next(id for id in agent_ids if id != agent.id)
 
     # attach a new block
     block = client.blocks.create(label="test", value="test")  # , project_id="test")
@@ -891,7 +891,6 @@ def test_agent_generate_with_system_prompt(client: Letta, agent: AgentState):
 def test_agent_generate_with_model_override(client: Letta, agent: AgentState):
     """Test generate endpoint with model override."""
     # Get the agent's current model
-    original_model = agent.llm_config.model
 
     # Use OpenAI model (more likely to be available in test environment)
     override_model_handle = "openai/gpt-4o-mini"

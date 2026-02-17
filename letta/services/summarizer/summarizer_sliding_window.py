@@ -1,4 +1,7 @@
-from typing import List, Optional, Tuple
+from typing import TYPE_CHECKING, List, Optional, Tuple
+
+if TYPE_CHECKING:
+    from letta.schemas.tool import Tool
 
 from letta.log import get_logger
 from letta.otel.tracing import trace_method
@@ -41,7 +44,7 @@ async def count_tokens_with_tools(
     actor: User,
     llm_config: LLMConfig,
     messages: List[Message],
-    tools: Optional[List["Tool"]] = None,  # noqa: F821
+    tools: Optional[List["Tool"]] = None,
 ) -> int:
     """Count tokens in messages AND tool definitions.
 
@@ -125,7 +128,7 @@ async def summarize_via_sliding_window(
         maximum_message_index = total_message_count - 1
 
     # Starts at N% (eg 70%), and increments up until 100%
-    message_count_cutoff_percent = max(
+    max(
         1 - summarizer_config.sliding_window_percentage, 0.10
     )  # Some arbitrary minimum value (10%) to avoid negatives from badly configured summarizer percentage
     eviction_percentage = summarizer_config.sliding_window_percentage
@@ -170,7 +173,7 @@ async def summarize_via_sliding_window(
 
         # update token count
         logger.info(f"Attempting to compact messages index 1:{assistant_message_index} messages")
-        post_summarization_buffer = [system_prompt] + in_context_messages[assistant_message_index:]
+        post_summarization_buffer = [system_prompt, *in_context_messages[assistant_message_index:]]
         approx_token_count = await count_tokens(actor, agent_llm_config, post_summarization_buffer)
         logger.info(
             f"Compacting messages index 1:{assistant_message_index} messages resulted in {approx_token_count} tokens, goal is {goal_tokens}"
@@ -214,4 +217,4 @@ async def summarize_via_sliding_window(
         summary_message_str = summary_message_str[: summarizer_config.clip_chars] + "... [summary truncated to fit]"
 
     updated_in_context_messages = in_context_messages[assistant_message_index:]
-    return summary_message_str, [system_prompt] + updated_in_context_messages
+    return summary_message_str, [system_prompt, *updated_in_context_messages]

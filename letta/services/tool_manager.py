@@ -47,7 +47,7 @@ logger = get_logger(__name__)
 
 
 # NOTE: function name and nested modal function decorator name must stay in sync with MODAL_DEFAULT_TOOL_NAME
-def modal_tool_wrapper(tool: PydanticTool, actor: PydanticUser, sandbox_env_vars: dict = None, project_id: str = "default"):
+def modal_tool_wrapper(tool: PydanticTool, actor: PydanticUser, sandbox_env_vars: dict | None = None, project_id: str = "default"):
     """Create a Modal function wrapper for a tool"""
     import contextlib
     import io
@@ -183,7 +183,7 @@ def modal_tool_wrapper(tool: PydanticTool, actor: PydanticUser, sandbox_env_vars
                     result = asyncio.run(tool_func(**kwargs))
                 else:
                     result = tool_func(**kwargs)
-            except Exception as e:
+            except Exception:
                 # Capture the exception and write to stderr
                 error_occurred = True
                 traceback.print_exc(file=stderr_capture)
@@ -1342,7 +1342,7 @@ class ToolManager:
         """Delete a Modal app deployment for the tool"""
         try:
             # Generate the app name for this tool
-            modal_app_name = generate_modal_function_name(tool.id, actor.organization_id)
+            generate_modal_function_name(tool.id, actor.organization_id)
 
             # Try to delete the app
             # TODO: we need to soft delete, and then potentially stop via the CLI, no programmatic way to delete currently

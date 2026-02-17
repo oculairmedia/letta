@@ -362,7 +362,7 @@ def test_invoke_tool_after_turning_off_requires_approval(
     try:
         assert messages[idx].message_type == "assistant_message"
         idx += 1
-    except:
+    except Exception:
         pass
 
     assert messages[idx].message_type == "tool_call_message"
@@ -375,7 +375,7 @@ def test_invoke_tool_after_turning_off_requires_approval(
     try:
         assert messages[idx].message_type == "assistant_message"
         idx += 1
-    except:
+    except Exception:
         assert messages[idx].message_type == "tool_call_message"
         idx += 1
         assert messages[idx].message_type == "tool_return_message"
@@ -1324,7 +1324,7 @@ def test_agent_records_last_stop_reason_after_approval_flow(
     assert agent_after_approval.last_stop_reason != initial_stop_reason  # Should be different from initial
 
     # Send follow-up message to complete the flow
-    response2 = client.agents.messages.create(
+    client.agents.messages.create(
         agent_id=agent.id,
         messages=USER_MESSAGE_FOLLOW_UP,
     )

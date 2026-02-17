@@ -3,9 +3,9 @@ import json
 from datetime import datetime
 from typing import Annotated, Any, Dict, List, Literal, Optional, Union
 
+import orjson
 from fastapi import APIRouter, Body, Depends, File, Form, Header, HTTPException, Query, Request, UploadFile, status
 from fastapi.responses import JSONResponse
-from orjson import orjson
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from starlette.responses import Response, StreamingResponse
 
@@ -879,7 +879,7 @@ async def detach_source(
             source = await server.source_manager.get_source_by_id(source_id=source_id, actor=actor)
             block = await server.agent_manager.get_block_with_label_async(agent_id=agent_state.id, block_label=source.name, actor=actor)
             await server.block_manager.delete_block_async(block.id, actor)
-        except:
+        except Exception:
             pass
 
     return agent_state
@@ -911,7 +911,7 @@ async def detach_folder_from_agent(
             source = await server.source_manager.get_source_by_id(source_id=folder_id, actor=actor)
             block = await server.agent_manager.get_block_with_label_async(agent_id=agent_state.id, block_label=source.name, actor=actor)
             await server.block_manager.delete_block_async(block.id, actor)
-        except:
+        except Exception:
             pass
 
     if is_1_0_sdk_version(headers):
@@ -972,7 +972,7 @@ async def open_file_for_agent(
     visible_content = truncate_file_visible_content(visible_content, True, per_file_view_window_char_limit)
 
     # Use enforce_max_open_files_and_open for efficient LRU handling
-    closed_files, was_already_open, _ = await server.file_agent_manager.enforce_max_open_files_and_open(
+    closed_files, _was_already_open, _ = await server.file_agent_manager.enforce_max_open_files_and_open(
         agent_id=agent_id,
         file_id=file_id,
         file_name=file_metadata.file_name,
@@ -1840,7 +1840,7 @@ async def send_message_streaming(
     # use the streaming service for unified stream handling
     streaming_service = StreamingService(server)
 
-    run, result = await streaming_service.create_agent_stream(
+    _run, result = await streaming_service.create_agent_stream(
         agent_id=agent_id,
         actor=actor,
         request=request,
@@ -1921,7 +1921,6 @@ async def cancel_message(
 
 @router.post(
     "/{agent_id}/generate",
-    response_model=GenerateResponse,
     operation_id="generate_completion",
     responses={
         200: {"description": "Successful generation"},
@@ -2177,7 +2176,7 @@ async def send_message_async(
 
     try:
         is_message_input = request.messages[0].type == MessageCreateType.message
-    except:
+    except Exception:
         is_message_input = True
     use_lettuce = headers.experimental_params.message_async and is_message_input
 

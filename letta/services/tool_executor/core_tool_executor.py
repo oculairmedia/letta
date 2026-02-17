@@ -619,7 +619,7 @@ class LettaCoreToolExecutor(ToolExecutor):
 
             if kind == "add":
                 try:
-                    existing = agent_state.memory.get_block(action["label"])
+                    agent_state.memory.get_block(action["label"])
                     # If we get here, the block exists
                     raise ValueError(f"Error: Memory block '{action['label']}' already exists")
                 except KeyError:
@@ -724,7 +724,7 @@ class LettaCoreToolExecutor(ToolExecutor):
 
         # Collate into the new value to update
         new_value = "\n".join(new_value_lines)
-        snippet = "\n".join(snippet_lines)
+        "\n".join(snippet_lines)
 
         # Write into the block
         agent_state.memory.update_block_value(label=label, value=new_value)
@@ -985,7 +985,7 @@ class LettaCoreToolExecutor(ToolExecutor):
 
         # Collate into the new value to update
         new_value = "\n".join(new_value_lines)
-        snippet = "\n".join(snippet_lines)
+        "\n".join(snippet_lines)
 
         # Write into the block
         await self.block_manager.update_block_async(block_id=memory_block.id, block_update=BlockUpdate(value=new_value), actor=actor)

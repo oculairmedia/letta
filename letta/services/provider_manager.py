@@ -409,7 +409,7 @@ class ProviderManager:
             try:
                 provider_model = await ProviderModel.read_async(db_session=session, identifier=provider_id, actor=actor)
                 return provider_model.to_pydantic()
-            except:
+            except Exception:
                 # If not found, try to get as global provider (organization_id=NULL)
                 from sqlalchemy import select
 
@@ -1048,7 +1048,7 @@ class ProviderManager:
             # Model not in DB - check if it's from a BYOK provider
             # Handle format is "provider_name/model_name"
             if "/" in handle:
-                provider_name, model_name = handle.split("/", 1)
+                provider_name, _model_name = handle.split("/", 1)
                 byok_providers = await self.list_providers_async(
                     actor=actor,
                     name=provider_name,

@@ -1,5 +1,9 @@
 import json
-from typing import List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, List, Optional, Tuple, Union
+
+if TYPE_CHECKING:
+    from letta.agents.voice_sleeptime_agent import VoiceSleeptimeAgent
+    from letta.services.telemetry_manager import TelemetryManager
 
 from letta.agents.ephemeral_summary_agent import EphemeralSummaryAgent
 from letta.constants import (
@@ -39,7 +43,7 @@ class Summarizer:
     def __init__(
         self,
         mode: SummarizationMode,
-        summarizer_agent: Optional[Union[EphemeralSummaryAgent, "VoiceSleeptimeAgent"]] = None,  # noqa: F821
+        summarizer_agent: Optional[Union[EphemeralSummaryAgent, "VoiceSleeptimeAgent"]] = None,
         message_buffer_limit: int = 10,
         message_buffer_min: int = 3,
         partial_evict_summarizer_percentage: float = 0.30,
@@ -235,7 +239,7 @@ class Summarizer:
         )
 
         updated_in_context_messages = all_in_context_messages[assistant_message_index:]
-        return [all_in_context_messages[0], summary_message_obj] + updated_in_context_messages, True
+        return [all_in_context_messages[0], summary_message_obj, *updated_in_context_messages], True
 
     def _static_buffer_summarization(
         self,
@@ -336,7 +340,7 @@ class Summarizer:
                 self.summarizer_agent.step([MessageCreate(role=MessageRole.user, content=[TextContent(text=summary_request_text)])])
             )
 
-        return [all_in_context_messages[0]] + updated_in_context_messages, True
+        return [all_in_context_messages[0], *updated_in_context_messages], True
 
 
 def simple_formatter(
@@ -451,7 +455,7 @@ async def simple_summary(
     actor: User,
     include_ack: bool = True,
     prompt: str | None = None,
-    telemetry_manager: "TelemetryManager | None" = None,  # noqa: F821
+    telemetry_manager: "TelemetryManager | None" = None,
     agent_id: str | None = None,
     agent_tags: List[str] | None = None,
     run_id: str | None = None,

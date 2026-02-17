@@ -214,10 +214,10 @@ async def test_modify_letta_message(server: SyncServer, sarah_agent, default_use
     messages = await server.message_manager.list_messages(agent_id=sarah_agent.id, actor=default_user)
     letta_messages = PydanticMessage.to_letta_messages_from_list(messages=messages)
 
-    system_message = [msg for msg in letta_messages if msg.message_type == "system_message"][0]
-    assistant_message = [msg for msg in letta_messages if msg.message_type == "assistant_message"][0]
-    user_message = [msg for msg in letta_messages if msg.message_type == "user_message"][0]
-    reasoning_message = [msg for msg in letta_messages if msg.message_type == "reasoning_message"][0]
+    system_message = next(msg for msg in letta_messages if msg.message_type == "system_message")
+    assistant_message = next(msg for msg in letta_messages if msg.message_type == "assistant_message")
+    user_message = next(msg for msg in letta_messages if msg.message_type == "user_message")
+    reasoning_message = next(msg for msg in letta_messages if msg.message_type == "reasoning_message")
 
     # user message
     update_user_message = UpdateUserMessage(content="Hello, Sarah!")

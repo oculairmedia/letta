@@ -1,5 +1,8 @@
 import asyncio
-from typing import List
+from typing import TYPE_CHECKING, List
+
+if TYPE_CHECKING:
+    from letta.agents.letta_agent import LettaAgent as Agent
 
 from letta.functions.helpers import (
     _send_message_to_agents_matching_tags_async,
@@ -13,7 +16,7 @@ from letta.server.rest_api.dependencies import get_letta_server
 from letta.settings import settings
 
 
-def send_message_to_agent_and_wait_for_reply(self: "Agent", message: str, other_agent_id: str) -> str:  # noqa: F821
+def send_message_to_agent_and_wait_for_reply(self: "Agent", message: str, other_agent_id: str) -> str:
     """
     Sends a message to a specific Letta agent within the same organization and waits for a response. The sender's identity is automatically included, so no explicit introduction is needed in the message. This function is designed for two-way communication where a reply is expected.
 
@@ -37,7 +40,7 @@ def send_message_to_agent_and_wait_for_reply(self: "Agent", message: str, other_
     )
 
 
-def send_message_to_agents_matching_tags(self: "Agent", message: str, match_all: List[str], match_some: List[str]) -> List[str]:  # noqa: F821
+def send_message_to_agents_matching_tags(self: "Agent", message: str, match_all: List[str], match_some: List[str]) -> List[str]:
     """
     Sends a message to all agents within the same organization that match the specified tag criteria. Agents must possess *all* of the tags in `match_all` and *at least one* of the tags in `match_some` to receive the message.
 
@@ -66,7 +69,7 @@ def send_message_to_agents_matching_tags(self: "Agent", message: str, match_all:
     return asyncio.run(_send_message_to_agents_matching_tags_async(self, server, messages, matching_agents))
 
 
-def send_message_to_all_agents_in_group(self: "Agent", message: str) -> List[str]:  # noqa: F821
+def send_message_to_all_agents_in_group(self: "Agent", message: str) -> List[str]:
     """
     Sends a message to all agents within the same multi-agent group.
 
@@ -82,7 +85,7 @@ def send_message_to_all_agents_in_group(self: "Agent", message: str) -> List[str
     return asyncio.run(_send_message_to_all_agents_in_group_async(self, message))
 
 
-def send_message_to_agent_async(self: "Agent", message: str, other_agent_id: str) -> str:  # noqa: F821
+def send_message_to_agent_async(self: "Agent", message: str, other_agent_id: str) -> str:
     """
     Sends a message to a specific Letta agent within the same organization. The sender's identity is automatically included, so no explicit introduction is required in the message. This function does not expect a response from the target agent, making it suitable for notifications or one-way communication.
     Args:

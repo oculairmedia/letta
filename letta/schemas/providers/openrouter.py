@@ -93,7 +93,7 @@ class OpenRouterProvider(OpenAIProvider):
             model_name = model["id"]
 
             # OpenRouter returns context_length in the model listing
-            if "context_length" in model and model["context_length"]:
+            if model.get("context_length"):
                 context_window_size = model["context_length"]
             else:
                 context_window_size = self.get_model_context_window_size(model_name)

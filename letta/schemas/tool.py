@@ -158,7 +158,7 @@ class ToolCreate(LettaBase):
         description = mcp_tool.description
         source_type = "python"
         tags = [f"{MCP_TOOL_TAG_NAME_PREFIX}:{mcp_server_name}"]
-        wrapper_func_name, wrapper_function_str = generate_mcp_tool_wrapper(mcp_tool.name)
+        _wrapper_func_name, wrapper_function_str = generate_mcp_tool_wrapper(mcp_tool.name)
 
         return cls(
             description=description,

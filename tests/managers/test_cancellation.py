@@ -320,7 +320,7 @@ class TestMessageStateDesyncIssues:
         print(f"   background={request.background}")
 
         # Start the background streaming agent
-        run, stream_response = await streaming_service.create_agent_stream(
+        run, _stream_response = await streaming_service.create_agent_stream(
             agent_id=test_agent_with_tool.id,
             actor=default_user,
             request=request,
@@ -510,7 +510,7 @@ class TestStreamingCancellation:
         try:
             async for chunk in cancel_during_stream():
                 chunks.append(chunk)
-        except Exception as e:
+        except Exception:
             # May raise exception on cancellation
             pass
 
@@ -733,7 +733,7 @@ class TestResourceCleanupAfterCancellation:
 
         input_messages = [MessageCreate(role=MessageRole.user, content="Call print_tool with 'test'")]
 
-        result = await agent_loop.step(
+        await agent_loop.step(
             input_messages=input_messages,
             max_steps=5,
             run_id=test_run.id,
@@ -895,7 +895,7 @@ class TestApprovalFlowCancellation:
         )
 
         # Check for approval request messages
-        approval_messages = [m for m in messages_after_cancel if m.role == "approval_request"]
+        [m for m in messages_after_cancel if m.role == "approval_request"]
 
         # Second run: try to execute normally (should work, not stuck in approval)
         test_run_2 = await server.run_manager.create_run(
@@ -1075,7 +1075,7 @@ class TestApprovalFlowCancellation:
         assert result.stop_reason.stop_reason == "requires_approval", f"Expected requires_approval, got {result.stop_reason.stop_reason}"
 
         # Get all messages from database for this run
-        db_messages = await server.message_manager.list_messages(
+        await server.message_manager.list_messages(
             actor=default_user,
             agent_id=test_agent_with_tool.id,
             run_id=test_run.id,
@@ -1210,7 +1210,7 @@ class TestApprovalFlowCancellation:
         assert result.stop_reason.stop_reason == "requires_approval", f"Should stop for approval, got {result.stop_reason.stop_reason}"
 
         # Get the approval request message to see how many tool calls were made
-        db_messages_before_cancel = await server.message_manager.list_messages(
+        await server.message_manager.list_messages(
             actor=default_user,
             agent_id=agent_state.id,
             run_id=test_run.id,

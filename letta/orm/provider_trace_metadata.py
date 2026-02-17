@@ -1,6 +1,9 @@
 import uuid
 from datetime import datetime
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
+
+if TYPE_CHECKING:
+    from letta.orm.organization import Organization
 
 from sqlalchemy import JSON, DateTime, Index, String, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -42,4 +45,4 @@ class ProviderTraceMetadata(SqlalchemyBase, OrganizationMixin):
     user_id: Mapped[Optional[str]] = mapped_column(String, nullable=True, doc="ID of the user who initiated the request")
 
     # Relationships
-    organization: Mapped["Organization"] = relationship("Organization", lazy="selectin")  # noqa: F821
+    organization: Mapped["Organization"] = relationship("Organization", lazy="selectin")

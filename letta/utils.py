@@ -17,7 +17,7 @@ from contextlib import contextmanager
 from datetime import datetime, timezone
 from functools import wraps
 from logging import Logger
-from typing import Any, Callable, Coroutine, Optional, Union, _GenericAlias, get_args, get_origin, get_type_hints
+from typing import Any, Callable, Optional, Union, _GenericAlias, get_args, get_origin, get_type_hints  # type: ignore[attr-defined]
 from urllib.parse import urljoin, urlparse
 
 import demjson3 as demjson

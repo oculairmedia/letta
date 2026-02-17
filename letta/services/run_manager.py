@@ -739,7 +739,7 @@ class RunManager:
                 )
 
                 # Combine approval response and tool messages
-                new_messages = approval_response_messages + [tool_message]
+                new_messages = [*approval_response_messages, tool_message]
 
                 # Checkpoint the new messages
                 from letta.agents.agent_loop import AgentLoop

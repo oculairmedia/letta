@@ -406,7 +406,7 @@ class AnthropicClient(LLMClientBase):
                 for agent_id in agent_messages_mapping
             }
 
-            client = await self._get_anthropic_client_async(list(agent_llm_config_mapping.values())[0], async_client=True)
+            client = await self._get_anthropic_client_async(next(iter(agent_llm_config_mapping.values())), async_client=True)
 
             anthropic_requests = [
                 Request(custom_id=agent_id, params=MessageCreateParamsNonStreaming(**params)) for agent_id, params in requests.items()
@@ -599,7 +599,7 @@ class AnthropicClient(LLMClientBase):
             # Special case for summarization path
             tools_for_request = None
             tool_choice = None
-        elif self.is_reasoning_model(llm_config) and llm_config.enable_reasoner or agent_type == AgentType.letta_v1_agent:
+        elif (self.is_reasoning_model(llm_config) and llm_config.enable_reasoner) or agent_type == AgentType.letta_v1_agent:
             # NOTE: reasoning models currently do not allow for `any`
             # NOTE: react agents should always have at least auto on, since the precense/absense of tool calls controls chaining
             if agent_type == AgentType.split_thread_agent and force_tool_call is not None:
@@ -785,7 +785,9 @@ class AnthropicClient(LLMClientBase):
 
         return data
 
-    async def count_tokens(self, messages: List[dict] = None, model: str = None, tools: List[OpenAITool] = None) -> int:
+    async def count_tokens(
+        self, messages: List[dict] | None = None, model: str | None = None, tools: List[OpenAITool] | None = None
+    ) -> int:
         logging.getLogger("httpx").setLevel(logging.WARNING)
         # Use the default client; token counting is lightweight and does not require BYOK overrides
         client = anthropic.AsyncAnthropic()
@@ -1104,7 +1106,7 @@ class AnthropicClient(LLMClientBase):
 
         if isinstance(e, anthropic.APIStatusError):
             logger.warning(f"[Anthropic] API status error: {str(e)}")
-            if hasattr(e, "status_code") and e.status_code == 402 or is_insufficient_credits_message(str(e)):
+            if (hasattr(e, "status_code") and e.status_code == 402) or is_insufficient_credits_message(str(e)):
                 msg = str(e)
                 return LLMInsufficientCreditsError(
                     message=f"Insufficient credits (BYOK): {msg}" if is_byok else f"Insufficient credits: {msg}",
@@ -1247,7 +1249,7 @@ class AnthropicClient(LLMClientBase):
                             args_json = json.loads(arguments)
                             if not isinstance(args_json, dict):
                                 raise LLMServerError("Expected parseable json object for arguments")
-                        except:
+                        except Exception:
                             arguments = str(tool_input["function"]["arguments"])
                     else:
                         arguments = json.dumps(tool_input, indent=2)
@@ -1539,7 +1541,7 @@ def is_heartbeat(message: dict, is_ping: bool = False) -> bool:
 
     try:
         message_json = json.loads(message["content"])
-    except:
+    except Exception:
         return False
 
     # Check if message_json is a dict (not int, str, list, etc.)

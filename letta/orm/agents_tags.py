@@ -1,3 +1,8 @@
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from letta.orm.agent import Agent
+
 from sqlalchemy import ForeignKey, Index, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -21,4 +26,4 @@ class AgentsTags(Base):
     tag: Mapped[str] = mapped_column(String, doc="The name of the tag associated with the agent.", primary_key=True)
 
     # Relationships
-    agent: Mapped["Agent"] = relationship("Agent", back_populates="tags")  # noqa: F821
+    agent: Mapped["Agent"] = relationship("Agent", back_populates="tags")

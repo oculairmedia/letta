@@ -1,4 +1,5 @@
 import asyncio
+import itertools
 from datetime import datetime, timezone
 from typing import Tuple
 from unittest.mock import AsyncMock, patch
@@ -769,7 +770,7 @@ def _assert_descending_order(messages):
     if len(messages) <= 1:
         return True
 
-    for prev, next in zip(messages[:-1], messages[1:]):
+    for prev, next in itertools.pairwise(messages):
         assert prev.created_at >= next.created_at, (
             f"Order violation: {prev.id} ({prev.created_at}) followed by {next.id} ({next.created_at})"
         )

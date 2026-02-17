@@ -292,7 +292,7 @@ class SGLangNativeAdapter(SimpleLLMRequestAdapter):
                         if isinstance(tc_args, str):
                             try:
                                 tc_args = json.loads(tc_args)
-                            except:
+                            except Exception:
                                 pass
 
                         tc_parts.append(f'<tool_call>\n{{"name": "{tc_name}", "arguments": {json.dumps(tc_args)}}}\n</tool_call>')

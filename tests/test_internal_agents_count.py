@@ -56,7 +56,7 @@ def test_agents(client: Letta) -> List[AgentState]:
     for agent in agents:
         try:
             client.agents.delete(agent.id)
-        except:
+        except Exception:
             pass
 
 

@@ -161,8 +161,7 @@ async def test_update_run_updates_agent_last_stop_reason(server: SyncServer, sar
     """Test that completing a run updates the agent's last_stop_reason."""
 
     # Verify agent starts with no last_stop_reason
-    agent = await server.agent_manager.get_agent_by_id_async(agent_id=sarah_agent.id, actor=default_user)
-    initial_stop_reason = agent.last_stop_reason
+    await server.agent_manager.get_agent_by_id_async(agent_id=sarah_agent.id, actor=default_user)
 
     # Create a run
     run_data = PydanticRun(agent_id=sarah_agent.id)
@@ -867,7 +866,7 @@ async def test_run_messages_ordering(server: SyncServer, default_run, default_us
             created_at=created_at,
             run_id=run.id,
         )
-        msg = await server.message_manager.create_many_messages_async([message], actor=default_user)
+        await server.message_manager.create_many_messages_async([message], actor=default_user)
 
     # Verify messages are returned in chronological order
     returned_messages = await server.message_manager.list_messages(
@@ -1015,7 +1014,7 @@ async def test_get_run_messages(server: SyncServer, default_user: PydanticUser, 
                 )
             )
 
-    created_msg = await server.message_manager.create_many_messages_async(messages, actor=default_user)
+    await server.message_manager.create_many_messages_async(messages, actor=default_user)
 
     # Get messages and verify they're converted correctly
     result = await server.message_manager.list_messages(run_id=run.id, actor=default_user)
@@ -1088,7 +1087,7 @@ async def test_get_run_messages_with_assistant_message(server: SyncServer, defau
                 )
             )
 
-    created_msg = await server.message_manager.create_many_messages_async(messages, actor=default_user)
+    await server.message_manager.create_many_messages_async(messages, actor=default_user)
 
     # Get messages and verify they're converted correctly
     result = await server.message_manager.list_messages(run_id=run.id, actor=default_user)
@@ -1369,7 +1368,7 @@ async def test_run_metrics_duration_calculation(server: SyncServer, sarah_agent,
     await asyncio.sleep(0.1)  # Wait 100ms
 
     # Update the run to completed
-    updated_run = await server.run_manager.update_run_by_id_async(
+    await server.run_manager.update_run_by_id_async(
         created_run.id, RunUpdate(status=RunStatus.completed, stop_reason=StopReasonType.end_turn), actor=default_user
     )
 
@@ -1663,7 +1662,7 @@ def test_convert_statuses_to_enum_with_invalid_status():
 async def test_list_runs_with_multiple_statuses(server: SyncServer, sarah_agent, default_user):
     """Test listing runs with multiple status filters."""
     # Create runs with different statuses
-    run_created = await server.run_manager.create_run(
+    await server.run_manager.create_run(
         pydantic_run=PydanticRun(
             status=RunStatus.created,
             agent_id=sarah_agent.id,
@@ -1671,7 +1670,7 @@ async def test_list_runs_with_multiple_statuses(server: SyncServer, sarah_agent,
         ),
         actor=default_user,
     )
-    run_running = await server.run_manager.create_run(
+    await server.run_manager.create_run(
         pydantic_run=PydanticRun(
             status=RunStatus.running,
             agent_id=sarah_agent.id,
@@ -1679,7 +1678,7 @@ async def test_list_runs_with_multiple_statuses(server: SyncServer, sarah_agent,
         ),
         actor=default_user,
     )
-    run_completed = await server.run_manager.create_run(
+    await server.run_manager.create_run(
         pydantic_run=PydanticRun(
             status=RunStatus.completed,
             agent_id=sarah_agent.id,
@@ -1687,7 +1686,7 @@ async def test_list_runs_with_multiple_statuses(server: SyncServer, sarah_agent,
         ),
         actor=default_user,
     )
-    run_failed = await server.run_manager.create_run(
+    await server.run_manager.create_run(
         pydantic_run=PydanticRun(
             status=RunStatus.failed,
             agent_id=sarah_agent.id,

@@ -24,6 +24,8 @@ logger = get_logger(__name__)
 MAX_RETRIES = 3
 INITIAL_BACKOFF_SECONDS = 1.0
 
+_background_tasks: set[asyncio.Task] = set()
+
 
 def _parse_clickhouse_endpoint(endpoint: str) -> tuple[str, int, bool]:
     """Return (host, port, secure) for clickhouse_connect.get_client.
@@ -129,11 +131,11 @@ class LLMTraceWriter:
         if not self._enabled or self._shutdown:
             return
 
-        # Fire-and-forget with create_task to not block the request path
         try:
-            asyncio.create_task(self._write_with_retry(trace))
+            task = asyncio.create_task(self._write_with_retry(trace))
+            _background_tasks.add(task)
+            task.add_done_callback(_background_tasks.discard)
         except RuntimeError:
-            # No running event loop (shouldn't happen in normal async context)
             pass
 
     async def _write_with_retry(self, trace: "LLMTrace") -> None:

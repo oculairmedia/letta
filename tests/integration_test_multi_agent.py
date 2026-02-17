@@ -86,7 +86,7 @@ def remove_stale_agents(client):
 @pytest.fixture(scope="function")
 def agent_obj(client: Letta) -> AgentState:
     """Create a test agent that we can call functions on"""
-    send_message_to_agent_tool = list(client.tools.list(name="send_message_to_agent_and_wait_for_reply"))[0]
+    send_message_to_agent_tool = next(iter(client.tools.list(name="send_message_to_agent_and_wait_for_reply")))
     agent_state_instance = client.agents.create(
         agent_type="letta_v1_agent",
         include_base_tools=True,
@@ -218,7 +218,7 @@ def test_send_message_to_agents_with_tags_simple(client: Letta):
     secret_word = "banana"
 
     # Create "manager" agent
-    send_message_to_agents_matching_tags_tool_id = list(client.tools.list(name="send_message_to_agents_matching_tags"))[0].id
+    send_message_to_agents_matching_tags_tool_id = next(iter(client.tools.list(name="send_message_to_agents_matching_tags"))).id
     manager_agent_state = client.agents.create(
         agent_type="letta_v1_agent",
         name="manager_agent",
@@ -329,7 +329,7 @@ def test_send_message_to_agents_with_tags_complex_tool_use(client: Letta, roll_d
     test_id = str(uuid.uuid4())[:8]
 
     # Create "manager" agent
-    send_message_to_agents_matching_tags_tool_id = list(client.tools.list(name="send_message_to_agents_matching_tags"))[0].id
+    send_message_to_agents_matching_tags_tool_id = next(iter(client.tools.list(name="send_message_to_agents_matching_tags"))).id
     manager_agent_state = client.agents.create(
         agent_type="letta_v1_agent",
         tool_ids=[send_message_to_agents_matching_tags_tool_id],

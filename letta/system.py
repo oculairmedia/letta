@@ -175,7 +175,7 @@ def package_system_message(system_message, timezone, message_type="system_alert"
         if "type" in message_json and message_json["type"] == message_type:
             logger.warning(f"Attempted to pack a system message that is already packed. Not packing: '{system_message}'")
             return system_message
-    except:
+    except Exception:
         pass  # do nothing, expected behavior that the message is not JSON
 
     formatted_time = get_local_time(timezone=timezone)
@@ -260,7 +260,7 @@ def unpack_message(packed_message: str) -> str:
         message_json = json.loads(packed_message)
         if type(message_json) is not dict:
             return packed_message
-    except:
+    except Exception:
         return packed_message
 
     if "message" not in message_json:
@@ -272,7 +272,7 @@ def unpack_message(packed_message: str) -> str:
     else:
         try:
             message_type = message_json["type"]
-        except:
+        except Exception:
             return packed_message
 
         if message_type != "user_message":

@@ -1,4 +1,7 @@
-from typing import List, Optional
+from typing import TYPE_CHECKING, List, Optional
+
+if TYPE_CHECKING:
+    from letta.agents.letta_agent import LettaAgent as Agent
 
 from letta.agents.base_agent import BaseAgent
 from letta.agents.letta_agent import LettaAgent
@@ -92,7 +95,7 @@ class DynamicMultiAgent(BaseAgent):
 
                 # Parse manager response
                 responses = Message.to_letta_messages_from_list(manager_agent.last_response_messages)
-                assistant_message = [response for response in responses if response.message_type == "assistant_message"][0]
+                assistant_message = next(response for response in responses if response.message_type == "assistant_message")
                 for name, agent_id in [(agents[agent_id].agent_state.name, agent_id) for agent_id in agent_id_options]:
                     if name.lower() in assistant_message.content.lower():
                         speaker_id = agent_id
@@ -177,7 +180,7 @@ class DynamicMultiAgent(BaseAgent):
 
         return LettaUsageStatistics(**total_usage.model_dump(), step_count=step_count)
 
-    def load_manager_agent(self) -> Agent:  # noqa: F821
+    def load_manager_agent(self) -> Agent:
         for participant_agent_id in self.agent_ids:
             participant_agent_state = self.agent_manager.get_agent_by_id(agent_id=participant_agent_id, actor=self.user)
             participant_persona_block = participant_agent_state.memory.get_block(label="persona")

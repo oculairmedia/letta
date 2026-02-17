@@ -456,7 +456,7 @@ class LettaAgentV2(BaseAgentV2):
         step_progression = StepProgression.START
         caught_exception = None
         # TODO(@caren): clean this up
-        tool_call, reasoning_content, agent_step_span, first_chunk, step_id, logged_step, step_start_ns, step_metrics = (
+        tool_call, reasoning_content, agent_step_span, first_chunk, step_id, logged_step, _step_start_ns, step_metrics = (
             None,
             None,
             None,
@@ -752,7 +752,7 @@ class LettaAgentV2(BaseAgentV2):
                     num_archival_memories=None,
                     force=True,
                 )
-            except Exception as e:
+            except Exception:
                 raise
 
         # Always scrub inner thoughts regardless of system prompt refresh
@@ -835,7 +835,7 @@ class LettaAgentV2(BaseAgentV2):
             new_system_message = await self.message_manager.update_message_by_id_async(
                 curr_system_message.id, message_update=MessageUpdate(content=new_system_message_str), actor=self.actor
             )
-            return [new_system_message] + in_context_messages[1:]
+            return [new_system_message, *in_context_messages[1:]]
 
         else:
             return in_context_messages
@@ -1322,7 +1322,7 @@ class LettaAgentV2(BaseAgentV2):
                     self.logger.warning(
                         f"Total tokens {total_tokens} exceeds configured max tokens {self.agent_state.llm_config.context_window}, forcefully clearing message history."
                     )
-                    new_in_context_messages, updated = await self.summarizer.summarize(
+                    new_in_context_messages, _updated = await self.summarizer.summarize(
                         in_context_messages=in_context_messages,
                         new_letta_messages=new_letta_messages,
                         force=True,
@@ -1335,7 +1335,7 @@ class LettaAgentV2(BaseAgentV2):
                     self.logger.info(
                         f"Total tokens {total_tokens} does not exceed configured max tokens {self.agent_state.llm_config.context_window}, passing summarizing w/o force."
                     )
-                    new_in_context_messages, updated = await self.summarizer.summarize(
+                    new_in_context_messages, _updated = await self.summarizer.summarize(
                         in_context_messages=in_context_messages,
                         new_letta_messages=new_letta_messages,
                         run_id=run_id,

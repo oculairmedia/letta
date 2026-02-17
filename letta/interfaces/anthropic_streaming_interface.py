@@ -3,7 +3,12 @@ import json
 from collections.abc import AsyncGenerator
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
+
+if TYPE_CHECKING:
+    from opentelemetry.trace import Span
+
+    from letta.schemas.usage import LettaUsageStatistics
 
 from anthropic import AsyncStream
 from anthropic.types.beta import (
@@ -116,7 +121,7 @@ class AnthropicStreamingInterface:
             # Attempt to use OptimisticJSONParser to handle incomplete/malformed JSON
             try:
                 tool_input = self.json_parser.parse(args_str)
-            except:
+            except Exception:
                 logger.warning(
                     f"Failed to decode tool call arguments for tool_call_id={self.tool_call_id}, "
                     f"name={self.tool_call_name}. Raw input: {args_str!r}. Error: {e}"
@@ -128,7 +133,7 @@ class AnthropicStreamingInterface:
             arguments = str(json.dumps(tool_input, indent=2))
         return ToolCall(id=self.tool_call_id, function=FunctionCall(arguments=arguments, name=self.tool_call_name))
 
-    def get_usage_statistics(self) -> "LettaUsageStatistics":  # noqa: F821
+    def get_usage_statistics(self) -> "LettaUsageStatistics":
         """Extract usage statistics from accumulated streaming data.
 
         Returns:
@@ -222,7 +227,7 @@ class AnthropicStreamingInterface:
     async def process(
         self,
         stream: AsyncStream[BetaRawMessageStreamEvent],
-        ttft_span: Optional["Span"] = None,  # noqa: F821
+        ttft_span: Optional["Span"] = None,
     ) -> AsyncGenerator[LettaMessage | LettaStopReason, None]:
         prev_message_type = None
         message_index = 0
@@ -276,7 +281,7 @@ class AnthropicStreamingInterface:
     async def _process_event(
         self,
         event: BetaRawMessageStreamEvent,
-        ttft_span: Optional["Span"] = None,  # noqa: F821
+        ttft_span: Optional["Span"] = None,
         prev_message_type: Optional[str] = None,
         message_index: int = 0,
     ) -> AsyncGenerator[LettaMessage | LettaStopReason, None]:
@@ -650,7 +655,7 @@ class SimpleAnthropicStreamingInterface:
             # Attempt to use OptimisticJSONParser to handle incomplete/malformed JSON
             try:
                 tool_input = self.json_parser.parse(args_str)
-            except:
+            except Exception:
                 logger.warning(
                     f"Failed to decode tool call arguments for tool_call_id={self.tool_call_id}, "
                     f"name={self.tool_call_name}. Raw input: {args_str!r}. Error: {e}"
@@ -662,7 +667,7 @@ class SimpleAnthropicStreamingInterface:
             arguments = str(json.dumps(tool_input, indent=2))
         return ToolCall(id=self.tool_call_id, function=FunctionCall(arguments=arguments, name=self.tool_call_name))
 
-    def get_usage_statistics(self) -> "LettaUsageStatistics":  # noqa: F821
+    def get_usage_statistics(self) -> "LettaUsageStatistics":
         """Extract usage statistics from accumulated streaming data.
 
         Returns:
@@ -754,7 +759,7 @@ class SimpleAnthropicStreamingInterface:
     async def process(
         self,
         stream: AsyncStream[BetaRawMessageStreamEvent],
-        ttft_span: Optional["Span"] = None,  # noqa: F821
+        ttft_span: Optional["Span"] = None,
     ) -> AsyncGenerator[LettaMessage | LettaStopReason, None]:
         prev_message_type = None
         message_index = 0
@@ -803,7 +808,7 @@ class SimpleAnthropicStreamingInterface:
     async def _process_event(
         self,
         event: BetaRawMessageStreamEvent,
-        ttft_span: Optional["Span"] = None,  # noqa: F821
+        ttft_span: Optional["Span"] = None,
         prev_message_type: Optional[str] = None,
         message_index: int = 0,
     ) -> AsyncGenerator[LettaMessage | LettaStopReason, None]:

@@ -15,6 +15,7 @@ config = LettaConfig()
 
 if TYPE_CHECKING:
     from letta.orm.organization import Organization
+    from letta.orm.passage_tag import PassageTag
 
 
 class BasePassage(SqlalchemyBase, OrganizationMixin):
@@ -78,7 +79,7 @@ class ArchivalPassage(BasePassage, ArchiveMixin):
     __tablename__ = "archival_passages"
 
     # junction table for efficient tag queries (complements json column above)
-    passage_tags: Mapped[List["PassageTag"]] = relationship(  # noqa: F821
+    passage_tags: Mapped[List["PassageTag"]] = relationship(
         "PassageTag", back_populates="passage", cascade="all, delete-orphan", lazy="noload"
     )
 

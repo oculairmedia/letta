@@ -161,7 +161,7 @@ class AgentSerializationManager:
         return sorted(unique_blocks.values(), key=lambda x: x.label)
 
     async def _extract_unique_sources_and_files_from_agents(
-        self, agent_states: List[AgentState], actor: User, files_agents_cache: dict = None
+        self, agent_states: List[AgentState], actor: User, files_agents_cache: dict | None = None
     ) -> tuple[List[Source], List[FileMetadata]]:
         """Extract unique sources and files from agent states using bulk operations"""
 
@@ -192,7 +192,7 @@ class AgentSerializationManager:
         self,
         agent_state: AgentState,
         actor: User,
-        files_agents_cache: dict = None,
+        files_agents_cache: dict | None = None,
         scrub_messages: bool = False,
     ) -> AgentSchema:
         """Convert AgentState to AgentSchema with ID remapping"""

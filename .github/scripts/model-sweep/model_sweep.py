@@ -690,7 +690,7 @@ def test_token_streaming_agent_loop_error(
             stream_tokens=True,
         )
         list(response)
-    except:
+    except Exception:
         pass  # only some models throw an error TODO: make this consistent
 
     messages_from_db = client.agents.messages.list(agent_id=agent_state.id, after=last_message[0].id)

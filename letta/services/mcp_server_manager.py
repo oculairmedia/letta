@@ -500,7 +500,7 @@ class MCPServerManager:
                 # context manager now handles commits
                 # await session.commit()
                 return mcp_server.to_pydantic()
-            except Exception as e:
+            except Exception:
                 await session.rollback()
                 raise
 

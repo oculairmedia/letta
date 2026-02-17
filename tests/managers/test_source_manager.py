@@ -387,7 +387,7 @@ async def test_create_sources_with_same_name_raises_error(server: SyncServer, de
         metadata={"type": "medical"},
         embedding_config=DEFAULT_EMBEDDING_CONFIG,
     )
-    source = await server.source_manager.create_source(source=source_pydantic, actor=default_user)
+    await server.source_manager.create_source(source=source_pydantic, actor=default_user)
 
     # Attempting to create another source with the same name should raise an IntegrityError
     source_pydantic = PydanticSource(
@@ -1120,7 +1120,7 @@ async def test_file_status_invalid_transitions(server, default_user, default_sou
     )
     created = await server.file_manager.create_file(file_metadata=meta, actor=default_user)
 
-    with pytest.raises(ValueError, match="Invalid state transition.*pending.*COMPLETED"):
+    with pytest.raises(ValueError, match=r"Invalid state transition.*pending.*COMPLETED"):
         await server.file_manager.update_file_status(
             file_id=created.id,
             actor=default_user,
@@ -1142,7 +1142,7 @@ async def test_file_status_invalid_transitions(server, default_user, default_sou
         processing_status=FileProcessingStatus.PARSING,
     )
 
-    with pytest.raises(ValueError, match="Invalid state transition.*parsing.*COMPLETED"):
+    with pytest.raises(ValueError, match=r"Invalid state transition.*parsing.*COMPLETED"):
         await server.file_manager.update_file_status(
             file_id=created2.id,
             actor=default_user,
@@ -1159,7 +1159,7 @@ async def test_file_status_invalid_transitions(server, default_user, default_sou
     )
     created3 = await server.file_manager.create_file(file_metadata=meta3, actor=default_user)
 
-    with pytest.raises(ValueError, match="Invalid state transition.*pending.*EMBEDDING"):
+    with pytest.raises(ValueError, match=r"Invalid state transition.*pending.*EMBEDDING"):
         await server.file_manager.update_file_status(
             file_id=created3.id,
             actor=default_user,
@@ -1186,14 +1186,14 @@ async def test_file_status_terminal_states(server, default_user, default_source)
     await server.file_manager.update_file_status(file_id=created.id, actor=default_user, processing_status=FileProcessingStatus.COMPLETED)
 
     # Cannot transition from COMPLETED to any state
-    with pytest.raises(ValueError, match="Cannot update.*terminal state completed"):
+    with pytest.raises(ValueError, match=r"Cannot update.*terminal state completed"):
         await server.file_manager.update_file_status(
             file_id=created.id,
             actor=default_user,
             processing_status=FileProcessingStatus.EMBEDDING,
         )
 
-    with pytest.raises(ValueError, match="Cannot update.*terminal state completed"):
+    with pytest.raises(ValueError, match=r"Cannot update.*terminal state completed"):
         await server.file_manager.update_file_status(
             file_id=created.id,
             actor=default_user,
@@ -1219,7 +1219,7 @@ async def test_file_status_terminal_states(server, default_user, default_source)
     )
 
     # Cannot transition from ERROR to any state
-    with pytest.raises(ValueError, match="Cannot update.*terminal state error"):
+    with pytest.raises(ValueError, match=r"Cannot update.*terminal state error"):
         await server.file_manager.update_file_status(
             file_id=created2.id,
             actor=default_user,
@@ -1313,7 +1313,7 @@ async def test_file_status_terminal_state_non_status_updates(server, default_use
     await server.file_manager.update_file_status(file_id=created.id, actor=default_user, processing_status=FileProcessingStatus.COMPLETED)
 
     # Cannot update chunks_embedded in COMPLETED state
-    with pytest.raises(ValueError, match="Cannot update.*terminal state completed"):
+    with pytest.raises(ValueError, match=r"Cannot update.*terminal state completed"):
         await server.file_manager.update_file_status(
             file_id=created.id,
             actor=default_user,
@@ -1321,7 +1321,7 @@ async def test_file_status_terminal_state_non_status_updates(server, default_use
         )
 
     # Cannot update total_chunks in COMPLETED state
-    with pytest.raises(ValueError, match="Cannot update.*terminal state completed"):
+    with pytest.raises(ValueError, match=r"Cannot update.*terminal state completed"):
         await server.file_manager.update_file_status(
             file_id=created.id,
             actor=default_user,
@@ -1329,7 +1329,7 @@ async def test_file_status_terminal_state_non_status_updates(server, default_use
         )
 
     # Cannot update error_message in COMPLETED state
-    with pytest.raises(ValueError, match="Cannot update.*terminal state completed"):
+    with pytest.raises(ValueError, match=r"Cannot update.*terminal state completed"):
         await server.file_manager.update_file_status(
             file_id=created.id,
             actor=default_user,
@@ -1353,7 +1353,7 @@ async def test_file_status_terminal_state_non_status_updates(server, default_use
     )
 
     # Cannot update chunks_embedded in ERROR state
-    with pytest.raises(ValueError, match="Cannot update.*terminal state error"):
+    with pytest.raises(ValueError, match=r"Cannot update.*terminal state error"):
         await server.file_manager.update_file_status(
             file_id=created2.id,
             actor=default_user,
@@ -1399,7 +1399,7 @@ async def test_file_status_race_condition_prevention(server, default_user, defau
 
     # Try to continue with EMBEDDING as if error didn't happen (race condition)
     # This should fail because file is in ERROR state
-    with pytest.raises(ValueError, match="Cannot update.*terminal state error"):
+    with pytest.raises(ValueError, match=r"Cannot update.*terminal state error"):
         await server.file_manager.update_file_status(
             file_id=created.id,
             actor=default_user,
@@ -1424,7 +1424,7 @@ async def test_file_status_backwards_transitions(server, default_user, default_s
     await server.file_manager.update_file_status(file_id=created.id, actor=default_user, processing_status=FileProcessingStatus.EMBEDDING)
 
     # Cannot go back to PARSING
-    with pytest.raises(ValueError, match="Invalid state transition.*embedding.*PARSING"):
+    with pytest.raises(ValueError, match=r"Invalid state transition.*embedding.*PARSING"):
         await server.file_manager.update_file_status(
             file_id=created.id,
             actor=default_user,
@@ -1432,7 +1432,7 @@ async def test_file_status_backwards_transitions(server, default_user, default_s
         )
 
     # Cannot go back to PENDING
-    with pytest.raises(ValueError, match="Cannot transition to PENDING state.*PENDING is only valid as initial state"):
+    with pytest.raises(ValueError, match=r"Cannot transition to PENDING state.*PENDING is only valid as initial state"):
         await server.file_manager.update_file_status(
             file_id=created.id,
             actor=default_user,

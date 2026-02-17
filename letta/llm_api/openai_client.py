@@ -106,7 +106,7 @@ def accepts_developer_role(model: str) -> bool:
 
     See: https://community.openai.com/t/developer-role-not-accepted-for-o1-o1-mini-o3-mini/1110750/7
     """
-    if is_openai_reasoning_model(model) and "o1-mini" not in model or "o1-preview" in model:
+    if (is_openai_reasoning_model(model) and "o1-mini" not in model) or "o1-preview" in model:
         return True
     else:
         return False
@@ -459,7 +459,7 @@ class OpenAIClient(LLMClientBase):
         if is_openrouter:
             try:
                 model = llm_config.handle.split("/", 1)[-1]
-            except:
+            except Exception:
                 # don't raise error since this isn't robust against edge cases
                 pass
 
@@ -747,7 +747,6 @@ class OpenAIClient(LLMClientBase):
                 finish_reason = None
 
             # Optionally capture reasoning presence
-            found_reasoning = False
             for out in outputs:
                 out_type = (out or {}).get("type")
                 if out_type == "message":
@@ -758,7 +757,6 @@ class OpenAIClient(LLMClientBase):
                             if text_val:
                                 assistant_text_parts.append(text_val)
                 elif out_type == "reasoning":
-                    found_reasoning = True
                     reasoning_summary_parts = [part.get("text") for part in out.get("summary")]
                     reasoning_content_signature = out.get("encrypted_content")
                 elif out_type == "function_call":

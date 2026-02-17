@@ -6,7 +6,7 @@ import textwrap
 import threading
 import time
 import uuid
-from typing import List, Type
+from typing import ClassVar, List, Type
 
 import pytest
 from dotenv import load_dotenv
@@ -379,7 +379,7 @@ def test_add_and_manage_tags_for_agent(client: LettaSDKClient):
     assert len(agent.tags) == 0
 
     # Step 1: Add multiple tags to the agent
-    updated_agent = client.agents.update(agent_id=agent.id, tags=tags_to_add)
+    client.agents.update(agent_id=agent.id, tags=tags_to_add)
 
     # Add small delay to ensure tags are persisted
     time.sleep(0.1)
@@ -397,7 +397,7 @@ def test_add_and_manage_tags_for_agent(client: LettaSDKClient):
 
     # Step 4: Delete a specific tag from the agent and verify its removal
     tag_to_delete = tags_to_add.pop()
-    updated_agent = client.agents.update(agent_id=agent.id, tags=tags_to_add)
+    client.agents.update(agent_id=agent.id, tags=tags_to_add)
 
     # Verify the tag is removed from the agent's tags - explicitly request tags
     remaining_tags = client.agents.retrieve(agent_id=agent.id, include=["agent.tags"]).tags
@@ -426,7 +426,7 @@ def test_reset_messages(client: LettaSDKClient):
 
     try:
         # Send a message
-        response = client.agents.messages.create(
+        client.agents.messages.create(
             agent_id=agent.id,
             messages=[MessageCreateParam(role="user", content="Hello")],
         )
@@ -542,7 +542,6 @@ def test_list_files_for_agent(client: LettaSDKClient):
             raise RuntimeError(f"File {file_metadata.id} not found")
     if file_metadata.processing_status == "error":
         raise RuntimeError(f"File processing failed: {getattr(file_metadata, 'error_message', 'Unknown error')}")
-    test_file = file_metadata
 
     agent = client.agents.create(
         memory_blocks=[CreateBlockParam(label="persona", value="test")],
@@ -604,7 +603,7 @@ def test_modify_message(client: LettaSDKClient):
 
     try:
         # Send a message
-        response = client.agents.messages.create(
+        client.agents.messages.create(
             agent_id=agent.id,
             messages=[MessageCreateParam(role="user", content="Original message")],
         )
@@ -987,11 +986,6 @@ def test_function_always_error(client: LettaSDKClient, agent: AgentState):
 
 def test_agent_creation(client: LettaSDKClient):
     """Test that block IDs are properly attached when creating an agent."""
-    sleeptime_agent_system = """
-    You are a helpful agent. You will be provided with a list of memory blocks and a user preferences block.
-    You should use the memory blocks to remember information about the user and their preferences.
-    You should also use the user preferences block to remember information about the user's preferences.
-    """
 
     # Create a test block that will represent user preferences
     user_preferences_block = client.blocks.create(
@@ -1255,7 +1249,7 @@ def test_pydantic_inventory_management_tool(e2b_sandbox_mode, client: LettaSDKCl
         name: str = "manage_inventory"
         args_schema: Type[BaseModel] = InventoryEntryData
         description: str = "Update inventory catalogue with a new data entry"
-        tags: List[str] = ["inventory", "shop"]
+        tags: ClassVar[List[str]] = ["inventory", "shop"]
 
         def run(self, data: InventoryEntry, quantity_change: int) -> bool:
             print(f"Updated inventory for {data.item.name} with a quantity change of {quantity_change}")
@@ -2381,7 +2375,7 @@ def test_create_agent_with_tools(client: LettaSDKClient) -> None:
         name: str = "manage_inventory"
         args_schema: Type[BaseModel] = InventoryEntryData
         description: str = "Update inventory catalogue with a new data entry"
-        tags: List[str] = ["inventory", "shop"]
+        tags: ClassVar[List[str]] = ["inventory", "shop"]
 
         def run(self, data: InventoryEntry, quantity_change: int) -> bool:
             """

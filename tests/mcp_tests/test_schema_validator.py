@@ -186,7 +186,7 @@ class TestSchemaValidator:
         }
 
         # This should actually be STRICT_COMPLIANT since empty arrays with defined items are OK
-        status, reasons = validate_complete_json_schema(schema)
+        status, _reasons = validate_complete_json_schema(schema)
         assert status == SchemaHealth.STRICT_COMPLIANT
 
     def test_array_without_constraints_invalid(self):

@@ -322,7 +322,6 @@ class StreamingService:
         async def error_aware_stream():
             """Stream that handles early LLM errors gracefully in streaming format."""
             run_status = None
-            run_update_metadata = None
             stop_reason = None
             error_data = None
             saw_done = False
@@ -441,7 +440,7 @@ class StreamingService:
                 yield f"event: error\ndata: {error_message.model_dump_json()}\n\n"
                 # Send [DONE] marker to properly close the stream
                 yield "data: [DONE]\n\n"
-            except RunCancelledException as e:
+            except RunCancelledException:
                 # Run was explicitly cancelled - this is not an error
                 # The cancellation has already been handled by cancellation_aware_stream_wrapper
                 logger.info(f"Run {run_id} was cancelled, exiting stream gracefully")

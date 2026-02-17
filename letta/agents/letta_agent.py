@@ -1574,7 +1574,7 @@ class LettaAgent(BaseAgent):
             self.logger.warning(
                 f"Total tokens {total_tokens} exceeds configured max tokens {llm_config.context_window}, forcefully clearing message history."
             )
-            new_in_context_messages, updated = await self.summarizer.summarize(
+            new_in_context_messages, _updated = await self.summarizer.summarize(
                 in_context_messages=in_context_messages,
                 new_letta_messages=new_letta_messages,
                 force=True,
@@ -1587,7 +1587,7 @@ class LettaAgent(BaseAgent):
             self.logger.info(
                 f"Total tokens {total_tokens} does not exceed configured max tokens {llm_config.context_window}, passing summarizing w/o force."
             )
-            new_in_context_messages, updated = await self.summarizer.summarize(
+            new_in_context_messages, _updated = await self.summarizer.summarize(
                 in_context_messages=in_context_messages,
                 new_letta_messages=new_letta_messages,
                 run_id=run_id,
@@ -1607,7 +1607,7 @@ class LettaAgent(BaseAgent):
         agent_state = await self.agent_manager.get_agent_by_id_async(agent_id=self.agent_id, actor=self.actor)
         message_ids = agent_state.message_ids
         in_context_messages = await self.message_manager.get_messages_by_ids_async(message_ids=message_ids, actor=self.actor)
-        new_in_context_messages, updated = await self.summarizer.summarize(
+        new_in_context_messages, _updated = await self.summarizer.summarize(
             in_context_messages=in_context_messages, new_letta_messages=[], force=True
         )
         return await self.agent_manager.update_message_ids_async(

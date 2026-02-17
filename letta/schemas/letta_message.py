@@ -1,7 +1,7 @@
 import json
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Annotated, List, Literal, Optional, Union
+from typing import Annotated, ClassVar, List, Literal, Optional, Union
 
 from pydantic import BaseModel, Field, field_serializer, field_validator
 
@@ -246,7 +246,7 @@ class ToolCallMessage(LettaMessage):
         return data
 
     class Config:
-        json_encoders = {
+        json_encoders: ClassVar[dict] = {
             ToolCallDelta: lambda v: v.model_dump(exclude_none=True),
             ToolCall: lambda v: v.model_dump(exclude_none=True),
         }

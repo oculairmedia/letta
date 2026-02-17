@@ -1,9 +1,10 @@
 from typing import TYPE_CHECKING, List, Literal, Optional
 
-from letta.constants import CORE_MEMORY_LINE_NUMBER_WARNING
-
 if TYPE_CHECKING:
+    from letta.agents.letta_agent import LettaAgent as Agent
     from letta.schemas.agent import AgentState
+
+from letta.constants import CORE_MEMORY_LINE_NUMBER_WARNING
 
 
 def memory(
@@ -67,7 +68,7 @@ def memory(
     raise NotImplementedError("This should never be invoked directly. Contact Letta if you see this error message.")
 
 
-def send_message(self: "Agent", message: str) -> Optional[str]:  # noqa: F821
+def send_message(self: "Agent", message: str) -> Optional[str]:
     """
     Sends a message to the human user.
 
@@ -84,7 +85,7 @@ def send_message(self: "Agent", message: str) -> Optional[str]:  # noqa: F821
 
 
 def conversation_search(
-    self: "Agent",  # noqa: F821
+    self: "Agent",
     query: Optional[str] = None,
     roles: Optional[List[Literal["assistant", "user", "tool"]]] = None,
     limit: Optional[int] = None,
@@ -160,7 +161,7 @@ def conversation_search(
     return results_str
 
 
-async def archival_memory_insert(self: "Agent", content: str, tags: Optional[list[str]] = None) -> Optional[str]:  # noqa: F821
+async def archival_memory_insert(self: "Agent", content: str, tags: Optional[list[str]] = None) -> Optional[str]:
     """
     Add information to long-term archival memory for later retrieval.
 
@@ -191,7 +192,7 @@ async def archival_memory_insert(self: "Agent", content: str, tags: Optional[lis
 
 
 async def archival_memory_search(
-    self: "Agent",  # noqa: F821
+    self: "Agent",
     query: str,
     tags: Optional[list[str]] = None,
     tag_match_mode: Literal["any", "all"] = "any",
@@ -431,7 +432,7 @@ def memory_insert(agent_state: "AgentState", label: str, new_str: str, insert_li
     # Insert the new string as a line
     new_str_lines = new_str.split("\n")
     new_value_lines = current_value_lines[:insert_line] + new_str_lines + current_value_lines[insert_line:]
-    snippet_lines = (
+    (
         current_value_lines[max(0, insert_line - SNIPPET_LINES) : insert_line]
         + new_str_lines
         + current_value_lines[insert_line : insert_line + SNIPPET_LINES]

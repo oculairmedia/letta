@@ -309,7 +309,7 @@ async def upload_file_to_source(
             return response
         elif duplicate_handling == DuplicateFileHandling.REPLACE:
             # delete the file
-            deleted_file = await server.file_manager.delete_file(file_id=existing_file.id, actor=actor)
+            await server.file_manager.delete_file(file_id=existing_file.id, actor=actor)
             unique_filename = original_filename
 
     if not unique_filename:

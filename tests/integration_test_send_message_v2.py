@@ -25,6 +25,8 @@ from letta_client.types.agents.letta_streaming_response import LettaPing, LettaS
 
 logger = logging.getLogger(__name__)
 
+_background_tasks: set[asyncio.Task] = set()
+
 
 # ------------------------------
 # Helper Functions and Constants
@@ -132,7 +134,7 @@ def assert_greeting_response(
             assert messages[index].otid and messages[index].otid[-1] == str(otid_suffix)
             index += 1
             otid_suffix += 1
-    except:
+    except Exception:
         # Reasoning is non-deterministic, so don't throw if missing
         pass
 
@@ -203,7 +205,7 @@ def assert_tool_call_response(
             assert messages[index].otid and messages[index].otid[-1] == str(otid_suffix)
             index += 1
             otid_suffix += 1
-    except:
+    except Exception:
         # Reasoning is non-deterministic, so don't throw if missing
         pass
 
@@ -256,7 +258,7 @@ def assert_tool_call_response(
                 assert messages[index].otid and messages[index].otid[-1] == str(otid_suffix)
                 index += 1
                 otid_suffix += 1
-        except:
+        except Exception:
             # Reasoning is non-deterministic, so don't throw if missing
             pass
 
@@ -890,8 +892,10 @@ async def test_tool_call(
     agent_state = await client.agents.update(agent_id=agent_state.id, model=model_handle, model_settings=model_settings)
 
     if cancellation == "with_cancellation":
-        delay = 5 if "gpt-5" in model_handle else 0.5  # increase delay for responses api
+        delay = 5 if "gpt-5" in model_handle else 0.5
         _cancellation_task = asyncio.create_task(cancel_run_after_delay(client, agent_state.id, delay=delay))
+        _background_tasks.add(_cancellation_task)
+        _cancellation_task.add_done_callback(_background_tasks.discard)
 
     if send_type == "step":
         response = await client.agents.messages.create(

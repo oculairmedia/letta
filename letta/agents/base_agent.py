@@ -168,7 +168,7 @@ class BaseAgent(ABC):
                     actor=self.actor,
                     project_id=agent_state.project_id,
                 )
-                return [new_system_message] + in_context_messages[1:]
+                return [new_system_message, *in_context_messages[1:]]
 
             else:
                 return in_context_messages

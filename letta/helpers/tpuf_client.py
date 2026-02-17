@@ -6,7 +6,11 @@ import logging
 import random
 from datetime import datetime, timezone
 from functools import wraps
-from typing import Any, Callable, List, Optional, Tuple, TypeVar
+from typing import TYPE_CHECKING, Any, Callable, List, Optional, Tuple, TypeVar
+
+if TYPE_CHECKING:
+    from letta.schemas.tool import Tool as PydanticTool
+    from letta.schemas.user import User as PydanticUser
 
 import httpx
 
@@ -95,7 +99,6 @@ def async_retry_with_backoff(
         async def wrapper(*args, **kwargs) -> Any:
             num_retries = 0
             delay = initial_delay
-            last_error: Optional[Exception] = None
 
             while True:
                 try:
@@ -106,7 +109,6 @@ def async_retry_with_backoff(
                         # Not a transient error, re-raise immediately
                         raise
 
-                    last_error = e
                     num_retries += 1
 
                     # Log the retry attempt
@@ -161,11 +163,11 @@ def _run_turbopuffer_write_in_thread(
     api_key: str,
     region: str,
     namespace_name: str,
-    upsert_columns: dict = None,
-    deletes: list = None,
-    delete_by_filter: tuple = None,
+    upsert_columns: dict | None = None,
+    deletes: list | None = None,
+    delete_by_filter: tuple | None = None,
     distance_metric: str = "cosine_distance",
-    schema: dict = None,
+    schema: dict | None = None,
 ):
     """
     Sync wrapper to run turbopuffer write in isolated event loop.
@@ -229,7 +231,7 @@ class TurbopufferClient:
         embedding_chunk_size=DEFAULT_EMBEDDING_CHUNK_SIZE,
     )
 
-    def __init__(self, api_key: str = None, region: str = None):
+    def __init__(self, api_key: str | None = None, region: str | None = None):
         """Initialize Turbopuffer client."""
         self.api_key = api_key or settings.tpuf_api_key
         self.region = region or settings.tpuf_region
@@ -244,7 +246,7 @@ class TurbopufferClient:
             raise ValueError("Turbopuffer API key not provided")
 
     @trace_method
-    async def _generate_embeddings(self, texts: List[str], actor: "PydanticUser") -> List[List[float]]:  # noqa: F821
+    async def _generate_embeddings(self, texts: List[str], actor: "PydanticUser") -> List[List[float]]:
         """Generate embeddings using the default embedding configuration.
 
         Args:
@@ -311,7 +313,7 @@ class TurbopufferClient:
 
         return namespace_name
 
-    def _extract_tool_text(self, tool: "PydanticTool") -> str:  # noqa: F821
+    def _extract_tool_text(self, tool: "PydanticTool") -> str:
         """Extract searchable text from a tool for embedding.
 
         Combines name, description, and JSON schema into a structured format
@@ -361,9 +363,9 @@ class TurbopufferClient:
     @async_retry_with_backoff()
     async def insert_tools(
         self,
-        tools: List["PydanticTool"],  # noqa: F821
+        tools: List["PydanticTool"],
         organization_id: str,
-        actor: "PydanticUser",  # noqa: F821
+        actor: "PydanticUser",
     ) -> bool:
         """Insert tools into Turbopuffer.
 
@@ -456,7 +458,7 @@ class TurbopufferClient:
         text_chunks: List[str],
         passage_ids: List[str],
         organization_id: str,
-        actor: "PydanticUser",  # noqa: F821
+        actor: "PydanticUser",
         tags: Optional[List[str]] = None,
         created_at: Optional[datetime] = None,
         embeddings: Optional[List[List[float]]] = None,
@@ -607,7 +609,7 @@ class TurbopufferClient:
         message_texts: List[str],
         message_ids: List[str],
         organization_id: str,
-        actor: "PydanticUser",  # noqa: F821
+        actor: "PydanticUser",
         roles: List[MessageRole],
         created_ats: List[datetime],
         project_id: Optional[str] = None,
@@ -867,7 +869,7 @@ class TurbopufferClient:
     async def query_passages(
         self,
         archive_id: str,
-        actor: "PydanticUser",  # noqa: F821
+        actor: "PydanticUser",
         query_text: Optional[str] = None,
         search_mode: str = "vector",  # "vector", "fts", "hybrid"
         top_k: int = 10,
@@ -1012,7 +1014,7 @@ class TurbopufferClient:
         self,
         agent_id: str,
         organization_id: str,
-        actor: "PydanticUser",  # noqa: F821
+        actor: "PydanticUser",
         query_text: Optional[str] = None,
         search_mode: str = "vector",  # "vector", "fts", "hybrid", "timestamp"
         top_k: int = 10,
@@ -1188,7 +1190,7 @@ class TurbopufferClient:
     async def query_messages_by_org_id(
         self,
         organization_id: str,
-        actor: "PydanticUser",  # noqa: F821
+        actor: "PydanticUser",
         query_text: Optional[str] = None,
         search_mode: str = "hybrid",  # "vector", "fts", "hybrid"
         top_k: int = 10,
@@ -1654,7 +1656,7 @@ class TurbopufferClient:
         file_id: str,
         text_chunks: List[str],
         organization_id: str,
-        actor: "PydanticUser",  # noqa: F821
+        actor: "PydanticUser",
         created_at: Optional[datetime] = None,
     ) -> List[PydanticPassage]:
         """Insert file passages into Turbopuffer using org-scoped namespace.
@@ -1767,7 +1769,7 @@ class TurbopufferClient:
         self,
         source_ids: List[str],
         organization_id: str,
-        actor: "PydanticUser",  # noqa: F821
+        actor: "PydanticUser",
         query_text: Optional[str] = None,
         search_mode: str = "vector",  # "vector", "fts", "hybrid"
         top_k: int = 10,
@@ -1991,7 +1993,7 @@ class TurbopufferClient:
     async def query_tools(
         self,
         organization_id: str,
-        actor: "PydanticUser",  # noqa: F821
+        actor: "PydanticUser",
         query_text: Optional[str] = None,
         search_mode: str = "hybrid",  # "vector", "fts", "hybrid", "timestamp"
         top_k: int = 50,

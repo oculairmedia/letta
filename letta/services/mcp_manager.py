@@ -403,7 +403,7 @@ class MCPManager:
                 # context manager now handles commits
                 # await session.commit()
                 return mcp_server.to_pydantic()
-            except Exception as e:
+            except Exception:
                 await session.rollback()
                 raise
 
@@ -1193,7 +1193,7 @@ class MCPManager:
 
             # Give the OAuth flow time to connect to the MCP server and store the authorization URL
             timeout = 0
-            while not auth_session or not auth_session.authorization_url and not connect_task.done() and timeout < 10:
+            while not auth_session or (not auth_session.authorization_url and not connect_task.done() and timeout < 10):
                 timeout += 1
                 auth_session = await self.get_oauth_session_by_id(session_id, actor)
                 await asyncio.sleep(1.0)

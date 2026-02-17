@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, List, Optional, Type
+from typing import TYPE_CHECKING, ClassVar, List, Optional, Type
 
 from sqlalchemy import JSON, BigInteger, ForeignKey, Index, Integer, String, UniqueConstraint, event
 from sqlalchemy.orm import Mapped, declared_attr, mapped_column, relationship
@@ -11,7 +11,9 @@ from letta.schemas.block import Block as PydanticBlock, Human, Persona
 
 if TYPE_CHECKING:
     from letta.orm import Organization
+    from letta.orm.agent import Agent
     from letta.orm.blocks_tags import BlocksTags
+    from letta.orm.group import Group
     from letta.orm.identity import Identity
 
 
@@ -56,11 +58,11 @@ class Block(OrganizationMixin, SqlalchemyBase, ProjectMixin, TemplateEntityMixin
     )
     # NOTE: This takes advantage of built-in optimistic locking functionality by SqlAlchemy
     # https://docs.sqlalchemy.org/en/20/orm/versioning.html
-    __mapper_args__ = {"version_id_col": version}
+    __mapper_args__: ClassVar[dict] = {"version_id_col": version}
 
     # relationships
     organization: Mapped[Optional["Organization"]] = relationship("Organization", lazy="raise")
-    agents: Mapped[List["Agent"]] = relationship(  # noqa: F821
+    agents: Mapped[List["Agent"]] = relationship(
         "Agent",
         secondary="blocks_agents",
         lazy="raise",
@@ -75,7 +77,7 @@ class Block(OrganizationMixin, SqlalchemyBase, ProjectMixin, TemplateEntityMixin
         back_populates="blocks",
         passive_deletes=True,
     )
-    groups: Mapped[List["Group"]] = relationship(  # noqa: F821
+    groups: Mapped[List["Group"]] = relationship(
         "Group",
         secondary="groups_blocks",
         lazy="raise",

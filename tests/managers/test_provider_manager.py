@@ -908,7 +908,7 @@ async def test_server_startup_handles_api_errors_gracefully(default_user, defaul
         actor=default_user,
     )
     if len(openai_providers) > 0:
-        openai_models = await server.provider_manager.list_models_async(
+        await server.provider_manager.list_models_async(
             actor=default_user,
             provider_id=openai_providers[0].id,
         )

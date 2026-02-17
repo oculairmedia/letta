@@ -774,7 +774,7 @@ class TestFileExport:
     @pytest.mark.asyncio
     async def test_basic_file_export(self, default_user, agent_serialization_manager, agent_with_files):
         """Test basic file export functionality"""
-        agent_id, source_id, file_id = agent_with_files
+        agent_id, _source_id, _file_id = agent_with_files
 
         exported = await agent_serialization_manager.export([agent_id], actor=default_user)
 
@@ -925,7 +925,7 @@ class TestFileExport:
     @pytest.mark.asyncio
     async def test_file_content_inclusion_in_export(self, default_user, agent_serialization_manager, agent_with_files):
         """Test that file content is included in export"""
-        agent_id, source_id, file_id = agent_with_files
+        agent_id, _source_id, _file_id = agent_with_files
 
         exported = await agent_serialization_manager.export([agent_id], actor=default_user)
 

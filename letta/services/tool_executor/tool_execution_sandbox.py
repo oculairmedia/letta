@@ -7,7 +7,10 @@ import sys
 import tempfile
 import traceback
 import uuid
-from typing import Any, Dict, Optional
+from typing import TYPE_CHECKING, Any, Dict, Optional
+
+if TYPE_CHECKING:
+    from e2b_code_interpreter import Execution, Sandbox
 
 from letta.functions.helpers import generate_model_from_args_json_schema
 from letta.log import get_logger
@@ -256,7 +259,7 @@ class ToolExecutionSandbox:
         temp_file_path: str,
     ) -> ToolExecutionResult:
         status = "success"
-        func_return, agent_state, stderr = None, None, None
+        func_return, agent_state, _stderr = None, None, None
 
         old_stdout = sys.stdout
         old_stderr = sys.stderr
@@ -409,13 +412,13 @@ class ToolExecutionSandbox:
             sandbox_config_fingerprint=sbx_config.fingerprint(),
         )
 
-    def parse_exception_from_e2b_execution(self, e2b_execution: "Execution") -> Exception:  # noqa: F821
+    def parse_exception_from_e2b_execution(self, e2b_execution: "Execution") -> Exception:
         builtins_dict = __builtins__ if isinstance(__builtins__, dict) else vars(__builtins__)
         # Dynamically fetch the exception class from builtins, defaulting to Exception if not found
         exception_class = builtins_dict.get(e2b_execution.error.name, Exception)
         return exception_class(e2b_execution.error.value)
 
-    def get_running_e2b_sandbox_with_same_state(self, sandbox_config: SandboxConfig) -> Optional["Sandbox"]:  # noqa: F821
+    def get_running_e2b_sandbox_with_same_state(self, sandbox_config: SandboxConfig) -> Optional["Sandbox"]:
         from e2b_code_interpreter import Sandbox
 
         # List running sandboxes and access metadata.
@@ -430,7 +433,7 @@ class ToolExecutionSandbox:
         return None
 
     @trace_method
-    def create_e2b_sandbox_with_metadata_hash(self, sandbox_config: SandboxConfig) -> "Sandbox":  # noqa: F821
+    def create_e2b_sandbox_with_metadata_hash(self, sandbox_config: SandboxConfig) -> "Sandbox":
         from e2b_code_interpreter import Sandbox
 
         state_hash = sandbox_config.fingerprint()

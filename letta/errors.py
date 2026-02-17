@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING, Dict, List, Optional, Union
 
 # Avoid circular imports
 if TYPE_CHECKING:
+    from letta.schemas.letta_message import LettaMessage
     from letta.schemas.message import Message
 
 
@@ -362,16 +363,16 @@ class RateLimitExceededError(LettaError):
 class LettaMessageError(LettaError):
     """Base error class for handling message-related errors."""
 
-    messages: List[Union["Message", "LettaMessage"]]  # noqa: F821
+    messages: List[Union["Message", "LettaMessage"]]
     default_error_message: str = "An error occurred with the message."
 
-    def __init__(self, *, messages: List[Union["Message", "LettaMessage"]], explanation: Optional[str] = None) -> None:  # noqa: F821
+    def __init__(self, *, messages: List[Union["Message", "LettaMessage"]], explanation: Optional[str] = None) -> None:
         error_msg = self.construct_error_message(messages, self.default_error_message, explanation)
         super().__init__(error_msg)
         self.messages = messages
 
     @staticmethod
-    def construct_error_message(messages: List[Union["Message", "LettaMessage"]], error_msg: str, explanation: Optional[str] = None) -> str:  # noqa: F821
+    def construct_error_message(messages: List[Union["Message", "LettaMessage"]], error_msg: str, explanation: Optional[str] = None) -> str:
         """Helper method to construct a clean and formatted error message."""
         if explanation:
             error_msg += f" (Explanation: {explanation})"

@@ -3,7 +3,12 @@ import base64
 import json
 from collections.abc import AsyncGenerator
 from datetime import datetime, timezone
-from typing import AsyncIterator, List, Optional
+from typing import TYPE_CHECKING, AsyncIterator, List, Optional
+
+if TYPE_CHECKING:
+    from opentelemetry.trace import Span
+
+    from letta.schemas.usage import LettaUsageStatistics
 
 from google.genai.types import (
     GenerateContentResponse,
@@ -124,7 +129,7 @@ class SimpleGeminiStreamingInterface:
         """Return all finalized tool calls collected during this message (parallel supported)."""
         return list(self.collected_tool_calls)
 
-    def get_usage_statistics(self) -> "LettaUsageStatistics":  # noqa: F821
+    def get_usage_statistics(self) -> "LettaUsageStatistics":
         """Extract usage statistics from accumulated streaming data.
 
         Returns:
@@ -148,7 +153,7 @@ class SimpleGeminiStreamingInterface:
     async def process(
         self,
         stream: AsyncIterator[GenerateContentResponse],
-        ttft_span: Optional["Span"] = None,  # noqa: F821
+        ttft_span: Optional["Span"] = None,
     ) -> AsyncGenerator[LettaMessage | LettaStopReason, None]:
         """
         Iterates over the Gemini stream, yielding SSE events.
@@ -202,7 +207,7 @@ class SimpleGeminiStreamingInterface:
     async def _process_event(
         self,
         event: GenerateContentResponse,
-        ttft_span: Optional["Span"] = None,  # noqa: F821
+        ttft_span: Optional["Span"] = None,
         prev_message_type: Optional[str] = None,
         message_index: int = 0,
     ) -> AsyncGenerator[LettaMessage | LettaStopReason, None]:

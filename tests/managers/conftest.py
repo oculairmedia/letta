@@ -497,7 +497,7 @@ async def sandbox_env_var_fixture(server: SyncServer, sandbox_config_fixture, de
 @pytest.fixture
 async def file_attachment(server: SyncServer, default_user, sarah_agent, default_file):
     """Create a file attachment to an agent."""
-    assoc, closed_files = await server.file_agent_manager.attach_file(
+    assoc, _closed_files = await server.file_agent_manager.attach_file(
         agent_id=sarah_agent.id,
         file_id=default_file.id,
         file_name=default_file.file_name,

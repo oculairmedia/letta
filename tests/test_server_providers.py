@@ -110,7 +110,6 @@ async def test_sync_base_providers_handles_race_condition(default_user, provider
 
     # Mock a race condition: list returns empty, but create fails with UniqueConstraintViolation
     original_list = provider_manager.list_providers_async
-    original_create = provider_manager.create_provider_async
 
     call_count = {"count": 0}
 
@@ -2030,14 +2029,14 @@ async def test_get_enabled_providers_async_queries_database(default_user, provid
         api_key="sk-test-key",
         base_url="https://api.openai.com/v1",
     )
-    base_provider = await provider_manager.create_provider_async(base_provider_create, actor=default_user, is_byok=False)
+    await provider_manager.create_provider_async(base_provider_create, actor=default_user, is_byok=False)
 
     byok_provider_create = ProviderCreate(
         name=f"test-byok-provider-{test_id}",
         provider_type=ProviderType.anthropic,
         api_key="sk-test-byok-key",
     )
-    byok_provider = await provider_manager.create_provider_async(byok_provider_create, actor=default_user, is_byok=True)
+    await provider_manager.create_provider_async(byok_provider_create, actor=default_user, is_byok=True)
 
     # Create server instance - importantly, don't set _enabled_providers
     # This ensures we're testing database queries, not in-memory list
@@ -2182,7 +2181,7 @@ async def test_byok_provider_api_key_stored_in_db(default_user, provider_manager
         provider_type=ProviderType.openai,
         api_key="sk-byok-should-be-stored",
     )
-    byok_provider = await provider_manager.create_provider_async(byok_provider_create, actor=default_user, is_byok=True)
+    await provider_manager.create_provider_async(byok_provider_create, actor=default_user, is_byok=True)
 
     # Retrieve the provider from database
     providers = await provider_manager.list_providers_async(name=f"test-byok-with-key-{test_id}", actor=default_user)
@@ -2573,7 +2572,7 @@ async def test_byok_provider_last_synced_triggers_sync_when_null(default_user, p
 
     with patch.object(Provider, "cast_to_subtype", return_value=mock_typed_provider):
         # List BYOK models - should trigger sync because last_synced is null
-        byok_models = await server.list_llm_models_async(
+        await server.list_llm_models_async(
             actor=default_user,
             provider_category=[ProviderCategory.byok],
         )

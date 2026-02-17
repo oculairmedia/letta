@@ -1,5 +1,8 @@
 import uuid
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
+
+if TYPE_CHECKING:
+    from letta.orm.organization import Organization
 
 from sqlalchemy import JSON, Index, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -43,4 +46,4 @@ class ProviderTrace(SqlalchemyBase, OrganizationMixin):
     )
 
     # Relationships
-    organization: Mapped["Organization"] = relationship("Organization", lazy="selectin")  # noqa: F821
+    organization: Mapped["Organization"] = relationship("Organization", lazy="selectin")

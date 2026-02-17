@@ -115,7 +115,7 @@ def test_derive_openai_json_schema():
     # Collect results and check for failures
     for schema_name, result in results:
         try:
-            schema_name_result, success = result.get(timeout=60)  # Wait for the result with timeout
+            _schema_name_result, success = result.get(timeout=60)  # Wait for the result with timeout
             assert success, f"Test for {schema_name} failed"
             print(f"Test for {schema_name} passed")
         except Exception as e:

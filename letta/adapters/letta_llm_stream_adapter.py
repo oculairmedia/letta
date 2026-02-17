@@ -143,7 +143,7 @@ class LettaLLMStreamAdapter(LettaLLMAdapter):
         # Extract tool call from the interface
         try:
             self.tool_call = self.interface.get_tool_call_object()
-        except ValueError as e:
+        except ValueError:
             # No tool call, handle upstream
             self.tool_call = None
 

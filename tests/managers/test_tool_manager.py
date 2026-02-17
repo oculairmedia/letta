@@ -1945,8 +1945,8 @@ def test_function():
         source_code=source_code,
     )
 
-    with pytest.raises(ValueError) as exc_info:
-        created_tool = await tool_manager.create_or_update_tool_async(tool, default_user)
+    with pytest.raises(ValueError):
+        await tool_manager.create_or_update_tool_async(tool, default_user)
 
 
 async def test_error_on_create_tool_with_name_conflict(server: SyncServer, default_user, default_organization):

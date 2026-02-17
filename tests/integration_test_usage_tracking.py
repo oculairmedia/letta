@@ -400,7 +400,7 @@ async def test_run_level_usage_aggregation(
 
     try:
         # Send multiple messages to create multiple steps
-        response1: Run = await async_client.agents.messages.send_message(
+        await async_client.agents.messages.send_message(
             agent_id=agent.id,
             messages=[MessageCreateParam(role="user", content="Message 1")],
         )

@@ -218,7 +218,7 @@ async def test_summarize_empty_message_buffer(server: SyncServer, actor, llm_con
 
     # Run summarization - this may fail with empty buffer, which is acceptable behavior
     try:
-        summary, result, _ = await run_summarization(server, agent_state, in_context_messages, actor)
+        _summary, result, _ = await run_summarization(server, agent_state, in_context_messages, actor)
         # If it succeeds, verify result
         assert isinstance(result, list)
 
@@ -311,7 +311,7 @@ async def test_summarize_initialization_messages_only(server: SyncServer, actor,
 
     # Run summarization - force=True with system messages only may fail
     try:
-        summary, result, _ = await run_summarization(server, agent_state, in_context_messages, actor, force=True)
+        _summary, result, _ = await run_summarization(server, agent_state, in_context_messages, actor, force=True)
 
         # Verify result
         assert isinstance(result, list)
@@ -367,7 +367,7 @@ async def test_summarize_small_conversation(server: SyncServer, actor, llm_confi
     # Run summarization with force=True
     # Note: force=True with clear=True can be very aggressive and may fail on small message sets
     try:
-        summary, result, _ = await run_summarization(server, agent_state, in_context_messages, actor, force=True)
+        _summary, result, _ = await run_summarization(server, agent_state, in_context_messages, actor, force=True)
 
         # Verify result
         assert isinstance(result, list)
@@ -460,7 +460,7 @@ async def test_summarize_large_tool_calls(server: SyncServer, actor, llm_config:
     assert total_content_size > 40000, f"Expected large messages, got {total_content_size} chars"
 
     # Run summarization
-    summary, result, _ = await run_summarization(server, agent_state, in_context_messages, actor)
+    _summary, result, _ = await run_summarization(server, agent_state, in_context_messages, actor)
 
     # Verify result
     assert isinstance(result, list)
@@ -564,7 +564,7 @@ async def test_summarize_multiple_large_tool_calls(server: SyncServer, actor, ll
     assert total_content_size > 40000, f"Expected large messages, got {total_content_size} chars"
 
     # Run summarization
-    summary, result, _ = await run_summarization(server, agent_state, in_context_messages, actor)
+    _summary, result, _ = await run_summarization(server, agent_state, in_context_messages, actor)
 
     # Verify result
     assert isinstance(result, list)
@@ -724,7 +724,7 @@ async def test_summarize_with_mode(server: SyncServer, actor, llm_config: LLMCon
 
     agent_loop = LettaAgentV3(agent_state=agent_state, actor=actor)
 
-    summary, result, summary_text = await agent_loop.compact(messages=in_context_messages)
+    _summary, result, summary_text = await agent_loop.compact(messages=in_context_messages)
 
     assert isinstance(result, list)
 
@@ -810,7 +810,7 @@ async def test_compact_returns_valid_summary_message_and_event_message(server: S
 
     agent_loop = LettaAgentV3(agent_state=agent_state, actor=actor)
 
-    summary_message_obj, compacted_messages, summary_text = await agent_loop.compact(messages=in_context_messages)
+    summary_message_obj, _compacted_messages, summary_text = await agent_loop.compact(messages=in_context_messages)
 
     # Verify we can construct a valid SummaryMessage from compact() return values
     summary_msg = SummaryMessage(
@@ -971,7 +971,7 @@ async def test_v3_compact_uses_compaction_settings_model_and_model_settings(serv
     # Patch simple_summary so we don't hit the real LLM and can inspect llm_config
     with patch.object(summarizer_all, "simple_summary", new=fake_simple_summary):
         agent_loop = LettaAgentV3(agent_state=agent_state, actor=actor)
-        summary_msg, compacted, _ = await agent_loop.compact(messages=in_context_messages)
+        summary_msg, _compacted, _ = await agent_loop.compact(messages=in_context_messages)
 
     assert summary_msg is not None
     assert "value" in captured_llm_config
@@ -1059,7 +1059,7 @@ async def test_v3_summarize_hard_eviction_when_still_over_threshold(
 
         caplog.set_level("ERROR")
 
-        summary, result, summary_text = await agent_loop.compact(
+        _summary, result, summary_text = await agent_loop.compact(
             messages=in_context_messages,
             trigger_threshold=context_limit,
         )
@@ -2015,7 +2015,7 @@ async def test_compact_with_stats_params_embeds_stats(server: SyncServer, actor,
     agent_loop = LettaAgentV3(agent_state=agent_state, actor=actor)
 
     # Call compact with stats params
-    summary_message_obj, compacted_messages, summary_text = await agent_loop.compact(
+    summary_message_obj, compacted_messages, _summary_text = await agent_loop.compact(
         messages=in_context_messages,
         use_summary_role=True,
         trigger="post_step_context_check",

@@ -89,9 +89,9 @@ def client() -> LettaSDKClient:
 
 @pytest.fixture
 def agent_state(disable_pinecone, client: LettaSDKClient):
-    open_file_tool = list(client.tools.list(name="open_files"))[0]
-    search_files_tool = list(client.tools.list(name="semantic_search_files"))[0]
-    grep_tool = list(client.tools.list(name="grep_files"))[0]
+    open_file_tool = next(iter(client.tools.list(name="open_files")))
+    search_files_tool = next(iter(client.tools.list(name="semantic_search_files")))
+    grep_tool = next(iter(client.tools.list(name="grep_files")))
 
     agent_state = client.agents.create(
         name="test_sources_agent",
@@ -745,13 +745,13 @@ def test_duplicate_file_renaming(disable_pinecone, disable_turbopuffer, client: 
     file_path = "tests/data/test.txt"
 
     with open(file_path, "rb") as f:
-        first_file = client.folders.files.upload(folder_id=source.id, file=f)
+        client.folders.files.upload(folder_id=source.id, file=f)
 
     with open(file_path, "rb") as f:
-        second_file = client.folders.files.upload(folder_id=source.id, file=f)
+        client.folders.files.upload(folder_id=source.id, file=f)
 
     with open(file_path, "rb") as f:
-        third_file = client.folders.files.upload(folder_id=source.id, file=f)
+        client.folders.files.upload(folder_id=source.id, file=f)
 
     # Get all uploaded files
     files = list(client.folders.files.list(folder_id=source.id, limit=10))
@@ -821,7 +821,7 @@ def test_duplicate_file_handling_replace(disable_pinecone, disable_turbopuffer, 
             f.write(replacement_content)
 
         # Upload replacement file with REPLACE duplicate handling
-        replacement_file = upload_file_and_wait(client, source.id, temp_file_path, duplicate_handling="replace")
+        upload_file_and_wait(client, source.id, temp_file_path, duplicate_handling="replace")
 
         # Verify we still have only 1 file (replacement, not addition)
         files_after_replace = list(client.folders.files.list(folder_id=source.id, limit=10))

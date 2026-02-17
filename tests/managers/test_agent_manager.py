@@ -279,7 +279,7 @@ async def test_compaction_settings_model_uses_separate_llm_config_for_summarizat
     )
 
     # Minimal message buffer: system + one user + one assistant
-    messages = [
+    [
         PydanticMessage(
             role=MessageRole.system,
             content=[TextContent(type="text", text="You are a helpful assistant.")],
@@ -500,10 +500,10 @@ async def test_get_context_window_basic(
     server: SyncServer, comprehensive_test_agent_fixture, default_user, default_file, set_letta_environment
 ):
     # Test agent creation
-    created_agent, create_agent_request = comprehensive_test_agent_fixture
+    created_agent, _create_agent_request = comprehensive_test_agent_fixture
 
     # Attach a file
-    assoc, closed_files = await server.file_agent_manager.attach_file(
+    assoc, _closed_files = await server.file_agent_manager.attach_file(
         agent_id=created_agent.id,
         file_id=default_file.id,
         file_name=default_file.file_name,
@@ -879,7 +879,7 @@ async def test_update_agent_last_stop_reason(server: SyncServer, comprehensive_t
 @pytest.mark.asyncio
 async def test_list_agents_select_fields_empty(server: SyncServer, comprehensive_test_agent_fixture, default_user):
     # Create an agent using the comprehensive fixture.
-    created_agent, create_agent_request = comprehensive_test_agent_fixture
+    _created_agent, _create_agent_request = comprehensive_test_agent_fixture
 
     # List agents using an empty list for select_fields.
     agents = await server.agent_manager.list_agents_async(actor=default_user, include_relationships=[])
@@ -897,7 +897,7 @@ async def test_list_agents_select_fields_empty(server: SyncServer, comprehensive
 @pytest.mark.asyncio
 async def test_list_agents_select_fields_none(server: SyncServer, comprehensive_test_agent_fixture, default_user):
     # Create an agent using the comprehensive fixture.
-    created_agent, create_agent_request = comprehensive_test_agent_fixture
+    _created_agent, _create_agent_request = comprehensive_test_agent_fixture
 
     # List agents using an empty list for select_fields.
     agents = await server.agent_manager.list_agents_async(actor=default_user, include_relationships=None)
@@ -914,7 +914,7 @@ async def test_list_agents_select_fields_none(server: SyncServer, comprehensive_
 
 @pytest.mark.asyncio
 async def test_list_agents_select_fields_specific(server: SyncServer, comprehensive_test_agent_fixture, default_user):
-    created_agent, create_agent_request = comprehensive_test_agent_fixture
+    _created_agent, _create_agent_request = comprehensive_test_agent_fixture
 
     # Choose a subset of valid relationship fields.
     valid_fields = ["tools", "tags"]
@@ -931,7 +931,7 @@ async def test_list_agents_select_fields_specific(server: SyncServer, comprehens
 
 @pytest.mark.asyncio
 async def test_list_agents_select_fields_invalid(server: SyncServer, comprehensive_test_agent_fixture, default_user):
-    created_agent, create_agent_request = comprehensive_test_agent_fixture
+    _created_agent, _create_agent_request = comprehensive_test_agent_fixture
 
     # Provide field names that are not recognized.
     invalid_fields = ["foobar", "nonexistent_field"]
@@ -946,7 +946,7 @@ async def test_list_agents_select_fields_invalid(server: SyncServer, comprehensi
 
 @pytest.mark.asyncio
 async def test_list_agents_select_fields_duplicates(server: SyncServer, comprehensive_test_agent_fixture, default_user):
-    created_agent, create_agent_request = comprehensive_test_agent_fixture
+    _created_agent, _create_agent_request = comprehensive_test_agent_fixture
 
     # Provide duplicate valid field names.
     duplicate_fields = ["tools", "tools", "tags", "tags"]
@@ -961,7 +961,7 @@ async def test_list_agents_select_fields_duplicates(server: SyncServer, comprehe
 
 @pytest.mark.asyncio
 async def test_list_agents_select_fields_mixed(server: SyncServer, comprehensive_test_agent_fixture, default_user):
-    created_agent, create_agent_request = comprehensive_test_agent_fixture
+    _created_agent, _create_agent_request = comprehensive_test_agent_fixture
 
     # Mix valid fields with an invalid one.
     mixed_fields = ["tools", "invalid_field"]
@@ -978,7 +978,7 @@ async def test_list_agents_select_fields_mixed(server: SyncServer, comprehensive
 @pytest.mark.asyncio
 async def test_list_agents_ascending(server: SyncServer, default_user):
     # Create two agents with known names
-    agent1 = await server.agent_manager.create_agent_async(
+    await server.agent_manager.create_agent_async(
         agent_create=CreateAgent(
             name="agent_oldest",
             agent_type="memgpt_v2_agent",
@@ -993,7 +993,7 @@ async def test_list_agents_ascending(server: SyncServer, default_user):
     if USING_SQLITE:
         time.sleep(CREATE_DELAY_SQLITE)
 
-    agent2 = await server.agent_manager.create_agent_async(
+    await server.agent_manager.create_agent_async(
         agent_create=CreateAgent(
             name="agent_newest",
             agent_type="memgpt_v2_agent",
@@ -1013,7 +1013,7 @@ async def test_list_agents_ascending(server: SyncServer, default_user):
 @pytest.mark.asyncio
 async def test_list_agents_descending(server: SyncServer, default_user):
     # Create two agents with known names
-    agent1 = await server.agent_manager.create_agent_async(
+    await server.agent_manager.create_agent_async(
         agent_create=CreateAgent(
             name="agent_oldest",
             agent_type="memgpt_v2_agent",
@@ -1028,7 +1028,7 @@ async def test_list_agents_descending(server: SyncServer, default_user):
     if USING_SQLITE:
         time.sleep(CREATE_DELAY_SQLITE)
 
-    agent2 = await server.agent_manager.create_agent_async(
+    await server.agent_manager.create_agent_async(
         agent_create=CreateAgent(
             name="agent_newest",
             agent_type="memgpt_v2_agent",
@@ -1084,7 +1084,7 @@ async def test_list_agents_by_last_stop_reason(server: SyncServer, default_user)
     )
 
     # Create agent with no stop reason
-    agent3 = await server.agent_manager.create_agent_async(
+    await server.agent_manager.create_agent_async(
         agent_create=CreateAgent(
             name="agent_no_stop_reason",
             agent_type="memgpt_v2_agent",
@@ -1172,7 +1172,7 @@ async def test_count_agents_with_filters(server: SyncServer, default_user):
         actor=default_user,
     )
 
-    agent4 = await server.agent_manager.create_agent_async(
+    await server.agent_manager.create_agent_async(
         agent_create=CreateAgent(
             name="agent_no_stop_reason",
             agent_type="memgpt_v2_agent",
@@ -1963,14 +1963,14 @@ async def test_create_template_agent_with_files_from_sources(server: SyncServer,
         organization_id=default_user.organization_id,
         source_id=source.id,
     )
-    file1 = await server.file_manager.create_file(file_metadata=file1_metadata, actor=default_user, text="content for file 1")
+    await server.file_manager.create_file(file_metadata=file1_metadata, actor=default_user, text="content for file 1")
 
     file2_metadata = PydanticFileMetadata(
         file_name="template_file_2.txt",
         organization_id=default_user.organization_id,
         source_id=source.id,
     )
-    file2 = await server.file_manager.create_file(file_metadata=file2_metadata, actor=default_user, text="content for file 2")
+    await server.file_manager.create_file(file_metadata=file2_metadata, actor=default_user, text="content for file 2")
 
     # Create agent using InternalTemplateAgentCreate with the source
     create_agent_request = InternalTemplateAgentCreate(

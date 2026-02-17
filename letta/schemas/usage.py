@@ -3,7 +3,9 @@ from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional, Tuple, Uni
 from pydantic import BaseModel, Field
 
 if TYPE_CHECKING:
+    from letta.schemas.enums import ProviderType
     from letta.schemas.openai.chat_completion_response import (
+        UsageStatistics,
         UsageStatisticsCompletionTokenDetails,
         UsageStatisticsPromptTokenDetails,
     )
@@ -131,7 +133,7 @@ class LettaUsageStatistics(BaseModel):
         description="Estimate of tokens currently in the context window.",
     )
 
-    def to_usage(self, provider_type: Optional["ProviderType"] = None) -> "UsageStatistics":  # noqa: F821  # noqa: F821
+    def to_usage(self, provider_type: Optional["ProviderType"] = None) -> "UsageStatistics":
         """Convert to UsageStatistics (OpenAI-compatible format).
 
         Args:

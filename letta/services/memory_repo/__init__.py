@@ -12,9 +12,9 @@ except ImportError:
     from letta.services.memory_repo.memfs_client_base import MemfsClient
 
 __all__ = [
-    "MemoryRepoManager",
-    "MemfsClient",
-    "StorageBackend",
     "GCSStorageBackend",
     "LocalStorageBackend",
+    "MemfsClient",
+    "MemoryRepoManager",
+    "StorageBackend",
 ]

@@ -542,7 +542,7 @@ async def test_prompt_caching_cache_invalidation_on_memory_update(
 
     try:
         # Message 1: Establish cache
-        response1 = await async_client.agents.messages.create(
+        await async_client.agents.messages.create(
             agent_id=agent.id,
             messages=[MessageCreateParam(role="user", content="Hello!")],
         )

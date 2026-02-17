@@ -42,7 +42,7 @@ def get_cancellation_event_for_run(run_id: str) -> asyncio.Event:
 class RunCancelledException(Exception):
     """Exception raised when a run is explicitly cancelled (not due to client timeout)"""
 
-    def __init__(self, run_id: str, message: str = None):
+    def __init__(self, run_id: str, message: str | None = None):
         self.run_id = run_id
         super().__init__(message or f"Run {run_id} was explicitly cancelled")
 

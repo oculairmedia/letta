@@ -3,7 +3,12 @@ import json
 from collections.abc import AsyncGenerator
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
+
+if TYPE_CHECKING:
+    from opentelemetry.trace import Span
+
+    from letta.schemas.usage import LettaUsageStatistics
 
 from anthropic import AsyncStream
 from anthropic.types.beta import (
@@ -146,7 +151,7 @@ class SimpleAnthropicStreamingInterface:
             return tool_calls[0]
         return None
 
-    def get_usage_statistics(self) -> "LettaUsageStatistics":  # noqa: F821
+    def get_usage_statistics(self) -> "LettaUsageStatistics":
         """Extract usage statistics from accumulated streaming data.
 
         Returns:
@@ -232,7 +237,7 @@ class SimpleAnthropicStreamingInterface:
     async def process(
         self,
         stream: AsyncStream[BetaRawMessageStreamEvent],
-        ttft_span: Optional["Span"] = None,  # noqa: F821
+        ttft_span: Optional["Span"] = None,
     ) -> AsyncGenerator[LettaMessage | LettaStopReason, None]:
         prev_message_type = None
         message_index = 0
@@ -287,7 +292,7 @@ class SimpleAnthropicStreamingInterface:
     async def _process_event(
         self,
         event: BetaRawMessageStreamEvent,
-        ttft_span: Optional["Span"] = None,  # noqa: F821
+        ttft_span: Optional["Span"] = None,
         prev_message_type: Optional[str] = None,
         message_index: int = 0,
     ) -> AsyncGenerator[LettaMessage | LettaStopReason, None]:

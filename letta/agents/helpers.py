@@ -1,7 +1,10 @@
 import json
 import xml.etree.ElementTree as ET
-from typing import Any, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 from uuid import UUID, uuid4
+
+if TYPE_CHECKING:
+    from letta.schemas.tool import Tool
 
 from letta.errors import LettaError, PendingApprovalError
 from letta.helpers import ToolRulesSolver
@@ -462,7 +465,7 @@ def _schema_accepts_value(prop_schema: Dict[str, Any], value: Any) -> bool:
     return True
 
 
-def merge_and_validate_prefilled_args(tool: "Tool", llm_args: Dict[str, Any], prefilled_args: Dict[str, Any]) -> Dict[str, Any]:  # noqa: F821
+def merge_and_validate_prefilled_args(tool: "Tool", llm_args: Dict[str, Any], prefilled_args: Dict[str, Any]) -> Dict[str, Any]:
     """Merge LLM-provided args with prefilled args from tool rules.
 
     - Overlapping keys are replaced by prefilled values (prefilled wins).

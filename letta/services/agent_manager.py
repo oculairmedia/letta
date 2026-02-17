@@ -1514,7 +1514,7 @@ class AgentManager:
     @trace_method
     def trim_older_in_context_messages(self, num: int, agent_id: str, actor: PydanticUser) -> PydanticAgentState:
         message_ids = self.get_agent_by_id(agent_id=agent_id, actor=actor).message_ids
-        new_messages = [message_ids[0]] + message_ids[num:]  # 0 is system message
+        new_messages = [message_ids[0], *message_ids[num:]]
         return self.set_in_context_messages(agent_id=agent_id, message_ids=new_messages, actor=actor)
 
     @enforce_types

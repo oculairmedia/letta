@@ -18,7 +18,7 @@ from letta.schemas.file import FileMetadata as PydanticFileMetadata
 
 @pytest.mark.asyncio
 async def test_attach_creates_association(server, default_user, sarah_agent, default_file):
-    assoc, closed_files = await server.file_agent_manager.attach_file(
+    assoc, _closed_files = await server.file_agent_manager.attach_file(
         agent_id=sarah_agent.id,
         file_id=default_file.id,
         file_name=default_file.file_name,
@@ -40,7 +40,7 @@ async def test_attach_creates_association(server, default_user, sarah_agent, def
 
 
 async def test_attach_is_idempotent(server, default_user, sarah_agent, default_file):
-    a1, closed_files = await server.file_agent_manager.attach_file(
+    a1, _closed_files = await server.file_agent_manager.attach_file(
         agent_id=sarah_agent.id,
         file_id=default_file.id,
         file_name=default_file.file_name,
@@ -51,7 +51,7 @@ async def test_attach_is_idempotent(server, default_user, sarah_agent, default_f
     )
 
     # second attach with different params
-    a2, closed_files = await server.file_agent_manager.attach_file(
+    a2, _closed_files = await server.file_agent_manager.attach_file(
         agent_id=sarah_agent.id,
         file_id=default_file.id,
         file_name=default_file.file_name,
@@ -114,7 +114,7 @@ async def test_file_agent_line_tracking(server, default_user, sarah_agent, defau
     file = await server.file_manager.create_file(file_metadata=file_metadata, actor=default_user, text=test_content)
 
     # Test opening with line range using enforce_max_open_files_and_open
-    closed_files, was_already_open, previous_ranges = await server.file_agent_manager.enforce_max_open_files_and_open(
+    _closed_files, _was_already_open, previous_ranges = await server.file_agent_manager.enforce_max_open_files_and_open(
         agent_id=sarah_agent.id,
         file_id=file.id,
         file_name=file.file_name,
@@ -138,7 +138,7 @@ async def test_file_agent_line_tracking(server, default_user, sarah_agent, defau
     assert previous_ranges == {}  # No previous range since it wasn't open before
 
     # Test opening without line range - should clear line info and capture previous range
-    closed_files, was_already_open, previous_ranges = await server.file_agent_manager.enforce_max_open_files_and_open(
+    _closed_files, _was_already_open, previous_ranges = await server.file_agent_manager.enforce_max_open_files_and_open(
         agent_id=sarah_agent.id,
         file_id=file.id,
         file_name=file.file_name,
@@ -321,7 +321,7 @@ async def test_list_files_for_agent_paginated_filter_open(
         )
 
     # get only open files
-    open_files, cursor, has_more = await server.file_agent_manager.list_files_for_agent_paginated(
+    open_files, _cursor, has_more = await server.file_agent_manager.list_files_for_agent_paginated(
         agent_id=sarah_agent.id,
         actor=default_user,
         is_open=True,
@@ -370,7 +370,7 @@ async def test_list_files_for_agent_paginated_filter_closed(
     assert all(not fa.is_open for fa in page1)
 
     # get second page of closed files
-    page2, cursor2, has_more2 = await server.file_agent_manager.list_files_for_agent_paginated(
+    page2, _cursor2, has_more2 = await server.file_agent_manager.list_files_for_agent_paginated(
         agent_id=sarah_agent.id,
         actor=default_user,
         is_open=False,
@@ -586,7 +586,7 @@ async def test_mark_access_bulk(server, default_user, sarah_agent, default_sourc
     # Attach all files (they'll be open by default)
     attached_files = []
     for file in files:
-        file_agent, closed_files = await server.file_agent_manager.attach_file(
+        file_agent, _closed_files = await server.file_agent_manager.attach_file(
             agent_id=sarah_agent.id,
             file_id=file.id,
             file_name=file.file_name,
@@ -745,7 +745,7 @@ async def test_lru_eviction_on_open_file(server, default_user, sarah_agent, defa
     time.sleep(0.1)
 
     # Now "open" the last file using the efficient method
-    closed_files, was_already_open, _ = await server.file_agent_manager.enforce_max_open_files_and_open(
+    closed_files, _was_already_open, _ = await server.file_agent_manager.enforce_max_open_files_and_open(
         agent_id=sarah_agent.id,
         file_id=files[-1].id,
         file_name=files[-1].file_name,
@@ -853,7 +853,7 @@ async def test_last_accessed_at_updates_correctly(server, default_user, sarah_ag
     )
     file = await server.file_manager.create_file(file_metadata=file_metadata, actor=default_user, text="test content")
 
-    file_agent, closed_files = await server.file_agent_manager.attach_file(
+    file_agent, _closed_files = await server.file_agent_manager.attach_file(
         agent_id=sarah_agent.id,
         file_id=file.id,
         file_name=file.file_name,
@@ -957,7 +957,7 @@ async def test_attach_files_bulk_deduplication(server, default_user, sarah_agent
     visible_content_map = {"duplicate_test.txt": "visible content"}
 
     # Bulk attach should deduplicate
-    closed_files = await server.file_agent_manager.attach_files_bulk(
+    await server.file_agent_manager.attach_files_bulk(
         agent_id=sarah_agent.id,
         files_metadata=files_to_attach,
         visible_content_map=visible_content_map,
@@ -1085,7 +1085,7 @@ async def test_attach_files_bulk_mixed_existing_new(server, default_user, sarah_
         new_files.append(file)
 
     # Bulk attach: existing file + new files
-    files_to_attach = [existing_file] + new_files
+    files_to_attach = [existing_file, *new_files]
     visible_content_map = {
         "existing_file.txt": "updated content",
         "new_file_0.txt": "new content 0",

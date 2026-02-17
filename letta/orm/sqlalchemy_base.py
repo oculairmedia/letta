@@ -30,6 +30,9 @@ from letta.settings import DatabaseChoice
 
 if TYPE_CHECKING:
     from pydantic import BaseModel
+    from sqlalchemy import Select
+
+    from letta.schemas.user import User
 
 
 logger = get_logger(__name__)
@@ -122,7 +125,7 @@ class SqlalchemyBase(CommonSqlalchemyMetaMixins, Base):
         query_text: Optional[str] = None,
         query_embedding: Optional[List[float]] = None,
         ascending: bool = True,
-        actor: Optional["User"] = None,  # noqa: F821
+        actor: Optional["User"] = None,
         access: Optional[List[Literal["read", "write", "admin"]]] = ["read"],
         access_type: AccessType = AccessType.ORGANIZATION,
         join_model: Optional[Base] = None,
@@ -222,7 +225,7 @@ class SqlalchemyBase(CommonSqlalchemyMetaMixins, Base):
         query_text: Optional[str] = None,
         query_embedding: Optional[List[float]] = None,
         ascending: bool = True,
-        actor: Optional["User"] = None,  # noqa: F821
+        actor: Optional["User"] = None,
         access: Optional[List[Literal["read", "write", "admin"]]] = ["read"],
         access_type: AccessType = AccessType.ORGANIZATION,
         join_model: Optional[Base] = None,
@@ -415,7 +418,7 @@ class SqlalchemyBase(CommonSqlalchemyMetaMixins, Base):
         cls,
         db_session: "AsyncSession",
         identifier: Optional[str] = None,
-        actor: Optional["User"] = None,  # noqa: F821
+        actor: Optional["User"] = None,
         access: Optional[List[Literal["read", "write", "admin"]]] = ["read"],
         access_type: AccessType = AccessType.ORGANIZATION,
         check_is_deleted: bool = False,
@@ -451,7 +454,7 @@ class SqlalchemyBase(CommonSqlalchemyMetaMixins, Base):
         cls,
         db_session: "AsyncSession",
         identifiers: List[str] = [],
-        actor: Optional["User"] = None,  # noqa: F821
+        actor: Optional["User"] = None,
         access: Optional[List[Literal["read", "write", "admin"]]] = ["read"],
         access_type: AccessType = AccessType.ORGANIZATION,
         check_is_deleted: bool = False,
@@ -471,7 +474,7 @@ class SqlalchemyBase(CommonSqlalchemyMetaMixins, Base):
     def _read_multiple_preprocess(
         cls,
         identifiers: List[str],
-        actor: Optional["User"],  # noqa: F821
+        actor: Optional["User"],
         access: Optional[List[Literal["read", "write", "admin"]]],
         access_type: AccessType,
         check_is_deleted: bool,
@@ -543,7 +546,7 @@ class SqlalchemyBase(CommonSqlalchemyMetaMixins, Base):
     async def create_async(
         self,
         db_session: "AsyncSession",
-        actor: Optional["User"] = None,  # noqa: F821
+        actor: Optional["User"] = None,
         no_commit: bool = False,
         no_refresh: bool = False,
         ignore_conflicts: bool = False,
@@ -599,7 +602,7 @@ class SqlalchemyBase(CommonSqlalchemyMetaMixins, Base):
         cls,
         items: List["SqlalchemyBase"],
         db_session: "AsyncSession",
-        actor: Optional["User"] = None,  # noqa: F821
+        actor: Optional["User"] = None,
         no_commit: bool = False,
         no_refresh: bool = False,
     ) -> List["SqlalchemyBase"]:
@@ -654,7 +657,7 @@ class SqlalchemyBase(CommonSqlalchemyMetaMixins, Base):
                 cls._handle_dbapi_error(e)
 
     @handle_db_timeout
-    async def delete_async(self, db_session: "AsyncSession", actor: Optional["User"] = None) -> "SqlalchemyBase":  # noqa: F821
+    async def delete_async(self, db_session: "AsyncSession", actor: Optional["User"] = None) -> "SqlalchemyBase":
         """Soft delete a record asynchronously (mark as deleted)."""
         logger.debug(f"Soft deleting {self.__class__.__name__} with ID: {self.id} with actor={actor} (async)")
 
@@ -665,7 +668,7 @@ class SqlalchemyBase(CommonSqlalchemyMetaMixins, Base):
         return await self.update_async(db_session)
 
     @handle_db_timeout
-    async def hard_delete_async(self, db_session: "AsyncSession", actor: Optional["User"] = None) -> None:  # noqa: F821
+    async def hard_delete_async(self, db_session: "AsyncSession", actor: Optional["User"] = None) -> None:
         """Permanently removes the record from the database asynchronously."""
         obj_id = self.id
         obj_class = self.__class__.__name__
@@ -694,7 +697,7 @@ class SqlalchemyBase(CommonSqlalchemyMetaMixins, Base):
         cls,
         db_session: "AsyncSession",
         identifiers: List[str],
-        actor: Optional["User"],  # noqa: F821
+        actor: Optional["User"],
         access: Optional[List[Literal["read", "write", "admin"]]] = ["write"],
         access_type: AccessType = AccessType.ORGANIZATION,
     ) -> None:
@@ -731,7 +734,7 @@ class SqlalchemyBase(CommonSqlalchemyMetaMixins, Base):
     async def update_async(
         self,
         db_session: "AsyncSession",
-        actor: Optional["User"] = None,  # noqa: F821
+        actor: Optional["User"] = None,
         no_commit: bool = False,
         no_refresh: bool = False,
     ) -> "SqlalchemyBase":
@@ -778,7 +781,7 @@ class SqlalchemyBase(CommonSqlalchemyMetaMixins, Base):
         cls,
         *,
         db_session: "Session",
-        actor: Optional["User"] = None,  # noqa: F821
+        actor: Optional["User"] = None,
         access: Optional[List[Literal["read", "write", "admin"]]] = ["read"],
         access_type: AccessType = AccessType.ORGANIZATION,
         check_is_deleted: bool = False,
@@ -818,7 +821,7 @@ class SqlalchemyBase(CommonSqlalchemyMetaMixins, Base):
         cls,
         *,
         db_session: "AsyncSession",
-        actor: Optional["User"] = None,  # noqa: F821
+        actor: Optional["User"] = None,
         access: Optional[List[Literal["read", "write", "admin"]]] = ["read"],
         access_type: AccessType = AccessType.ORGANIZATION,
         check_is_deleted: bool = False,
@@ -854,11 +857,11 @@ class SqlalchemyBase(CommonSqlalchemyMetaMixins, Base):
     @classmethod
     def apply_access_predicate(
         cls,
-        query: "Select",  # noqa: F821
-        actor: "User",  # noqa: F821
+        query: "Select",
+        actor: "User",
         access: List[Literal["read", "write", "admin"]],
         access_type: AccessType = AccessType.ORGANIZATION,
-    ) -> "Select":  # noqa: F821
+    ) -> "Select":
         """applies a WHERE clause restricting results to the given actor and access level
         Args:
             query: The initial sqlalchemy select statement

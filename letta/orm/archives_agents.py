@@ -1,4 +1,9 @@
 from datetime import datetime
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from letta.orm.agent import Agent
+    from letta.orm.archive import Archive
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -23,5 +28,5 @@ class ArchivesAgents(Base):
     is_owner: Mapped[bool] = mapped_column(Boolean, default=False, doc="Whether this agent created/owns the archive")
 
     # relationships
-    agent: Mapped["Agent"] = relationship("Agent", back_populates="archives_agents")  # noqa: F821
-    archive: Mapped["Archive"] = relationship("Archive", back_populates="archives_agents")  # noqa: F821
+    agent: Mapped["Agent"] = relationship("Agent", back_populates="archives_agents")
+    archive: Mapped["Archive"] = relationship("Archive", back_populates="archives_agents")

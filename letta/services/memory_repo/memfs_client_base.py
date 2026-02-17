@@ -40,7 +40,7 @@ class MemfsClient:
     This enables git-backed memory for self-hosted OSS deployments.
     """
 
-    def __init__(self, base_url: str = None, local_path: str = None, timeout: float = 120.0):
+    def __init__(self, base_url: str | None = None, local_path: str | None = None, timeout: float = 120.0):
         """Initialize the local memfs client.
 
         Args:
@@ -68,7 +68,7 @@ class MemfsClient:
         self,
         agent_id: str,
         actor: PydanticUser,
-        initial_blocks: List[PydanticBlock] = None,
+        initial_blocks: List[PydanticBlock] | None = None,
     ) -> str:
         """Create a new repository for an agent with optional initial blocks.
 

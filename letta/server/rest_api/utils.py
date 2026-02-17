@@ -308,7 +308,7 @@ def create_approval_request_message_from_llm_response(
     reasoning_content: Optional[List[Union[TextContent, ReasoningContent, RedactedReasoningContent, OmittedReasoningContent]]] = None,
     pre_computed_assistant_message_id: Optional[str] = None,
     step_id: str | None = None,
-    run_id: str = None,
+    run_id: str | None = None,
 ) -> Message:
     messages = []
     if allowed_tool_calls:
@@ -386,7 +386,7 @@ def create_letta_messages_from_llm_response(
     function_response: Optional[str],
     timezone: str,
     run_id: str | None = None,
-    step_id: str = None,
+    step_id: str | None = None,
     continue_stepping: bool = False,
     heartbeat_reason: Optional[str] = None,
     reasoning_content: Optional[

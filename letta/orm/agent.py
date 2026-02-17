@@ -32,9 +32,12 @@ if TYPE_CHECKING:
     from letta.orm.archives_agents import ArchivesAgents
     from letta.orm.conversation import Conversation
     from letta.orm.files_agents import FileAgent
+    from letta.orm.group import Group
     from letta.orm.identity import Identity
+    from letta.orm.llm_batch_items import LLMBatchItem
     from letta.orm.organization import Organization
     from letta.orm.run import Run
+    from letta.orm.sandbox_config import AgentEnvironmentVariable
     from letta.orm.source import Source
     from letta.orm.tool import Tool
 
@@ -122,7 +125,7 @@ class Agent(SqlalchemyBase, OrganizationMixin, ProjectMixin, TemplateEntityMixin
 
     # relationships
     organization: Mapped["Organization"] = relationship("Organization", back_populates="agents", lazy="raise")
-    tool_exec_environment_variables: Mapped[List["AgentEnvironmentVariable"]] = relationship(  # noqa: F821
+    tool_exec_environment_variables: Mapped[List["AgentEnvironmentVariable"]] = relationship(
         "AgentEnvironmentVariable",
         back_populates="agent",
         cascade="all, delete-orphan",
@@ -160,14 +163,14 @@ class Agent(SqlalchemyBase, OrganizationMixin, ProjectMixin, TemplateEntityMixin
         back_populates="agents",
         passive_deletes=True,
     )
-    groups: Mapped[List["Group"]] = relationship(  # noqa: F821
+    groups: Mapped[List["Group"]] = relationship(
         "Group",
         secondary="groups_agents",
         lazy="raise",
         back_populates="agents",
         passive_deletes=True,
     )
-    multi_agent_group: Mapped["Group"] = relationship(  # noqa: F821
+    multi_agent_group: Mapped["Group"] = relationship(
         "Group",
         lazy="selectin",
         viewonly=True,
@@ -175,7 +178,7 @@ class Agent(SqlalchemyBase, OrganizationMixin, ProjectMixin, TemplateEntityMixin
         foreign_keys="[Group.manager_agent_id]",
         uselist=False,
     )
-    batch_items: Mapped[List["LLMBatchItem"]] = relationship("LLMBatchItem", back_populates="agent", lazy="raise")  # noqa: F821
+    batch_items: Mapped[List["LLMBatchItem"]] = relationship("LLMBatchItem", back_populates="agent", lazy="raise")
     file_agents: Mapped[List["FileAgent"]] = relationship(
         "FileAgent",
         back_populates="agent",

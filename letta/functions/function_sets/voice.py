@@ -1,10 +1,13 @@
 ## Voice chat + sleeptime tools
-from typing import List, Optional
+from typing import TYPE_CHECKING, List, Optional
+
+if TYPE_CHECKING:
+    from letta.schemas.agent import AgentState
 
 from pydantic import BaseModel, Field
 
 
-def rethink_user_memory(agent_state: "AgentState", new_memory: str) -> None:  # noqa: F821
+def rethink_user_memory(agent_state: "AgentState", new_memory: str) -> None:
     """
     Rewrite memory block for the main agent, new_memory should contain all current information from the block that is not outdated or inconsistent, integrating any new information, resulting in a new memory block that is organized, readable, and comprehensive.
 
@@ -18,7 +21,7 @@ def rethink_user_memory(agent_state: "AgentState", new_memory: str) -> None:  # 
     return None
 
 
-def finish_rethinking_memory(agent_state: "AgentState") -> None:  # type: ignore  # noqa: F821
+def finish_rethinking_memory(agent_state: "AgentState") -> None:  # type: ignore
     """
     This function is called when the agent is done rethinking the memory.
 
@@ -43,7 +46,7 @@ class MemoryChunk(BaseModel):
     )
 
 
-def store_memories(agent_state: "AgentState", chunks: List[MemoryChunk]) -> None:  # noqa: F821
+def store_memories(agent_state: "AgentState", chunks: List[MemoryChunk]) -> None:
     """
     Persist dialogue that is about to fall out of the agent’s context window.
 
@@ -59,7 +62,7 @@ def store_memories(agent_state: "AgentState", chunks: List[MemoryChunk]) -> None
 
 
 def search_memory(
-    agent_state: "AgentState",  # noqa: F821
+    agent_state: "AgentState",
     convo_keyword_queries: Optional[List[str]],
     start_minutes_ago: Optional[int],
     end_minutes_ago: Optional[int],

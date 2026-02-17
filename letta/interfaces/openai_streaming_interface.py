@@ -1,7 +1,12 @@
 import asyncio
 from collections.abc import AsyncGenerator
 from datetime import datetime, timezone
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
+
+if TYPE_CHECKING:
+    from opentelemetry.trace import Span
+
+    from letta.schemas.usage import LettaUsageStatistics
 
 from openai import AsyncStream
 from openai.types.chat.chat_completion_chunk import ChatCompletionChunk
@@ -194,7 +199,7 @@ class OpenAIStreamingInterface:
             function=FunctionCall(arguments=self._get_current_function_arguments(), name=function_name),
         )
 
-    def get_usage_statistics(self) -> "LettaUsageStatistics":  # noqa: F821
+    def get_usage_statistics(self) -> "LettaUsageStatistics":
         """Extract usage statistics from accumulated streaming data.
 
         Returns:
@@ -219,7 +224,7 @@ class OpenAIStreamingInterface:
     async def process(
         self,
         stream: AsyncStream[ChatCompletionChunk],
-        ttft_span: Optional["Span"] = None,  # noqa: F821
+        ttft_span: Optional["Span"] = None,
     ) -> AsyncGenerator[LettaMessage | LettaStopReason, None]:
         """
         Iterates over the OpenAI stream, yielding SSE events.
@@ -307,7 +312,7 @@ class OpenAIStreamingInterface:
     async def _process_chunk(
         self,
         chunk: ChatCompletionChunk,
-        ttft_span: Optional["Span"] = None,  # noqa: F821
+        ttft_span: Optional["Span"] = None,
         prev_message_type: Optional[str] = None,
         message_index: int = 0,
     ) -> AsyncGenerator[LettaMessage | LettaStopReason, None]:
@@ -471,7 +476,7 @@ class OpenAIStreamingInterface:
                                 # Minimal, robust extraction: only emit the value of "message".
                                 # If we buffered a prefix while name was streaming, feed it first.
                                 if self._function_args_buffer_parts:
-                                    payload = "".join(self._function_args_buffer_parts + [tool_call.function.arguments])
+                                    payload = "".join([*self._function_args_buffer_parts, tool_call.function.arguments])
                                     self._function_args_buffer_parts = None
                                 else:
                                     payload = tool_call.function.arguments
@@ -498,7 +503,7 @@ class OpenAIStreamingInterface:
                                 # if the previous chunk had arguments but we needed to flush name
                                 if self._function_args_buffer_parts:
                                     # In this case, we should release the buffer + new data at once
-                                    combined_chunk = "".join(self._function_args_buffer_parts + [updates_main_json])
+                                    combined_chunk = "".join([*self._function_args_buffer_parts, updates_main_json])
                                     if prev_message_type and prev_message_type != "tool_call_message":
                                         message_index += 1
                                     if self._get_function_name_buffer() in self.requires_approval_tools:
@@ -588,7 +593,7 @@ class SimpleOpenAIStreamingInterface:
         messages: Optional[list] = None,
         tools: Optional[list] = None,
         requires_approval_tools: list = [],
-        model: str = None,
+        model: str | None = None,
         run_id: str | None = None,
         step_id: str | None = None,
         cancellation_event: Optional["asyncio.Event"] = None,
@@ -639,7 +644,6 @@ class SimpleOpenAIStreamingInterface:
 
     def get_content(self) -> list[TextContent | OmittedReasoningContent | ReasoningContent]:
         shown_omitted = False
-        concat_content = ""
         merged_messages = []
         reasoning_content = []
         concat_content_parts: list[str] = []
@@ -694,7 +698,7 @@ class SimpleOpenAIStreamingInterface:
             raise ValueError("No tool calls available")
         return calls[0]
 
-    def get_usage_statistics(self) -> "LettaUsageStatistics":  # noqa: F821
+    def get_usage_statistics(self) -> "LettaUsageStatistics":
         """Extract usage statistics from accumulated streaming data.
 
         Returns:
@@ -719,7 +723,7 @@ class SimpleOpenAIStreamingInterface:
     async def process(
         self,
         stream: AsyncStream[ChatCompletionChunk],
-        ttft_span: Optional["Span"] = None,  # noqa: F821
+        ttft_span: Optional["Span"] = None,
     ) -> AsyncGenerator[LettaMessage | LettaStopReason, None]:
         """
         Iterates over the OpenAI stream, yielding SSE events.
@@ -833,7 +837,7 @@ class SimpleOpenAIStreamingInterface:
     async def _process_chunk(
         self,
         chunk: ChatCompletionChunk,
-        ttft_span: Optional["Span"] = None,  # noqa: F821
+        ttft_span: Optional["Span"] = None,
         prev_message_type: Optional[str] = None,
         message_index: int = 0,
     ) -> AsyncGenerator[LettaMessage | LettaStopReason, None]:
@@ -984,7 +988,7 @@ class SimpleOpenAIResponsesStreamingInterface:
         messages: Optional[list] = None,
         tools: Optional[list] = None,
         requires_approval_tools: list = [],
-        model: str = None,
+        model: str | None = None,
         run_id: str | None = None,
         step_id: str | None = None,
         cancellation_event: Optional["asyncio.Event"] = None,
@@ -1120,7 +1124,7 @@ class SimpleOpenAIResponsesStreamingInterface:
             raise ValueError("No tool calls available")
         return calls[0]
 
-    def get_usage_statistics(self) -> "LettaUsageStatistics":  # noqa: F821
+    def get_usage_statistics(self) -> "LettaUsageStatistics":
         """Extract usage statistics from accumulated streaming data.
 
         Returns:
@@ -1141,7 +1145,7 @@ class SimpleOpenAIResponsesStreamingInterface:
     async def process(
         self,
         stream: AsyncStream[ResponseStreamEvent],
-        ttft_span: Optional["Span"] = None,  # noqa: F821
+        ttft_span: Optional["Span"] = None,
     ) -> AsyncGenerator[LettaMessage | LettaStopReason, None]:
         """
         Iterates over the OpenAI stream, yielding SSE events.
@@ -1227,7 +1231,7 @@ class SimpleOpenAIResponsesStreamingInterface:
     async def _process_event(
         self,
         event: ResponseStreamEvent,
-        ttft_span: Optional["Span"] = None,  # noqa: F821
+        ttft_span: Optional["Span"] = None,
         prev_message_type: Optional[str] = None,
         message_index: int = 0,
     ) -> AsyncGenerator[LettaMessage | LettaStopReason, None]:
@@ -1250,8 +1254,6 @@ class SimpleOpenAIResponsesStreamingInterface:
             if isinstance(new_event_item, ResponseReasoningItem):
                 # Look for summary delta, or encrypted_content
                 summary = new_event_item.summary
-                content = new_event_item.content  # NOTE: always none
-                encrypted_content = new_event_item.encrypted_content
                 # TODO change to summarize reasoning message, but we need to figure out the streaming indices of summary problem
                 concat_summary = "".join([s.text for s in summary])
                 if concat_summary != "":
@@ -1390,7 +1392,6 @@ class SimpleOpenAIResponsesStreamingInterface:
             # NOTE: is this inclusive of the deltas?
             # If not, we should add it to the rolling
             summary_index = event.summary_index
-            text = event.text
             return
 
         # Reasoning summary streaming
@@ -1432,7 +1433,6 @@ class SimpleOpenAIResponsesStreamingInterface:
         # Assistant message streaming
         elif isinstance(event, ResponseTextDoneEvent):
             # NOTE: inclusive, can skip
-            text = event.text
             return
 
         # Assistant message done
@@ -1447,7 +1447,7 @@ class SimpleOpenAIResponsesStreamingInterface:
             delta = event.delta
 
             # Resolve tool_call_id/name using output_index or item_id
-            resolved_call_id, resolved_name, out_idx, item_id = self._resolve_mapping_for_delta(event)
+            resolved_call_id, resolved_name, _out_idx, _item_id = self._resolve_mapping_for_delta(event)
 
             # Fallback to last seen tool name for approval routing if mapping name missing
             if not resolved_name:
@@ -1493,7 +1493,6 @@ class SimpleOpenAIResponsesStreamingInterface:
         # Function calls
         elif isinstance(event, ResponseFunctionCallArgumentsDoneEvent):
             # NOTE: inclusive
-            full_args = event.arguments
             return
 
         # Generic

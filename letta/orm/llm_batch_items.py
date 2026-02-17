@@ -1,5 +1,10 @@
 import uuid
-from typing import Optional, Union
+from typing import TYPE_CHECKING, Optional, Union
+
+if TYPE_CHECKING:
+    from letta.orm.agent import Agent
+    from letta.orm.llm_batch_job import LLMBatchJob
+    from letta.orm.organization import Organization
 
 from anthropic.types.beta.messages import BetaMessageBatchIndividualResponse
 from sqlalchemy import ForeignKey, Index, String
@@ -49,6 +54,6 @@ class LLMBatchItem(SqlalchemyBase, OrganizationMixin, AgentMixin):
     )
 
     # relationships
-    organization: Mapped["Organization"] = relationship("Organization", back_populates="llm_batch_items")  # noqa: F821
-    batch: Mapped["LLMBatchJob"] = relationship("LLMBatchJob", back_populates="items", lazy="selectin")  # noqa: F821
-    agent: Mapped["Agent"] = relationship("Agent", back_populates="batch_items", lazy="selectin")  # noqa: F821
+    organization: Mapped["Organization"] = relationship("Organization", back_populates="llm_batch_items")
+    batch: Mapped["LLMBatchJob"] = relationship("LLMBatchJob", back_populates="items", lazy="selectin")
+    agent: Mapped["Agent"] = relationship("Agent", back_populates="batch_items", lazy="selectin")

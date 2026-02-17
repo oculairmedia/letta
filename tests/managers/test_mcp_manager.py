@@ -71,7 +71,7 @@ async def test_create_mcp_server(mock_get_client, server, default_user):
     # Test with a valid SSEServerConfig
     mcp_server_name = "coingecko"
     server_url = "https://mcp.api.coingecko.com/sse"
-    sse_mcp_config = SSEServerConfig(server_name=mcp_server_name, server_url=server_url)
+    SSEServerConfig(server_name=mcp_server_name, server_url=server_url)
     mcp_sse_server = MCPServer(server_name=mcp_server_name, server_type=MCPServerType.SSE, server_url=server_url)
     created_server = await server.mcp_manager.create_or_update_mcp_server(mcp_sse_server, actor=default_user)
     print(created_server)
@@ -797,7 +797,7 @@ async def test_mcp_server_resync_tools(server, default_user, default_organizatio
 
         # Verify tool2 was actually deleted
         try:
-            deleted_tool = await server.tool_manager.get_tool_by_id_async(tool_id=tool2.id, actor=default_user)
+            await server.tool_manager.get_tool_by_id_async(tool_id=tool2.id, actor=default_user)
             assert False, "Tool2 should have been deleted"
         except Exception:
             pass  # Expected - tool should be deleted

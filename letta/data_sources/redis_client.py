@@ -149,7 +149,7 @@ class AsyncRedisClient:
         try:
             client = await self.get_client()
             return await client.get(key)
-        except:
+        except Exception:
             return default
 
     @with_retry()
@@ -320,7 +320,7 @@ class AsyncRedisClient:
             client = await self.get_client()
             result = await client.smismember(key, values)
             return result if isinstance(values, list) else result[0]
-        except:
+        except Exception:
             return [0] * len(values) if isinstance(values, list) else 0
 
     async def srem(self, key: str, *members: Union[str, int, float]) -> int:

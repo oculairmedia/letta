@@ -276,7 +276,7 @@ async def create_background_stream_processor(
                     maybe_stop_reason = json.loads(maybe_json_chunk) if maybe_json_chunk and maybe_json_chunk[0] == "{" else None
                     if maybe_stop_reason and maybe_stop_reason.get("message_type") == "stop_reason":
                         stop_reason = maybe_stop_reason.get("stop_reason")
-                except:
+                except Exception:
                     pass
 
         # Stream ended naturally - check if we got a proper terminal
@@ -313,7 +313,7 @@ async def create_background_stream_processor(
                 # Set a default stop_reason so run status can be mapped in finally
                 stop_reason = StopReasonType.error.value
 
-    except RunCancelledException as e:
+    except RunCancelledException:
         # Handle cancellation gracefully - don't write error chunk, cancellation event was already sent
         logger.info(f"Stream processing stopped due to cancellation for run {run_id}")
         # The cancellation event was already yielded by cancellation_aware_stream_wrapper

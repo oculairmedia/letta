@@ -339,7 +339,7 @@ def trace_method(func):
                         try:
                             # Test if str() works (some objects have broken __str__)
                             try:
-                                test_str = str(value)
+                                str(value)
                                 # If str() works and is reasonable, use repr
                                 str_value = repr(value)
                             except Exception:

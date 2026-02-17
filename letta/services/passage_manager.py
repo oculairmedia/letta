@@ -1,6 +1,9 @@
 import uuid
 from datetime import datetime, timezone
-from typing import Dict, List, Optional
+from typing import TYPE_CHECKING, Dict, List, Optional
+
+if TYPE_CHECKING:
+    from letta.orm.sqlalchemy_base import SqlalchemyBase
 
 from openai import AsyncOpenAI
 from sqlalchemy import func, select
@@ -350,7 +353,7 @@ class PassageManager:
             return passage.to_pydantic()
 
     @trace_method
-    def _preprocess_passage_for_creation(self, pydantic_passage: PydanticPassage) -> "SqlAlchemyBase":  # noqa: F821
+    def _preprocess_passage_for_creation(self, pydantic_passage: PydanticPassage) -> "SqlalchemyBase":
         data = pydantic_passage.model_dump(to_orm=True)
         common_fields = {
             "id": data.get("id"),
@@ -364,13 +367,13 @@ class PassageManager:
             "created_at": data.get("created_at", datetime.now(timezone.utc)),
         }
 
-        if "archive_id" in data and data["archive_id"]:
+        if data.get("archive_id"):
             assert not data.get("source_id"), "Passage cannot have both archive_id and source_id"
             agent_fields = {
                 "archive_id": data["archive_id"],
             }
             passage = ArchivalPassage(**common_fields, **agent_fields)
-        elif "source_id" in data and data["source_id"]:
+        elif data.get("source_id"):
             assert not data.get("archive_id"), "Passage cannot have both archive_id and source_id"
             source_fields = {
                 "source_id": data["source_id"],
@@ -693,7 +696,7 @@ class PassageManager:
                 setattr(curr_passage, "tags", new_tags)
 
             # Pad embeddings if needed (only when using Postgres as vector DB)
-            if "embedding" in update_data and update_data["embedding"]:
+            if update_data.get("embedding"):
                 import numpy as np
 
                 from letta.helpers.tpuf_client import should_use_tpuf
@@ -738,7 +741,7 @@ class PassageManager:
             update_data = passage.model_dump(to_orm=True, exclude_unset=True, exclude_none=True)
 
             # Pad embeddings if needed (only when using Postgres as vector DB)
-            if "embedding" in update_data and update_data["embedding"]:
+            if update_data.get("embedding"):
                 import numpy as np
 
                 from letta.helpers.tpuf_client import should_use_tpuf

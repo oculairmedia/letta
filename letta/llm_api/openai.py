@@ -86,7 +86,7 @@ async def openai_get_model_list_async(
         # Handle HTTP errors (e.g., response 4XX, 5XX)
         try:
             error_response = http_err.response.json()
-        except:
+        except Exception:
             error_response = {"status_code": http_err.response.status_code, "text": http_err.response.text}
         logger.debug(f"Got HTTPError, exception={http_err}, response={error_response}")
         raise http_err

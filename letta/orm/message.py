@@ -1,4 +1,10 @@
-from typing import List, Optional
+from typing import TYPE_CHECKING, List, Optional
+
+if TYPE_CHECKING:
+    from letta.orm.job import Job
+    from letta.orm.organization import Organization
+    from letta.orm.run import Run
+    from letta.orm.step import Step
 
 from openai.types.chat.chat_completion_message_tool_call import ChatCompletionMessageToolCall as OpenAIToolCall
 from sqlalchemy import BigInteger, FetchedValue, ForeignKey, Index, event, text
@@ -83,12 +89,12 @@ class Message(SqlalchemyBase, OrganizationMixin, AgentMixin):
     )
 
     # Relationships
-    organization: Mapped["Organization"] = relationship("Organization", back_populates="messages", lazy="raise")  # noqa: F821
-    step: Mapped["Step"] = relationship("Step", back_populates="messages", lazy="selectin")  # noqa: F821
-    run: Mapped["Run"] = relationship("Run", back_populates="messages", lazy="selectin")  # noqa: F821
+    organization: Mapped["Organization"] = relationship("Organization", back_populates="messages", lazy="raise")
+    step: Mapped["Step"] = relationship("Step", back_populates="messages", lazy="selectin")
+    run: Mapped["Run"] = relationship("Run", back_populates="messages", lazy="selectin")
 
     @property
-    def job(self) -> Optional["Job"]:  # noqa: F821
+    def job(self) -> Optional["Job"]:
         """Get the job associated with this message, if any."""
         return self.job_message.job if self.job_message else None
 

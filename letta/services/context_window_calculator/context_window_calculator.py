@@ -266,7 +266,7 @@ class ContextWindowCalculator:
         # Use provided message_ids or fall back to agent_state.message_ids[1:]
         effective_message_ids = message_ids if message_ids is not None else agent_state.message_ids[1:]
         messages = await message_manager.get_messages_by_ids_async(message_ids=effective_message_ids, actor=actor)
-        in_context_messages = [system_message_compiled] + messages
+        in_context_messages = [system_message_compiled, *messages]
 
         # Filter out None messages (can occur when system message is missing)
         original_count = len(in_context_messages)

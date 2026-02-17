@@ -96,7 +96,7 @@ class GitOperations:
                 os.makedirs(repo_path)
 
                 # Initialize a new repository
-                repo = dulwich.repo.Repo.init(repo_path)
+                dulwich.repo.Repo.init(repo_path)
 
                 # Use `main` as the default branch (git's modern default).
                 head_path = os.path.join(repo_path, ".git", "HEAD")

@@ -5,7 +5,7 @@ from letta.services.memory_repo.storage.gcs import GCSStorageBackend
 from letta.services.memory_repo.storage.local import LocalStorageBackend
 
 __all__ = [
-    "StorageBackend",
     "GCSStorageBackend",
     "LocalStorageBackend",
+    "StorageBackend",
 ]

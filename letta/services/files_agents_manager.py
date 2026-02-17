@@ -49,7 +49,7 @@ class FileAgentManager:
         """
         if is_open:
             # Use the efficient LRU + open method
-            closed_files, was_already_open, _ = await self.enforce_max_open_files_and_open(
+            closed_files, _was_already_open, _ = await self.enforce_max_open_files_and_open(
                 agent_id=agent_id,
                 file_id=file_id,
                 file_name=file_name,

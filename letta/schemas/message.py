@@ -1150,7 +1150,7 @@ class Message(BaseMessage):
                 tool_returns = [ToolReturn(**tr) for tr in openai_message_dict["tool_returns"]]
 
         # TODO(caren) bad assumption here that "reasoning_content" always comes before "redacted_reasoning_content"
-        if "reasoning_content" in openai_message_dict and openai_message_dict["reasoning_content"]:
+        if openai_message_dict.get("reasoning_content"):
             content.append(
                 ReasoningContent(
                     reasoning=openai_message_dict["reasoning_content"],
@@ -1162,13 +1162,13 @@ class Message(BaseMessage):
                     ),
                 ),
             )
-        if "redacted_reasoning_content" in openai_message_dict and openai_message_dict["redacted_reasoning_content"]:
+        if openai_message_dict.get("redacted_reasoning_content"):
             content.append(
                 RedactedReasoningContent(
                     data=str(openai_message_dict["redacted_reasoning_content"]),
                 ),
             )
-        if "omitted_reasoning_content" in openai_message_dict and openai_message_dict["omitted_reasoning_content"]:
+        if openai_message_dict.get("omitted_reasoning_content"):
             content.append(
                 OmittedReasoningContent(),
             )
@@ -2237,7 +2237,7 @@ class Message(BaseMessage):
                     try:
                         # NOTE: Google AI wants actual JSON objects, not strings
                         function_args = parse_json(function_args)
-                    except:
+                    except Exception:
                         raise UserWarning(f"Failed to parse JSON function args: {function_args}")
                         function_args = {"args": function_args}
 
@@ -2327,7 +2327,7 @@ class Message(BaseMessage):
 
                     try:
                         function_response = parse_json(text_content)
-                    except:
+                    except Exception:
                         function_response = {"function_response": text_content}
 
                     parts.append(
@@ -2360,7 +2360,7 @@ class Message(BaseMessage):
                 # NOTE: Google AI API wants the function response as JSON only, no string
                 try:
                     function_response = parse_json(legacy_content)
-                except:
+                except Exception:
                     function_response = {"function_response": legacy_content}
 
                 google_ai_message = {

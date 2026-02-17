@@ -891,7 +891,7 @@ def start_server(
             import uvloop
 
             asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
-    except:
+    except Exception:
         pass
 
     if (os.getenv("LOCAL_HTTPS") == "true") or "--localhttps" in sys.argv:

@@ -302,7 +302,7 @@ class GoogleVertexClient(LLMClientBase):
                 for item_schema in schema_part[key]:
                     self._clean_google_ai_schema_properties(item_schema)
 
-    def _resolve_json_schema_refs(self, schema: dict, defs: dict = None) -> dict:
+    def _resolve_json_schema_refs(self, schema: dict, defs: dict | None = None) -> dict:
         """
         Recursively resolve $ref in JSON schema by inlining definitions.
         Google GenAI SDK does not support $ref.
@@ -1057,7 +1057,9 @@ class GoogleVertexClient(LLMClientBase):
         # Fallback to base implementation for other errors
         return super().handle_llm_error(e, llm_config=llm_config)
 
-    async def count_tokens(self, messages: List[dict] = None, model: str = None, tools: List[OpenAITool] = None) -> int:
+    async def count_tokens(
+        self, messages: List[dict] | None = None, model: str | None = None, tools: List[OpenAITool] | None = None
+    ) -> int:
         """
         Count tokens for the given messages and tools using the Gemini token counting API.
 
