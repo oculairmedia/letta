@@ -492,6 +492,17 @@ class LettaAgentV3(LettaAgentV2):
                     response_letta_messages.append(chunk)
                     if first_chunk:
                         request_span = self._request_checkpoint_ttft(request_span, request_start_timestamp_ns)
+
+                    # Log chunks with missing id or otid for debugging
+                    if isinstance(chunk, LettaMessage) and (not chunk.id or not chunk.otid):
+                        self.logger.warning(
+                            "Streaming chunk missing id or otid: message_type=%s id=%s otid=%s step_id=%s",
+                            chunk.message_type,
+                            chunk.id,
+                            chunk.otid,
+                            chunk.step_id,
+                        )
+
                     yield f"data: {chunk.model_dump_json()}\n\n"
                     first_chunk = False
 
