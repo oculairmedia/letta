@@ -47,5 +47,5 @@ class LLMBatchJob(SqlalchemyBase, OrganizationMixin):
         String, ForeignKey("jobs.id", ondelete="CASCADE"), nullable=False, doc="ID of the Letta batch job"
     )
 
-    organization: Mapped["Organization"] = relationship("Organization", back_populates="llm_batch_jobs")
-    items: Mapped[List["LLMBatchItem"]] = relationship("LLMBatchItem", back_populates="batch", lazy="selectin")
+    organization: Mapped["Organization"] = relationship("Organization", back_populates="llm_batch_jobs")  # noqa: F821
+    items: Mapped[List["LLMBatchItem"]] = relationship("LLMBatchItem", back_populates="batch", lazy="selectin")  # noqa: F821

@@ -42,7 +42,6 @@ class ClickhouseProviderTraceBackend(ProviderTraceBackendClient):
             )
 
         try:
-            from letta.schemas.llm_trace import LLMTrace
             from letta.services.llm_trace_writer import get_llm_trace_writer
 
             trace = self._convert_to_trace(actor, provider_trace)

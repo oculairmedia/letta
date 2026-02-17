@@ -1,7 +1,7 @@
 """Abstract base class for storage backends."""
 
 from abc import ABC, abstractmethod
-from typing import AsyncIterator, List, Optional
+from typing import List
 
 
 class StorageBackend(ABC):

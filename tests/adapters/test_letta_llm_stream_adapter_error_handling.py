@@ -9,7 +9,6 @@ from letta.errors import (
     ContextWindowExceededError,
     LLMBadRequestError,
     LLMConnectionError,
-    LLMError,
     LLMInsufficientCreditsError,
     LLMServerError,
 )

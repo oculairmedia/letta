@@ -17,14 +17,13 @@ from letta.schemas.enums import RunStatus
 from letta.schemas.job import LettaRequestConfig
 from letta.schemas.letta_message import LettaMessageUnion
 from letta.schemas.letta_request import ConversationMessageRequest, LettaStreamingRequest, RetrieveStreamRequest
-from letta.schemas.letta_response import LettaResponse, LettaStreamingResponse
+from letta.schemas.letta_response import LettaResponse
 from letta.schemas.run import Run as PydanticRun
 from letta.server.rest_api.dependencies import HeaderParams, get_headers, get_letta_server
 from letta.server.rest_api.redis_stream_manager import redis_sse_stream_generator
 from letta.server.rest_api.streaming_response import (
     StreamingResponseWithStatusCode,
     add_keepalive_to_stream,
-    cancellation_aware_stream_wrapper,
 )
 from letta.server.server import SyncServer
 from letta.services.conversation_manager import ConversationManager

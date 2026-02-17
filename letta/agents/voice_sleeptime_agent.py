@@ -110,9 +110,9 @@ class VoiceSleeptimeAgent(LettaAgent):
         tool_name: str,
         tool_args: JsonDict,
         agent_state: AgentState,
-        agent_step_span: Optional["Span"] = None,
+        agent_step_span: Optional["Span"] = None,  # noqa: F821
         step_id: str | None = None,
-    ) -> "ToolExecutionResult":
+    ) -> "ToolExecutionResult":  # noqa: F821
         """
         Executes a tool and returns the ToolExecutionResult
         """

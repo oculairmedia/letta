@@ -1,4 +1,3 @@
-import asyncio
 import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
@@ -31,7 +30,7 @@ from letta.schemas.agent_file import (
 )
 from letta.schemas.block import Block
 from letta.schemas.embedding_config import EmbeddingConfig
-from letta.schemas.enums import FileProcessingStatus, VectorDBProvider
+from letta.schemas.enums import FileProcessingStatus
 from letta.schemas.file import FileMetadata
 from letta.schemas.group import Group, GroupCreate
 from letta.schemas.llm_config import LLMConfig
@@ -190,9 +189,9 @@ class AgentSerializationManager:
         return sources, files
 
     async def _convert_agent_state_to_schema(
-        self, 
-        agent_state: AgentState, 
-        actor: User, 
+        self,
+        agent_state: AgentState,
+        actor: User,
         files_agents_cache: dict = None,
         scrub_messages: bool = False,
     ) -> AgentSchema:
@@ -460,8 +459,8 @@ class AgentSerializationManager:
             # Convert to schemas with ID remapping (reusing cached file-agent data)
             agent_schemas = [
                 await self._convert_agent_state_to_schema(
-                    agent_state, 
-                    actor=actor, 
+                    agent_state,
+                    actor=actor,
                     files_agents_cache=files_agents_cache,
                     scrub_messages=scrub_messages,
                 )

@@ -1,13 +1,12 @@
-from typing import Any, AsyncGenerator, Dict, List, Optional, Union
+from typing import AsyncGenerator, List, Optional, Union
 
-from fastapi import APIRouter, Body, Depends, HTTPException, Request
+from fastapi import APIRouter, Body, Depends, Request
 from httpx import HTTPStatusError
 from starlette.responses import StreamingResponse
 
 from letta.errors import LettaMCPConnectionError
 from letta.functions.mcp_client.types import SSEServerConfig, StdioServerConfig, StreamableHTTPServerConfig
 from letta.log import get_logger
-from letta.schemas.letta_message import ToolReturnMessage
 from letta.schemas.mcp_server import (
     CreateMCPServerRequest,
     MCPServerUnion,
@@ -28,7 +27,6 @@ from letta.server.server import SyncServer
 from letta.services.mcp.oauth_utils import drill_down_exception, oauth_stream_event
 from letta.services.mcp.stdio_client import AsyncStdioMCPClient
 from letta.services.mcp.types import OauthStreamEvent
-from letta.settings import tool_settings
 
 router = APIRouter(prefix="/mcp-servers", tags=["mcp-servers"])
 

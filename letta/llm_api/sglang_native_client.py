@@ -9,7 +9,7 @@ The OpenAI-compatible endpoint only returns token strings, not IDs, making it
 impossible to accurately reconstruct the token sequence for training.
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 import httpx
 
@@ -20,18 +20,18 @@ logger = get_logger(__name__)
 
 class SGLangNativeClient:
     """Client for SGLang's native /generate endpoint.
-    
+
     Unlike the OpenAI-compatible endpoint, this returns:
     - output_ids: List of token IDs
     - output_token_logprobs: List of [logprob, token_id, top_logprob] tuples
-    
+
     This is essential for RL training where we need exact token IDs, not re-tokenized text.
     """
-    
+
     def __init__(self, base_url: str, api_key: Optional[str] = None):
         """
         Initialize the SGLang native client.
-        
+
         Args:
             base_url: Base URL for SGLang server (e.g., http://localhost:30000)
             api_key: Optional API key for authentication
@@ -41,7 +41,7 @@ class SGLangNativeClient:
         if self.base_url.endswith("/v1"):
             self.base_url = self.base_url[:-3]
         self.api_key = api_key
-    
+
     async def generate(
         self,
         text: str,
@@ -50,19 +50,19 @@ class SGLangNativeClient:
     ) -> Dict[str, Any]:
         """
         Call SGLang's native /generate endpoint.
-        
+
         Args:
             text: The formatted prompt text (with chat template applied)
             sampling_params: Sampling parameters (temperature, max_new_tokens, etc.)
             return_logprob: Whether to return logprobs (default True for RL training)
-        
+
         Returns:
             Response dict with:
             - text: Generated text
             - output_ids: List of token IDs
             - output_token_logprobs: List of [logprob, token_id, top_logprob] tuples
             - meta_info: Metadata including finish_reason, prompt_tokens, etc.
-        
+
         Example response:
             {
                 "text": "Hello! How can I help?",
@@ -82,13 +82,13 @@ class SGLangNativeClient:
         headers = {"Content-Type": "application/json"}
         if self.api_key:
             headers["Authorization"] = f"Bearer {self.api_key}"
-        
+
         payload = {
             "text": text,
             "sampling_params": sampling_params or {},
             "return_logprob": return_logprob,
         }
-        
+
         async with httpx.AsyncClient(timeout=300.0) as client:
             response = await client.post(
                 f"{self.base_url}/generate",
@@ -97,7 +97,7 @@ class SGLangNativeClient:
             )
             response.raise_for_status()
             return response.json()
-    
+
     async def health_check(self) -> bool:
         """Check if the SGLang server is healthy."""
         try:

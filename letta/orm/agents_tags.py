@@ -21,4 +21,4 @@ class AgentsTags(Base):
     tag: Mapped[str] = mapped_column(String, doc="The name of the tag associated with the agent.", primary_key=True)
 
     # Relationships
-    agent: Mapped["Agent"] = relationship("Agent", back_populates="tags")
+    agent: Mapped["Agent"] = relationship("Agent", back_populates="tags")  # noqa: F821

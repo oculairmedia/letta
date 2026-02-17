@@ -85,7 +85,7 @@ class FileAgent(SqlalchemyBase, OrganizationMixin):
     )
 
     # relationships
-    agent: Mapped["Agent"] = relationship(
+    agent: Mapped["Agent"] = relationship(  # noqa: F821
         "Agent",
         back_populates="file_agents",
         lazy="selectin",

@@ -3,7 +3,6 @@ Integration tests for the Conversations API using the SDK.
 """
 
 import uuid
-from time import sleep
 
 import pytest
 import requests

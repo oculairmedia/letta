@@ -3,7 +3,6 @@ from typing import List, Optional, Tuple, Union
 from sqlalchemy import and_, select
 
 from letta.log import get_logger
-from letta.orm.errors import UniqueConstraintViolationError
 from letta.orm.provider import Provider as ProviderModel
 from letta.orm.provider_model import ProviderModel as ProviderModelORM
 from letta.otel.tracing import trace_method

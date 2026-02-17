@@ -5,7 +5,6 @@ from typing import Dict, List, Literal, Optional
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from letta.constants import (
-    CORE_MEMORY_LINE_NUMBER_WARNING,
     DEFAULT_EMBEDDING_CHUNK_SIZE,
     MAX_FILES_OPEN_LIMIT,
     MAX_PER_FILE_VIEW_WINDOW_CHAR_LIMIT,
@@ -15,7 +14,6 @@ from letta.schemas.block import Block, CreateBlock
 from letta.schemas.embedding_config import EmbeddingConfig
 from letta.schemas.enums import PrimitiveType
 from letta.schemas.environment_variables import AgentEnvironmentVariable
-from letta.schemas.file import FileStatus
 from letta.schemas.group import Group
 from letta.schemas.identity import Identity
 from letta.schemas.letta_base import OrmMetadataBase

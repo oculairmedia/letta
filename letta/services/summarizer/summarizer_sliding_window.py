@@ -1,19 +1,14 @@
 from typing import List, Optional, Tuple
 
-from letta.helpers.message_helper import convert_message_creates_to_messages
 from letta.log import get_logger
 from letta.otel.tracing import trace_method
-from letta.schemas.agent import AgentState
 from letta.schemas.enums import MessageRole
-from letta.schemas.letta_message_content import TextContent
 from letta.schemas.llm_config import LLMConfig
-from letta.schemas.message import Message, MessageCreate
+from letta.schemas.message import Message
 from letta.schemas.user import User
 from letta.services.context_window_calculator.token_counter import create_token_counter
-from letta.services.message_manager import MessageManager
 from letta.services.summarizer.summarizer import simple_summary
 from letta.services.summarizer.summarizer_config import CompactionSettings
-from letta.system import package_summarize_message_no_counts
 
 logger = get_logger(__name__)
 
@@ -46,7 +41,7 @@ async def count_tokens_with_tools(
     actor: User,
     llm_config: LLMConfig,
     messages: List[Message],
-    tools: Optional[List["Tool"]] = None,
+    tools: Optional[List["Tool"]] = None,  # noqa: F821
 ) -> int:
     """Count tokens in messages AND tool definitions.
 

@@ -11,10 +11,9 @@ import uuid
 from collections import OrderedDict
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Annotated, Any, Dict, List, Literal, Optional, Union
+from typing import Any, Dict, List, Literal, Optional, Union
 
 from openai.types.chat.chat_completion_message_tool_call import ChatCompletionMessageToolCall as OpenAIToolCall, Function as OpenAIFunction
-from openai.types.responses import ResponseReasoningItem
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 from letta.constants import DEFAULT_MESSAGE_TOOL, DEFAULT_MESSAGE_TOOL_KWARG, REQUEST_HEARTBEAT_PARAM, TOOL_CALL_ID_MAX_LEN
@@ -30,7 +29,6 @@ from letta.schemas.letta_message import (
     ApprovalReturn,
     AssistantMessage,
     AssistantMessageListResult,
-    CompactionStats,
     HiddenReasoningMessage,
     LettaMessage,
     LettaMessageReturnUnion,

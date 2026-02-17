@@ -146,7 +146,7 @@ class SimpleAnthropicStreamingInterface:
             return tool_calls[0]
         return None
 
-    def get_usage_statistics(self) -> "LettaUsageStatistics":
+    def get_usage_statistics(self) -> "LettaUsageStatistics":  # noqa: F821
         """Extract usage statistics from accumulated streaming data.
 
         Returns:
@@ -232,7 +232,7 @@ class SimpleAnthropicStreamingInterface:
     async def process(
         self,
         stream: AsyncStream[BetaRawMessageStreamEvent],
-        ttft_span: Optional["Span"] = None,
+        ttft_span: Optional["Span"] = None,  # noqa: F821
     ) -> AsyncGenerator[LettaMessage | LettaStopReason, None]:
         prev_message_type = None
         message_index = 0
@@ -287,7 +287,7 @@ class SimpleAnthropicStreamingInterface:
     async def _process_event(
         self,
         event: BetaRawMessageStreamEvent,
-        ttft_span: Optional["Span"] = None,
+        ttft_span: Optional["Span"] = None,  # noqa: F821
         prev_message_type: Optional[str] = None,
         message_index: int = 0,
     ) -> AsyncGenerator[LettaMessage | LettaStopReason, None]:

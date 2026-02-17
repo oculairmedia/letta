@@ -11,7 +11,7 @@ HTTP service instead.
 import hashlib
 import os
 import uuid
-from typing import Dict, List, Optional
+from typing import List, Optional
 
 from letta.constants import CORE_MEMORY_BLOCK_CHAR_LIMIT
 from letta.log import get_logger

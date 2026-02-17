@@ -1,16 +1,12 @@
 import base64
 import json
 import os
-import socket
-import threading
 import time
 import uuid
 from typing import Any, Dict, List
 
 import httpx
 import pytest
-import requests
-from dotenv import load_dotenv
 from letta_client import Letta, MessageCreate, Run
 from letta_client.core.api_error import ApiError
 from letta_client.types import (

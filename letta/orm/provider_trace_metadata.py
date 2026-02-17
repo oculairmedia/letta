@@ -42,4 +42,4 @@ class ProviderTraceMetadata(SqlalchemyBase, OrganizationMixin):
     user_id: Mapped[Optional[str]] = mapped_column(String, nullable=True, doc="ID of the user who initiated the request")
 
     # Relationships
-    organization: Mapped["Organization"] = relationship("Organization", lazy="selectin")
+    organization: Mapped["Organization"] = relationship("Organization", lazy="selectin")  # noqa: F821

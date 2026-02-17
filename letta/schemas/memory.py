@@ -2,7 +2,7 @@ import asyncio
 import logging
 from datetime import datetime
 from io import StringIO
-from typing import TYPE_CHECKING, List, Optional, Union
+from typing import List, Optional, Union
 
 from letta.log import get_logger
 
@@ -535,7 +535,7 @@ class BasicBlockMemory(Memory):
         """
         super().__init__(blocks=blocks)
 
-    def core_memory_append(agent_state: "AgentState", label: str, content: str) -> Optional[str]:  # type: ignore
+    def core_memory_append(agent_state: "AgentState", label: str, content: str) -> Optional[str]:  # type: ignore  # noqa: F821
         """
         Append to the contents of core memory.
 
@@ -551,7 +551,7 @@ class BasicBlockMemory(Memory):
         agent_state.memory.update_block_value(label=label, value=new_value)
         return None
 
-    def core_memory_replace(agent_state: "AgentState", label: str, old_content: str, new_content: str) -> Optional[str]:  # type: ignore
+    def core_memory_replace(agent_state: "AgentState", label: str, old_content: str, new_content: str) -> Optional[str]:  # type: ignore  # noqa: F821
         """
         Replace the contents of core memory. To delete memories, use an empty string for new_content.
 

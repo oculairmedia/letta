@@ -5,7 +5,6 @@ import logging
 import os
 import platform
 import sys
-import threading
 from contextlib import asynccontextmanager
 from functools import partial
 from pathlib import Path
@@ -27,7 +26,7 @@ from starlette.middleware.cors import CORSMiddleware
 
 from letta.__init__ import __version__ as letta_version
 from letta.agents.exceptions import IncompatibleAgentType
-from letta.constants import ADMIN_PREFIX, API_PREFIX, OPENAI_API_PREFIX
+from letta.constants import ADMIN_PREFIX, API_PREFIX
 from letta.errors import (
     AgentExportIdMappingError,
     AgentExportProcessingError,
@@ -108,7 +107,6 @@ class SafeORJSONResponse(ORJSONResponse):
             )
 
 
-from letta.server.db import db_registry
 from letta.server.global_exception_handler import setup_global_exception_handlers
 
 # NOTE(charles): these are extra routes that are not part of v1 but we still need to mount to pass tests

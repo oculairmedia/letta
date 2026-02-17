@@ -22,10 +22,10 @@ from letta.otel.tracing import trace_method
 from letta.schemas.agent import AgentState
 from letta.schemas.embedding_config import EmbeddingConfig
 from letta.schemas.enums import DuplicateFileHandling, FileProcessingStatus
-from letta.schemas.file import FileMetadata, FileMetadataBase
-from letta.schemas.folder import BaseFolder, Folder
+from letta.schemas.file import FileMetadata
+from letta.schemas.folder import Folder
 from letta.schemas.passage import Passage
-from letta.schemas.source import BaseSource, Source, SourceCreate, SourceUpdate
+from letta.schemas.source import Source, SourceCreate, SourceUpdate
 from letta.schemas.source_metadata import OrganizationSourcesStats
 from letta.schemas.user import User
 from letta.server.rest_api.dependencies import HeaderParams, get_headers, get_letta_server

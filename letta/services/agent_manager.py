@@ -19,16 +19,13 @@ from letta.constants import (
     DEFAULT_CORE_MEMORY_SOURCE_CHAR_LIMIT,
     DEFAULT_MAX_FILES_OPEN,
     DEFAULT_TIMEZONE,
-    DEPRECATED_LETTA_TOOLS,
     EXCLUDE_MODEL_KEYWORDS_FROM_BASE_TOOL_RULES,
     FILES_TOOLS,
     INCLUDE_MODEL_KEYWORDS_BASE_TOOL_RULES,
     RETRIEVAL_QUERY_DEFAULT_PAGE_SIZE,
 )
-from letta.errors import LettaAgentNotFoundError, LettaInvalidArgumentError
 from letta.helpers import ToolRulesSolver
 from letta.helpers.datetime_helpers import get_utc_time
-from letta.llm_api.llm_client import LLMClient
 from letta.log import get_logger
 from letta.orm import (
     Agent as AgentModel,
@@ -47,12 +44,11 @@ from letta.orm import (
     ToolsAgents,
 )
 from letta.orm.errors import NoResultFound
-from letta.orm.sandbox_config import AgentEnvironmentVariable, AgentEnvironmentVariable as AgentEnvironmentVariableModel
+from letta.orm.sandbox_config import AgentEnvironmentVariable
 from letta.orm.sqlalchemy_base import AccessType
 from letta.otel.tracing import trace_method
 from letta.prompts.prompt_generator import PromptGenerator
 from letta.schemas.agent import (
-    AgentRelationships,
     AgentState as PydanticAgentState,
     CreateAgent,
     InternalTemplateAgentCreate,
@@ -60,7 +56,7 @@ from letta.schemas.agent import (
 )
 from letta.schemas.block import DEFAULT_BLOCKS, Block as PydanticBlock, BlockUpdate
 from letta.schemas.embedding_config import EmbeddingConfig
-from letta.schemas.enums import AgentType, PrimitiveType, ProviderType, TagMatchMode, ToolType, VectorDBProvider
+from letta.schemas.enums import AgentType, PrimitiveType, TagMatchMode, ToolType, VectorDBProvider
 from letta.schemas.environment_variables import AgentEnvironmentVariable as PydanticAgentEnvVar
 from letta.schemas.file import FileMetadata as PydanticFileMetadata
 from letta.schemas.group import Group as PydanticGroup, ManagerType
@@ -74,10 +70,6 @@ from letta.schemas.source import Source as PydanticSource
 from letta.schemas.tool import Tool as PydanticTool
 from letta.schemas.tool_rule import ContinueToolRule, RequiresApprovalToolRule, TerminalToolRule
 from letta.schemas.user import User as PydanticUser
-from letta.serialize_schemas import MarshmallowAgentSchema
-from letta.serialize_schemas.marshmallow_message import SerializedMessageSchema
-from letta.serialize_schemas.marshmallow_tool import SerializedToolSchema
-from letta.serialize_schemas.pydantic_agent_schema import AgentSchema
 from letta.server.db import db_registry
 from letta.services.archive_manager import ArchiveManager
 from letta.services.block_manager import BlockManager, validate_block_limit_constraint
@@ -89,11 +81,9 @@ from letta.services.files_agents_manager import FileAgentManager
 from letta.services.helpers.agent_manager_helper import (
     _apply_filters,
     _apply_identity_filters,
-    _apply_pagination,
     _apply_pagination_async,
     _apply_relationship_filters,
     _apply_tag_filter,
-    _process_relationship,
     _process_relationship_async,
     build_agent_passage_query,
     build_passage_query,
@@ -113,7 +103,7 @@ from letta.services.message_manager import MessageManager
 from letta.services.passage_manager import PassageManager
 from letta.services.source_manager import SourceManager
 from letta.services.tool_manager import ToolManager
-from letta.settings import DatabaseChoice, model_settings, settings
+from letta.settings import DatabaseChoice, settings
 from letta.utils import (
     bounded_gather,
     calculate_file_defaults_based_on_context_window,
@@ -2216,7 +2206,6 @@ class AgentManager:
 
         Lists all passages attached to an agent (combines both source and agent passages).
         """
-        import warnings
 
         logger.warning(
             "list_passages_async is deprecated. Use query_source_passages_async or query_agent_passages_async instead.",

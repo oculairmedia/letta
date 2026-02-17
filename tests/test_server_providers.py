@@ -2600,7 +2600,6 @@ async def test_byok_provider_last_synced_triggers_sync_when_null(default_user, p
 @pytest.mark.asyncio
 async def test_byok_provider_last_synced_skips_sync_when_set(default_user, provider_manager):
     """Test that BYOK providers with last_synced set skip sync and read from DB."""
-    from datetime import datetime, timezone
 
     from letta.schemas.providers import Provider
     from letta.server.server import SyncServer
@@ -2662,9 +2661,7 @@ async def test_byok_provider_last_synced_skips_sync_when_set(default_user, provi
 
 
 @pytest.mark.asyncio
-async def test_chatgpt_oauth_byok_resyncs_when_allowlist_expands(
-    default_user, provider_manager
-):
+async def test_chatgpt_oauth_byok_resyncs_when_allowlist_expands(default_user, provider_manager):
     """ChatGPT OAuth providers should backfill newly added hardcoded models."""
     test_id = generate_test_id()
     provider_name = f"test-chatgpt-oauth-{test_id}"
@@ -2706,9 +2703,7 @@ async def test_chatgpt_oauth_byok_resyncs_when_allowlist_expands(
         embedding_models=[],
         organization_id=default_user.organization_id,
     )
-    await provider_manager.update_provider_last_synced_async(
-        byok_provider.id, actor=default_user
-    )
+    await provider_manager.update_provider_last_synced_async(byok_provider.id, actor=default_user)
 
     server = SyncServer(init_with_default_org_and_user=False)
     server.default_user = default_user
@@ -2728,7 +2723,6 @@ async def test_chatgpt_oauth_byok_resyncs_when_allowlist_expands(
 @pytest.mark.asyncio
 async def test_base_provider_updates_last_synced_on_sync(default_user, provider_manager):
     """Test that base provider sync updates the last_synced timestamp."""
-    from letta.server.server import SyncServer
 
     test_id = generate_test_id()
 
@@ -3224,7 +3218,6 @@ async def test_byok_provider_uses_schema_default_base_url(default_user, provider
     """
     from letta.orm.provider import Provider as ProviderORM
     from letta.schemas.providers import Provider as PydanticProvider
-    from letta.schemas.providers.zai import ZAIProvider
     from letta.server.db import db_registry
 
     test_id = generate_test_id()

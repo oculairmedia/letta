@@ -1,6 +1,6 @@
 import copy
 from collections import OrderedDict
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 from letta.constants import PRE_EXECUTION_MESSAGE_ARG
 from letta.schemas.tool import MCP_TOOL_METADATA_SCHEMA_STATUS, MCP_TOOL_METADATA_SCHEMA_WARNINGS

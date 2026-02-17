@@ -13,7 +13,6 @@ from letta.agents.ephemeral_summary_agent import EphemeralSummaryAgent
 from letta.agents.helpers import (
     _build_rule_violation_result,
     _create_letta_response,
-    _load_last_function_response,
     _pop_heartbeat,
     _prepare_in_context_messages_no_persist_async,
     _safe_load_tool_call_str,
@@ -293,6 +292,7 @@ class LettaAgent(BaseAgent):
                 agent_step_span.set_attributes({"step_id": step_id})
 
                 step_progression = StepProgression.START
+                caught_exception = None
                 should_continue = False
                 step_metrics = StepMetrics(id=step_id)  # Initialize metrics tracking
 
@@ -439,6 +439,7 @@ class LettaAgent(BaseAgent):
                         )
 
                 except Exception as e:
+                    caught_exception = e
                     # Handle any unexpected errors during step processing
                     self.logger.error(f"Error during step processing: {e}")
                     job_update_metadata = {"error": str(e)}
@@ -485,8 +486,8 @@ class LettaAgent(BaseAgent):
                                 await self.step_manager.update_step_error_async(
                                     actor=self.actor,
                                     step_id=step_id,  # Use original step_id for telemetry
-                                    error_type=type(e).__name__ if "e" in locals() else "Unknown",
-                                    error_message=str(e) if "e" in locals() else "Unknown error",
+                                    error_type=type(caught_exception).__name__ if caught_exception is not None else "Unknown",
+                                    error_message=str(caught_exception) if caught_exception is not None else "Unknown error",
                                     error_traceback=traceback.format_exc(),
                                     stop_reason=stop_reason,
                                 )
@@ -632,6 +633,7 @@ class LettaAgent(BaseAgent):
                 agent_step_span.set_attributes({"step_id": step_id})
 
                 step_progression = StepProgression.START
+                caught_exception = None
                 should_continue = False
                 step_metrics = StepMetrics(id=step_id)  # Initialize metrics tracking
 
@@ -768,6 +770,7 @@ class LettaAgent(BaseAgent):
                         )
 
                 except Exception as e:
+                    caught_exception = e
                     # Handle any unexpected errors during step processing
                     self.logger.error(f"Error during step processing: {e}")
                     job_update_metadata = {"error": str(e)}
@@ -810,8 +813,8 @@ class LettaAgent(BaseAgent):
                                 await self.step_manager.update_step_error_async(
                                     actor=self.actor,
                                     step_id=step_id,  # Use original step_id for telemetry
-                                    error_type=type(e).__name__ if "e" in locals() else "Unknown",
-                                    error_message=str(e) if "e" in locals() else "Unknown error",
+                                    error_type=type(caught_exception).__name__ if caught_exception is not None else "Unknown",
+                                    error_message=str(caught_exception) if caught_exception is not None else "Unknown error",
                                     error_traceback=traceback.format_exc(),
                                     stop_reason=stop_reason,
                                 )
@@ -973,6 +976,7 @@ class LettaAgent(BaseAgent):
                 agent_step_span.set_attributes({"step_id": step_id})
 
                 step_progression = StepProgression.START
+                caught_exception = None
                 should_continue = False
                 step_metrics = StepMetrics(id=step_id)  # Initialize metrics tracking
 
@@ -1228,6 +1232,7 @@ class LettaAgent(BaseAgent):
                             self.logger.warning(f"Failed to record step metrics: {metrics_error}")
 
                 except Exception as e:
+                    caught_exception = e
                     # Handle any unexpected errors during step processing
                     self.logger.error(f"Error during step processing: {e}")
                     job_update_metadata = {"error": str(e)}
@@ -1274,8 +1279,8 @@ class LettaAgent(BaseAgent):
                                 await self.step_manager.update_step_error_async(
                                     actor=self.actor,
                                     step_id=step_id,  # Use original step_id for telemetry
-                                    error_type=type(e).__name__ if "e" in locals() else "Unknown",
-                                    error_message=str(e) if "e" in locals() else "Unknown error",
+                                    error_type=type(caught_exception).__name__ if caught_exception is not None else "Unknown",
+                                    error_message=str(caught_exception) if caught_exception is not None else "Unknown error",
                                     error_traceback=traceback.format_exc(),
                                     stop_reason=stop_reason,
                                 )

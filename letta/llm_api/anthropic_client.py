@@ -49,9 +49,7 @@ from letta.schemas.openai.chat_completion_response import (
     FunctionCall,
     Message as ChoiceMessage,
     ToolCall,
-    UsageStatistics,
 )
-from letta.schemas.response_format import JsonSchemaResponseFormat
 from letta.schemas.usage import LettaUsageStatistics
 from letta.settings import model_settings
 

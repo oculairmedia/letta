@@ -83,12 +83,12 @@ class Message(SqlalchemyBase, OrganizationMixin, AgentMixin):
     )
 
     # Relationships
-    organization: Mapped["Organization"] = relationship("Organization", back_populates="messages", lazy="raise")
-    step: Mapped["Step"] = relationship("Step", back_populates="messages", lazy="selectin")
-    run: Mapped["Run"] = relationship("Run", back_populates="messages", lazy="selectin")
+    organization: Mapped["Organization"] = relationship("Organization", back_populates="messages", lazy="raise")  # noqa: F821
+    step: Mapped["Step"] = relationship("Step", back_populates="messages", lazy="selectin")  # noqa: F821
+    run: Mapped["Run"] = relationship("Run", back_populates="messages", lazy="selectin")  # noqa: F821
 
     @property
-    def job(self) -> Optional["Job"]:
+    def job(self) -> Optional["Job"]:  # noqa: F821
         """Get the job associated with this message, if any."""
         return self.job_message.job if self.job_message else None
 

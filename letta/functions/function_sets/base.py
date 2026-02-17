@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Any, List, Literal, Optional
+from typing import TYPE_CHECKING, List, Literal, Optional
 
 from letta.constants import CORE_MEMORY_LINE_NUMBER_WARNING
 
@@ -67,7 +67,7 @@ def memory(
     raise NotImplementedError("This should never be invoked directly. Contact Letta if you see this error message.")
 
 
-def send_message(self: "Agent", message: str) -> Optional[str]:
+def send_message(self: "Agent", message: str) -> Optional[str]:  # noqa: F821
     """
     Sends a message to the human user.
 
@@ -84,7 +84,7 @@ def send_message(self: "Agent", message: str) -> Optional[str]:
 
 
 def conversation_search(
-    self: "Agent",
+    self: "Agent",  # noqa: F821
     query: Optional[str] = None,
     roles: Optional[List[Literal["assistant", "user", "tool"]]] = None,
     limit: Optional[int] = None,
@@ -160,7 +160,7 @@ def conversation_search(
     return results_str
 
 
-async def archival_memory_insert(self: "Agent", content: str, tags: Optional[list[str]] = None) -> Optional[str]:
+async def archival_memory_insert(self: "Agent", content: str, tags: Optional[list[str]] = None) -> Optional[str]:  # noqa: F821
     """
     Add information to long-term archival memory for later retrieval.
 
@@ -191,7 +191,7 @@ async def archival_memory_insert(self: "Agent", content: str, tags: Optional[lis
 
 
 async def archival_memory_search(
-    self: "Agent",
+    self: "Agent",  # noqa: F821
     query: str,
     tags: Optional[list[str]] = None,
     tag_match_mode: Literal["any", "all"] = "any",

@@ -1,4 +1,3 @@
-import asyncio
 from collections.abc import AsyncGenerator
 from datetime import datetime, timezone
 
@@ -7,9 +6,8 @@ from letta.constants import DEFAULT_MAX_STEPS
 from letta.groups.helpers import stringify_message
 from letta.otel.tracing import trace_method
 from letta.schemas.agent import AgentState
-from letta.schemas.enums import JobStatus, RunStatus
+from letta.schemas.enums import RunStatus
 from letta.schemas.group import Group, ManagerType
-from letta.schemas.job import JobUpdate
 from letta.schemas.letta_message import MessageType
 from letta.schemas.letta_message_content import TextContent
 from letta.schemas.letta_request import ClientToolSchema

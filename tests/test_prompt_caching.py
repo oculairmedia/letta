@@ -702,8 +702,6 @@ async def test_anthropic_inspect_raw_request(async_client: AsyncLetta):
     agent = await create_agent_with_large_memory(async_client, model, {}, "anthropic-debug")
 
     try:
-        import json
-
         # Message 1
         response1 = await async_client.agents.messages.create(
             agent_id=agent.id,

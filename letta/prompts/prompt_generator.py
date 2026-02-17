@@ -12,6 +12,13 @@ from letta.otel.tracing import trace_method
 from letta.schemas.memory import Memory
 
 
+class PreserveMapping(dict):
+    """Used to preserve (do not modify) undefined variables in the system prompt"""
+
+    def __missing__(self, key):
+        return "{" + key + "}"
+
+
 class PromptGenerator:
     # TODO: This code is kind of wonky and deserves a rewrite
     @trace_method

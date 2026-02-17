@@ -362,16 +362,16 @@ class RateLimitExceededError(LettaError):
 class LettaMessageError(LettaError):
     """Base error class for handling message-related errors."""
 
-    messages: List[Union["Message", "LettaMessage"]]
+    messages: List[Union["Message", "LettaMessage"]]  # noqa: F821
     default_error_message: str = "An error occurred with the message."
 
-    def __init__(self, *, messages: List[Union["Message", "LettaMessage"]], explanation: Optional[str] = None) -> None:
+    def __init__(self, *, messages: List[Union["Message", "LettaMessage"]], explanation: Optional[str] = None) -> None:  # noqa: F821
         error_msg = self.construct_error_message(messages, self.default_error_message, explanation)
         super().__init__(error_msg)
         self.messages = messages
 
     @staticmethod
-    def construct_error_message(messages: List[Union["Message", "LettaMessage"]], error_msg: str, explanation: Optional[str] = None) -> str:
+    def construct_error_message(messages: List[Union["Message", "LettaMessage"]], error_msg: str, explanation: Optional[str] = None) -> str:  # noqa: F821
         """Helper method to construct a clean and formatted error message."""
         if explanation:
             error_msg += f" (Explanation: {explanation})"

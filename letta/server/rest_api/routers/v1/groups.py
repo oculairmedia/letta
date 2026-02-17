@@ -5,10 +5,8 @@ from fastapi.responses import JSONResponse
 from pydantic import Field
 
 from letta.constants import DEFAULT_MESSAGE_TOOL, DEFAULT_MESSAGE_TOOL_KWARG
-from letta.schemas.group import Group, GroupBase, GroupCreate, GroupUpdate, ManagerType
+from letta.schemas.group import Group, GroupCreate, GroupUpdate, ManagerType
 from letta.schemas.letta_message import LettaMessageUnion, LettaMessageUpdateUnion
-from letta.schemas.letta_response import LettaResponse
-from letta.schemas.message import BaseMessage
 from letta.server.rest_api.dependencies import HeaderParams, get_headers, get_letta_server
 from letta.server.server import SyncServer
 from letta.validators import GroupId, MessageId

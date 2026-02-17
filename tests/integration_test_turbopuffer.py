@@ -2492,7 +2492,7 @@ async def test_query_messages_by_org_id_with_missing_conversation_id_schema(enab
 @pytest.mark.asyncio
 async def test_system_messages_not_embedded_during_agent_creation(server, default_user, enable_message_embedding):
     """Test that system messages are filtered out before being passed to the embedding pipeline during agent creation"""
-    from unittest.mock import AsyncMock, patch
+    from unittest.mock import patch
 
     from letta.schemas.agent import CreateAgent
     from letta.schemas.llm_config import LLMConfig

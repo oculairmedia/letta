@@ -21,7 +21,6 @@ from typing import Any, Callable, Coroutine, Optional, Union, _GenericAlias, get
 from urllib.parse import urljoin, urlparse
 
 import demjson3 as demjson
-import tiktoken
 from pathvalidate import sanitize_filename as pathvalidate_sanitize_filename
 from sqlalchemy import text
 
@@ -1384,7 +1383,6 @@ def fire_and_forget(coro, task_name: Optional[str] = None, error_callback: Optio
     Returns:
         The created asyncio Task object
     """
-    import traceback
 
     task = asyncio.create_task(coro)
 

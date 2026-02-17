@@ -113,7 +113,7 @@ def deserialize_embedding_config(data: Optional[Dict]) -> Optional[EmbeddingConf
 # --------------------------
 
 
-def serialize_compaction_settings(config: Union[Optional["CompactionSettings"], Dict]) -> Optional[Dict]:
+def serialize_compaction_settings(config: Union[Optional["CompactionSettings"], Dict]) -> Optional[Dict]:  # noqa: F821
     """Convert a CompactionSettings object into a JSON-serializable dictionary."""
     if config:
         # Import here to avoid circular dependency
@@ -124,7 +124,7 @@ def serialize_compaction_settings(config: Union[Optional["CompactionSettings"], 
     return config
 
 
-def deserialize_compaction_settings(data: Optional[Dict]) -> Optional["CompactionSettings"]:
+def deserialize_compaction_settings(data: Optional[Dict]) -> Optional["CompactionSettings"]:  # noqa: F821
     """Convert a dictionary back into a CompactionSettings object."""
     if data:
         # Import here to avoid circular dependency

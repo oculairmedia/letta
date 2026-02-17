@@ -8,13 +8,11 @@ from letta.constants import (
     READ_ONLY_BLOCK_EDIT_ERROR,
     RETRIEVAL_QUERY_DEFAULT_PAGE_SIZE,
 )
-from letta.helpers.json_helpers import json_dumps
-from letta.helpers.tpuf_client import should_use_tpuf_for_messages
 from letta.log import get_logger
 from letta.orm.errors import NoResultFound
 from letta.schemas.agent import AgentState
 from letta.schemas.block import BlockUpdate
-from letta.schemas.enums import MessageRole, TagMatchMode
+from letta.schemas.enums import MessageRole
 from letta.schemas.sandbox_config import SandboxConfig
 from letta.schemas.tool import Tool
 from letta.schemas.tool_execution_result import ToolExecutionResult

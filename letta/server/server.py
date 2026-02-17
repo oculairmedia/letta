@@ -2,19 +2,15 @@ import asyncio
 import json
 import os
 import traceback
-from abc import abstractmethod
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import httpx
 from anthropic import AsyncAnthropic
-from fastapi import HTTPException
-from fastapi.responses import StreamingResponse
 
 import letta.constants as constants
 import letta.server.utils as server_utils
-import letta.system as system
 from letta.config import LettaConfig
 from letta.constants import LETTA_TOOL_EXECUTION_DIR
 from letta.data_sources.connectors import DataConnector, load_data
@@ -22,17 +18,13 @@ from letta.errors import (
     HandleNotFoundError,
     LettaInvalidArgumentError,
     LettaMCPConnectionError,
-    LettaMCPTimeoutError,
 )
 from letta.functions.mcp_client.types import MCPServerType, MCPTool, MCPToolHealth, SSEServerConfig, StdioServerConfig
 from letta.functions.schema_validator import validate_complete_json_schema
-from letta.groups.helpers import load_multi_agent
 from letta.helpers.datetime_helpers import get_utc_time
-from letta.helpers.json_helpers import json_dumps, json_loads
 
 # TODO use custom interface
 from letta.interface import (
-    AgentInterface,  # abstract
     CLIInterface,  # for printing to terminal
 )
 from letta.log import get_logger
@@ -44,17 +36,13 @@ from letta.schemas.block import Block, BlockUpdate, CreateBlock
 from letta.schemas.embedding_config import EmbeddingConfig
 
 # openai schemas
-from letta.schemas.enums import AgentType, JobStatus, MessageStreamStatus, ProviderCategory, ProviderType, SandboxType, ToolSourceType
-from letta.schemas.environment_variables import SandboxEnvironmentVariableCreate
-from letta.schemas.group import GroupCreate, ManagerType, SleeptimeManager, VoiceSleeptimeManager
+from letta.schemas.enums import AgentType, JobStatus, ProviderCategory, ProviderType, ToolSourceType
+from letta.schemas.group import GroupCreate, SleeptimeManager, VoiceSleeptimeManager
 from letta.schemas.job import Job, JobUpdate
-from letta.schemas.letta_message import LegacyLettaMessage, LettaMessage, MessageType, ToolReturnMessage
-from letta.schemas.letta_message_content import TextContent
-from letta.schemas.letta_response import LettaResponse
-from letta.schemas.letta_stop_reason import LettaStopReason, StopReasonType
+from letta.schemas.letta_message import LettaMessage, ToolReturnMessage
 from letta.schemas.llm_config import LLMConfig
-from letta.schemas.memory import ArchivalMemorySummary, Memory, RecallMemorySummary
-from letta.schemas.message import Message, MessageCreate, MessageUpdate
+from letta.schemas.memory import Memory
+from letta.schemas.message import Message
 from letta.schemas.passage import Passage
 from letta.schemas.pip_requirement import PipRequirement
 from letta.schemas.providers import (
@@ -82,11 +70,7 @@ from letta.schemas.sandbox_config import LocalSandboxConfig, SandboxConfigCreate
 from letta.schemas.secret import Secret
 from letta.schemas.source import Source
 from letta.schemas.tool import Tool
-from letta.schemas.usage import LettaUsageStatistics
 from letta.schemas.user import User
-from letta.server.rest_api.chat_completions_interface import ChatCompletionsStreamingInterface
-from letta.server.rest_api.interface import StreamingServerInterface
-from letta.server.rest_api.utils import sse_async_generator
 from letta.services.agent_manager import AgentManager
 from letta.services.agent_serialization_manager import AgentSerializationManager
 from letta.services.archive_manager import ArchiveManager
@@ -121,7 +105,7 @@ from letta.services.tool_manager import ToolManager
 from letta.services.user_manager import UserManager
 from letta.settings import DatabaseChoice, model_settings, settings, tool_settings
 from letta.streaming_interface import AgentChunkStreamingInterface
-from letta.utils import get_friendly_error_msg, get_persona_text, safe_create_task
+from letta.utils import get_friendly_error_msg, get_persona_text
 
 config = LettaConfig.load()
 logger = get_logger(__name__)
@@ -1338,10 +1322,7 @@ class SyncServer(object):
 
                     # ChatGPT OAuth uses a hardcoded model list. If that list changes,
                     # backfill already-synced providers that are missing new handles.
-                    if (
-                        provider.provider_type == ProviderType.chatgpt_oauth
-                        and not should_sync_models
-                    ):
+                    if provider.provider_type == ProviderType.chatgpt_oauth and not should_sync_models:
                         expected_models = await typed_provider.list_llm_models_async()
                         expected_handles = {model.handle for model in expected_models}
                         provider_llm_models = await self.provider_manager.list_models_async(
@@ -1350,12 +1331,8 @@ class SyncServer(object):
                             provider_id=provider.id,
                             enabled=True,
                         )
-                        existing_handles = {
-                            model.handle for model in provider_llm_models
-                        }
-                        should_sync_models = not expected_handles.issubset(
-                            existing_handles
-                        )
+                        existing_handles = {model.handle for model in provider_llm_models}
+                        should_sync_models = not expected_handles.issubset(existing_handles)
 
                     if should_sync_models:
                         models = await typed_provider.list_llm_models_async()
@@ -1606,7 +1583,7 @@ class SyncServer(object):
     ) -> ToolReturnMessage:
         """Run a tool from source code"""
 
-        from letta.services.tool_schema_generator import generate_schema_for_tool_creation, generate_schema_for_tool_update
+        from letta.services.tool_schema_generator import generate_schema_for_tool_creation
 
         if tool_source_type not in (None, ToolSourceType.python, ToolSourceType.typescript):
             raise LettaInvalidArgumentError(

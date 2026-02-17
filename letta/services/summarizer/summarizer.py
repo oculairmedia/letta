@@ -1,6 +1,4 @@
-import asyncio
 import json
-import traceback
 from typing import List, Optional, Tuple, Union
 
 from letta.agents.ephemeral_summary_agent import EphemeralSummaryAgent
@@ -17,7 +15,7 @@ from letta.log import get_logger
 from letta.otel.tracing import trace_method
 from letta.prompts import gpt_summarize
 from letta.schemas.enums import AgentType, LLMCallType, MessageRole, ProviderType
-from letta.schemas.letta_message_content import TextContent
+from letta.schemas.letta_message_content import ImageContent, TextContent
 from letta.schemas.llm_config import LLMConfig
 from letta.schemas.message import Message, MessageCreate
 from letta.schemas.user import User
@@ -41,7 +39,7 @@ class Summarizer:
     def __init__(
         self,
         mode: SummarizationMode,
-        summarizer_agent: Optional[Union[EphemeralSummaryAgent, "VoiceSleeptimeAgent"]] = None,
+        summarizer_agent: Optional[Union[EphemeralSummaryAgent, "VoiceSleeptimeAgent"]] = None,  # noqa: F821
         message_buffer_limit: int = 10,
         message_buffer_min: int = 3,
         partial_evict_summarizer_percentage: float = 0.30,
@@ -453,7 +451,7 @@ async def simple_summary(
     actor: User,
     include_ack: bool = True,
     prompt: str | None = None,
-    telemetry_manager: "TelemetryManager | None" = None,
+    telemetry_manager: "TelemetryManager | None" = None,  # noqa: F821
     agent_id: str | None = None,
     agent_tags: List[str] | None = None,
     run_id: str | None = None,

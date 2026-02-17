@@ -177,7 +177,7 @@ class DynamicMultiAgent(BaseAgent):
 
         return LettaUsageStatistics(**total_usage.model_dump(), step_count=step_count)
 
-    def load_manager_agent(self) -> Agent:
+    def load_manager_agent(self) -> Agent:  # noqa: F821
         for participant_agent_id in self.agent_ids:
             participant_agent_state = self.agent_manager.get_agent_by_id(agent_id=participant_agent_id, actor=self.user)
             participant_persona_block = participant_agent_state.memory.get_block(label="persona")

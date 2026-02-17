@@ -11,7 +11,6 @@ from letta.schemas.enums import LLMCallType, ProviderType
 from letta.schemas.letta_message import LettaMessage
 from letta.schemas.llm_config import LLMConfig
 from letta.schemas.provider_trace import ProviderTrace
-from letta.schemas.usage import LettaUsageStatistics
 from letta.schemas.user import User
 from letta.settings import settings
 from letta.utils import safe_create_task

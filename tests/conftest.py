@@ -14,7 +14,6 @@ from letta_client import Letta
 from letta.server.db import db_registry
 from letta.services.organization_manager import OrganizationManager
 from letta.services.user_manager import UserManager
-from letta.settings import tool_settings
 
 
 def pytest_configure(config):

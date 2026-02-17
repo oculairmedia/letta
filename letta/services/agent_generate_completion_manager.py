@@ -1,12 +1,10 @@
 """Manager for handling direct LLM completions using agent configuration."""
 
-import json
 from typing import TYPE_CHECKING, Any, Dict, Optional
 
-from letta.errors import HandleNotFoundError, LLMError
+from letta.errors import LLMError
 from letta.llm_api.llm_client import LLMClient
 from letta.log import get_logger
-from letta.orm.errors import NoResultFound
 from letta.schemas.enums import AgentType, MessageRole
 from letta.schemas.letta_message_content import TextContent
 from letta.schemas.message import Message

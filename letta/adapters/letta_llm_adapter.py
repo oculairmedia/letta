@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import AsyncGenerator, Optional
+from typing import AsyncGenerator
 
 from letta.llm_api.llm_client_base import LLMClientBase
 from letta.schemas.enums import LLMCallType

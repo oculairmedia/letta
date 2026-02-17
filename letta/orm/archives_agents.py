@@ -23,5 +23,5 @@ class ArchivesAgents(Base):
     is_owner: Mapped[bool] = mapped_column(Boolean, default=False, doc="Whether this agent created/owns the archive")
 
     # relationships
-    agent: Mapped["Agent"] = relationship("Agent", back_populates="archives_agents")
-    archive: Mapped["Archive"] = relationship("Archive", back_populates="archives_agents")
+    agent: Mapped["Agent"] = relationship("Agent", back_populates="archives_agents")  # noqa: F821
+    archive: Mapped["Archive"] = relationship("Archive", back_populates="archives_agents")  # noqa: F821

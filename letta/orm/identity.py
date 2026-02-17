@@ -36,11 +36,11 @@ class Identity(SqlalchemyBase, OrganizationMixin, ProjectMixin):
     )
 
     # relationships
-    organization: Mapped["Organization"] = relationship("Organization", back_populates="identities")
-    agents: Mapped[List["Agent"]] = relationship(
+    organization: Mapped["Organization"] = relationship("Organization", back_populates="identities")  # noqa: F821
+    agents: Mapped[List["Agent"]] = relationship(  # noqa: F821
         "Agent", secondary="identities_agents", lazy="selectin", passive_deletes=True, back_populates="identities"
     )
-    blocks: Mapped[List["Block"]] = relationship(
+    blocks: Mapped[List["Block"]] = relationship(  # noqa: F821
         "Block", secondary="identities_blocks", lazy="selectin", passive_deletes=True, back_populates="identities"
     )
 

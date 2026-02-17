@@ -1,10 +1,10 @@
-from typing import TYPE_CHECKING, List, Literal, Optional, Union
+from typing import TYPE_CHECKING, List, Literal, Optional
 
 from fastapi import APIRouter, Body, Depends, Header, Query
 
-from letta.orm.errors import NoResultFound, UniqueConstraintViolationError
+from letta.orm.errors import NoResultFound
 from letta.schemas.agent import AgentRelationships, AgentState
-from letta.schemas.block import Block, BlockResponse
+from letta.schemas.block import BlockResponse
 from letta.schemas.identity import (
     Identity,
     IdentityCreate,

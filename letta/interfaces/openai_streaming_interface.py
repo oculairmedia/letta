@@ -194,7 +194,7 @@ class OpenAIStreamingInterface:
             function=FunctionCall(arguments=self._get_current_function_arguments(), name=function_name),
         )
 
-    def get_usage_statistics(self) -> "LettaUsageStatistics":
+    def get_usage_statistics(self) -> "LettaUsageStatistics":  # noqa: F821
         """Extract usage statistics from accumulated streaming data.
 
         Returns:
@@ -219,7 +219,7 @@ class OpenAIStreamingInterface:
     async def process(
         self,
         stream: AsyncStream[ChatCompletionChunk],
-        ttft_span: Optional["Span"] = None,
+        ttft_span: Optional["Span"] = None,  # noqa: F821
     ) -> AsyncGenerator[LettaMessage | LettaStopReason, None]:
         """
         Iterates over the OpenAI stream, yielding SSE events.
@@ -307,7 +307,7 @@ class OpenAIStreamingInterface:
     async def _process_chunk(
         self,
         chunk: ChatCompletionChunk,
-        ttft_span: Optional["Span"] = None,
+        ttft_span: Optional["Span"] = None,  # noqa: F821
         prev_message_type: Optional[str] = None,
         message_index: int = 0,
     ) -> AsyncGenerator[LettaMessage | LettaStopReason, None]:
@@ -694,7 +694,7 @@ class SimpleOpenAIStreamingInterface:
             raise ValueError("No tool calls available")
         return calls[0]
 
-    def get_usage_statistics(self) -> "LettaUsageStatistics":
+    def get_usage_statistics(self) -> "LettaUsageStatistics":  # noqa: F821
         """Extract usage statistics from accumulated streaming data.
 
         Returns:
@@ -719,7 +719,7 @@ class SimpleOpenAIStreamingInterface:
     async def process(
         self,
         stream: AsyncStream[ChatCompletionChunk],
-        ttft_span: Optional["Span"] = None,
+        ttft_span: Optional["Span"] = None,  # noqa: F821
     ) -> AsyncGenerator[LettaMessage | LettaStopReason, None]:
         """
         Iterates over the OpenAI stream, yielding SSE events.
@@ -833,7 +833,7 @@ class SimpleOpenAIStreamingInterface:
     async def _process_chunk(
         self,
         chunk: ChatCompletionChunk,
-        ttft_span: Optional["Span"] = None,
+        ttft_span: Optional["Span"] = None,  # noqa: F821
         prev_message_type: Optional[str] = None,
         message_index: int = 0,
     ) -> AsyncGenerator[LettaMessage | LettaStopReason, None]:
@@ -1120,7 +1120,7 @@ class SimpleOpenAIResponsesStreamingInterface:
             raise ValueError("No tool calls available")
         return calls[0]
 
-    def get_usage_statistics(self) -> "LettaUsageStatistics":
+    def get_usage_statistics(self) -> "LettaUsageStatistics":  # noqa: F821
         """Extract usage statistics from accumulated streaming data.
 
         Returns:
@@ -1141,7 +1141,7 @@ class SimpleOpenAIResponsesStreamingInterface:
     async def process(
         self,
         stream: AsyncStream[ResponseStreamEvent],
-        ttft_span: Optional["Span"] = None,
+        ttft_span: Optional["Span"] = None,  # noqa: F821
     ) -> AsyncGenerator[LettaMessage | LettaStopReason, None]:
         """
         Iterates over the OpenAI stream, yielding SSE events.
@@ -1227,7 +1227,7 @@ class SimpleOpenAIResponsesStreamingInterface:
     async def _process_event(
         self,
         event: ResponseStreamEvent,
-        ttft_span: Optional["Span"] = None,
+        ttft_span: Optional["Span"] = None,  # noqa: F821
         prev_message_type: Optional[str] = None,
         message_index: int = 0,
     ) -> AsyncGenerator[LettaMessage | LettaStopReason, None]:

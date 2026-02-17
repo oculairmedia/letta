@@ -1,4 +1,3 @@
-import asyncio
 import logging
 import uuid
 from typing import Any, List
@@ -7,7 +6,6 @@ from unittest.mock import patch
 import pytest
 from letta_client import APIError, Letta
 from letta_client.types import AgentState, MessageCreateParam, Tool
-from letta_client.types.agents import ApprovalCreateParam
 
 from letta.adapters.simple_llm_stream_adapter import SimpleLLMStreamAdapter
 

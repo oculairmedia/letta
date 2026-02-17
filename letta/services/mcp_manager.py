@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 from fastapi import HTTPException
-from sqlalchemy import delete, desc, null, select
+from sqlalchemy import delete, desc, select
 from starlette.requests import Request
 
 import letta.constants as constants
@@ -48,7 +48,7 @@ from letta.services.mcp.server_side_oauth import ServerSideOAuth
 from letta.services.mcp.sse_client import MCP_CONFIG_TOPLEVEL_KEY
 from letta.services.mcp.stdio_client import AsyncStdioMCPClient
 from letta.services.tool_manager import ToolManager
-from letta.settings import settings, tool_settings
+from letta.settings import tool_settings
 from letta.utils import enforce_types, printd, safe_create_task_with_return
 from letta.validators import raise_on_invalid_id
 
@@ -483,7 +483,6 @@ class MCPManager:
         2. Attempts to connect and fetch tools
         3. Persists valid tools in parallel (best-effort)
         """
-        import asyncio
 
         # First, create the MCP server
         created_server = await self.create_mcp_server(pydantic_mcp_server, actor)

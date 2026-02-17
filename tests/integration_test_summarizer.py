@@ -13,14 +13,13 @@ from typing import List, Literal
 
 import pytest
 
-from letta.agents.letta_agent_v2 import LettaAgentV2
 from letta.agents.letta_agent_v3 import LettaAgentV3
 from letta.config import LettaConfig
 from letta.schemas.agent import CreateAgent, UpdateAgent
 from letta.schemas.block import BlockUpdate, CreateBlock
 from letta.schemas.embedding_config import EmbeddingConfig
 from letta.schemas.enums import MessageRole
-from letta.schemas.letta_message import EventMessage, LettaMessage, SummaryMessage
+from letta.schemas.letta_message import EventMessage, SummaryMessage
 from letta.schemas.letta_message_content import TextContent, ToolCallContent, ToolReturnContent
 from letta.schemas.llm_config import LLMConfig
 from letta.schemas.message import Message as PydanticMessage, MessageCreate

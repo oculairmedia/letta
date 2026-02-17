@@ -2,10 +2,9 @@
 
 import asyncio
 import json
-from typing import Any, AsyncIterator, Callable, Dict, List, Optional, Union
+from typing import Any, AsyncIterator, Dict, List, Optional
 
 import httpx
-from openai.types.chat.chat_completion_chunk import ChatCompletionChunk
 from openai.types.responses import (
     Response,
     ResponseCompletedEvent,
@@ -50,11 +49,6 @@ from letta.schemas.llm_config import LLMConfig
 from letta.schemas.message import Message as PydanticMessage
 from letta.schemas.openai.chat_completion_response import (
     ChatCompletionResponse,
-    Choice,
-    FunctionCall,
-    Message as ChoiceMessage,
-    ToolCall,
-    UsageStatistics,
 )
 from letta.schemas.providers.chatgpt_oauth import ChatGPTOAuthCredentials, ChatGPTOAuthProvider
 from letta.schemas.usage import LettaUsageStatistics

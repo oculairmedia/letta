@@ -34,4 +34,4 @@ class BlocksTags(Base):
     _last_updated_by_id: Mapped[Optional[str]] = mapped_column(String, nullable=True)
 
     # Relationships
-    block: Mapped["Block"] = relationship("Block", back_populates="tags")
+    block: Mapped["Block"] = relationship("Block", back_populates="tags")  # noqa: F821

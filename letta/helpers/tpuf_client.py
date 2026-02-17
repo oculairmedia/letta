@@ -244,7 +244,7 @@ class TurbopufferClient:
             raise ValueError("Turbopuffer API key not provided")
 
     @trace_method
-    async def _generate_embeddings(self, texts: List[str], actor: "PydanticUser") -> List[List[float]]:
+    async def _generate_embeddings(self, texts: List[str], actor: "PydanticUser") -> List[List[float]]:  # noqa: F821
         """Generate embeddings using the default embedding configuration.
 
         Args:
@@ -311,7 +311,7 @@ class TurbopufferClient:
 
         return namespace_name
 
-    def _extract_tool_text(self, tool: "PydanticTool") -> str:
+    def _extract_tool_text(self, tool: "PydanticTool") -> str:  # noqa: F821
         """Extract searchable text from a tool for embedding.
 
         Combines name, description, and JSON schema into a structured format
@@ -361,9 +361,9 @@ class TurbopufferClient:
     @async_retry_with_backoff()
     async def insert_tools(
         self,
-        tools: List["PydanticTool"],
+        tools: List["PydanticTool"],  # noqa: F821
         organization_id: str,
-        actor: "PydanticUser",
+        actor: "PydanticUser",  # noqa: F821
     ) -> bool:
         """Insert tools into Turbopuffer.
 
@@ -375,7 +375,6 @@ class TurbopufferClient:
         Returns:
             True if successful
         """
-        from turbopuffer import AsyncTurbopuffer
 
         if not tools:
             return True
@@ -457,7 +456,7 @@ class TurbopufferClient:
         text_chunks: List[str],
         passage_ids: List[str],
         organization_id: str,
-        actor: "PydanticUser",
+        actor: "PydanticUser",  # noqa: F821
         tags: Optional[List[str]] = None,
         created_at: Optional[datetime] = None,
         embeddings: Optional[List[List[float]]] = None,
@@ -477,7 +476,6 @@ class TurbopufferClient:
         Returns:
             List of PydanticPassage objects that were inserted
         """
-        from turbopuffer import AsyncTurbopuffer
 
         # filter out empty text chunks
         filtered_chunks = [(i, text) for i, text in enumerate(text_chunks) if text.strip()]
@@ -609,7 +607,7 @@ class TurbopufferClient:
         message_texts: List[str],
         message_ids: List[str],
         organization_id: str,
-        actor: "PydanticUser",
+        actor: "PydanticUser",  # noqa: F821
         roles: List[MessageRole],
         created_ats: List[datetime],
         project_id: Optional[str] = None,
@@ -633,7 +631,6 @@ class TurbopufferClient:
         Returns:
             True if successful
         """
-        from turbopuffer import AsyncTurbopuffer
 
         # filter out empty message texts
         filtered_messages = [(i, text) for i, text in enumerate(message_texts) if text.strip()]
@@ -870,7 +867,7 @@ class TurbopufferClient:
     async def query_passages(
         self,
         archive_id: str,
-        actor: "PydanticUser",
+        actor: "PydanticUser",  # noqa: F821
         query_text: Optional[str] = None,
         search_mode: str = "vector",  # "vector", "fts", "hybrid"
         top_k: int = 10,
@@ -1015,7 +1012,7 @@ class TurbopufferClient:
         self,
         agent_id: str,
         organization_id: str,
-        actor: "PydanticUser",
+        actor: "PydanticUser",  # noqa: F821
         query_text: Optional[str] = None,
         search_mode: str = "vector",  # "vector", "fts", "hybrid", "timestamp"
         top_k: int = 10,
@@ -1191,7 +1188,7 @@ class TurbopufferClient:
     async def query_messages_by_org_id(
         self,
         organization_id: str,
-        actor: "PydanticUser",
+        actor: "PydanticUser",  # noqa: F821
         query_text: Optional[str] = None,
         search_mode: str = "hybrid",  # "vector", "fts", "hybrid"
         top_k: int = 10,
@@ -1520,7 +1517,6 @@ class TurbopufferClient:
     @async_retry_with_backoff()
     async def delete_passage(self, archive_id: str, passage_id: str) -> bool:
         """Delete a passage from Turbopuffer."""
-        from turbopuffer import AsyncTurbopuffer
 
         namespace_name = await self._get_archive_namespace_name(archive_id)
 
@@ -1543,7 +1539,6 @@ class TurbopufferClient:
     @async_retry_with_backoff()
     async def delete_passages(self, archive_id: str, passage_ids: List[str]) -> bool:
         """Delete multiple passages from Turbopuffer."""
-        from turbopuffer import AsyncTurbopuffer
 
         if not passage_ids:
             return True
@@ -1588,7 +1583,6 @@ class TurbopufferClient:
     @async_retry_with_backoff()
     async def delete_messages(self, agent_id: str, organization_id: str, message_ids: List[str]) -> bool:
         """Delete multiple messages from Turbopuffer."""
-        from turbopuffer import AsyncTurbopuffer
 
         if not message_ids:
             return True
@@ -1614,7 +1608,6 @@ class TurbopufferClient:
     @async_retry_with_backoff()
     async def delete_all_messages(self, agent_id: str, organization_id: str) -> bool:
         """Delete all messages for an agent from Turbopuffer."""
-        from turbopuffer import AsyncTurbopuffer
 
         namespace_name = await self._get_message_namespace_name(organization_id)
 
@@ -1661,7 +1654,7 @@ class TurbopufferClient:
         file_id: str,
         text_chunks: List[str],
         organization_id: str,
-        actor: "PydanticUser",
+        actor: "PydanticUser",  # noqa: F821
         created_at: Optional[datetime] = None,
     ) -> List[PydanticPassage]:
         """Insert file passages into Turbopuffer using org-scoped namespace.
@@ -1677,7 +1670,6 @@ class TurbopufferClient:
         Returns:
             List of PydanticPassage objects that were inserted
         """
-        from turbopuffer import AsyncTurbopuffer
 
         if not text_chunks:
             return []
@@ -1775,7 +1767,7 @@ class TurbopufferClient:
         self,
         source_ids: List[str],
         organization_id: str,
-        actor: "PydanticUser",
+        actor: "PydanticUser",  # noqa: F821
         query_text: Optional[str] = None,
         search_mode: str = "vector",  # "vector", "fts", "hybrid"
         top_k: int = 10,
@@ -1914,7 +1906,6 @@ class TurbopufferClient:
     @async_retry_with_backoff()
     async def delete_file_passages(self, source_id: str, file_id: str, organization_id: str) -> bool:
         """Delete all passages for a specific file from Turbopuffer."""
-        from turbopuffer import AsyncTurbopuffer
 
         namespace_name = await self._get_file_passages_namespace_name(organization_id)
 
@@ -1943,7 +1934,6 @@ class TurbopufferClient:
     @async_retry_with_backoff()
     async def delete_source_passages(self, source_id: str, organization_id: str) -> bool:
         """Delete all passages for a source from Turbopuffer."""
-        from turbopuffer import AsyncTurbopuffer
 
         namespace_name = await self._get_file_passages_namespace_name(organization_id)
 
@@ -1976,7 +1966,6 @@ class TurbopufferClient:
         Returns:
             True if successful
         """
-        from turbopuffer import AsyncTurbopuffer
 
         if not tool_ids:
             return True
@@ -2002,7 +1991,7 @@ class TurbopufferClient:
     async def query_tools(
         self,
         organization_id: str,
-        actor: "PydanticUser",
+        actor: "PydanticUser",  # noqa: F821
         query_text: Optional[str] = None,
         search_mode: str = "hybrid",  # "vector", "fts", "hybrid", "timestamp"
         top_k: int = 50,

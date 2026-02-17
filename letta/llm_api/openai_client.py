@@ -48,7 +48,6 @@ from letta.schemas.message import Message as PydanticMessage
 from letta.schemas.openai.chat_completion_request import (
     ChatCompletionRequest,
     FunctionCall as ToolFunctionChoiceFunctionCall,
-    FunctionSchema,
     Tool as OpenAITool,
     ToolFunctionChoice,
     cast_message_to_subtype,
@@ -59,7 +58,6 @@ from letta.schemas.openai.chat_completion_response import (
     FunctionCall,
     Message as ChoiceMessage,
     ToolCall,
-    UsageStatistics,
 )
 from letta.schemas.openai.responses_request import ResponsesRequest
 from letta.schemas.response_format import JsonSchemaResponseFormat

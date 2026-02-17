@@ -194,11 +194,8 @@ ignore = [
     "E712",  # true-false-comparison
     "E722",  # bare except
     "E721",  # type comparison
-    "F401",  # unused import
-    "F821",  # undefined name
     "F811",  # redefined while unused
     "F841",  # local variable assigned but never used
-    "W293",  # blank line contains whitespace
 ]
 
 [tool.ruff.lint.isort]

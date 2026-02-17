@@ -1,12 +1,10 @@
 """Tests for ProviderManager encryption/decryption logic."""
 
-import os
-
 import pytest
 
 from letta.orm.provider import Provider as ProviderModel
 from letta.schemas.enums import ProviderCategory, ProviderType
-from letta.schemas.providers import Provider, ProviderCreate, ProviderUpdate
+from letta.schemas.providers import ProviderCreate, ProviderUpdate
 from letta.schemas.secret import Secret
 from letta.server.db import db_registry
 from letta.services.organization_manager import OrganizationManager
@@ -501,11 +499,7 @@ async def test_server_startup_syncs_base_providers(default_user, default_organiz
     3. Models are properly persisted to the database with correct metadata
     4. Models can be retrieved using handles
     """
-    from unittest.mock import AsyncMock
 
-    from letta.schemas.embedding_config import EmbeddingConfig
-    from letta.schemas.llm_config import LLMConfig
-    from letta.schemas.providers import AnthropicProvider, OpenAIProvider
     from letta.server.server import SyncServer
 
     # Mock OpenAI API responses
@@ -745,7 +739,7 @@ async def test_server_startup_handles_disabled_providers(default_user, default_o
     2. BYOK providers that are no longer enabled are NOT deleted (user-created)
     3. The sync process handles providers gracefully when API calls fail
     """
-    from letta.schemas.providers import OpenAIProvider, ProviderCreate
+    from letta.schemas.providers import ProviderCreate
     from letta.server.server import SyncServer
 
     # First, manually create providers in the database
@@ -833,7 +827,6 @@ async def test_server_startup_handles_api_errors_gracefully(default_user, defaul
     2. Other providers can still sync successfully
     3. The server startup completes without crashing
     """
-    from letta.schemas.providers import AnthropicProvider, OpenAIProvider
     from letta.server.server import SyncServer
 
     # Mock OpenAI to fail

@@ -409,13 +409,13 @@ class ToolExecutionSandbox:
             sandbox_config_fingerprint=sbx_config.fingerprint(),
         )
 
-    def parse_exception_from_e2b_execution(self, e2b_execution: "Execution") -> Exception:
+    def parse_exception_from_e2b_execution(self, e2b_execution: "Execution") -> Exception:  # noqa: F821
         builtins_dict = __builtins__ if isinstance(__builtins__, dict) else vars(__builtins__)
         # Dynamically fetch the exception class from builtins, defaulting to Exception if not found
         exception_class = builtins_dict.get(e2b_execution.error.name, Exception)
         return exception_class(e2b_execution.error.value)
 
-    def get_running_e2b_sandbox_with_same_state(self, sandbox_config: SandboxConfig) -> Optional["Sandbox"]:
+    def get_running_e2b_sandbox_with_same_state(self, sandbox_config: SandboxConfig) -> Optional["Sandbox"]:  # noqa: F821
         from e2b_code_interpreter import Sandbox
 
         # List running sandboxes and access metadata.
@@ -430,7 +430,7 @@ class ToolExecutionSandbox:
         return None
 
     @trace_method
-    def create_e2b_sandbox_with_metadata_hash(self, sandbox_config: SandboxConfig) -> "Sandbox":
+    def create_e2b_sandbox_with_metadata_hash(self, sandbox_config: SandboxConfig) -> "Sandbox":  # noqa: F821
         from e2b_code_interpreter import Sandbox
 
         state_hash = sandbox_config.fingerprint()

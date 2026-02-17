@@ -8,14 +8,13 @@ stored in object storage (GCS/S3).
 """
 
 import asyncio
-import io
 import os
 import shutil
 import tempfile
 import time
 import uuid
 from datetime import datetime, timezone
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 
 from letta.data_sources.redis_client import get_redis_client
 from letta.log import get_logger

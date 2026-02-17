@@ -37,7 +37,6 @@ if TYPE_CHECKING:
     from letta.orm.run import Run
     from letta.orm.source import Source
     from letta.orm.tool import Tool
-    from letta.services.summarizer.summarizer_config import CompactionSettings
 
 
 class Agent(SqlalchemyBase, OrganizationMixin, ProjectMixin, TemplateEntityMixin, TemplateMixin, AsyncAttrs):
@@ -123,7 +122,7 @@ class Agent(SqlalchemyBase, OrganizationMixin, ProjectMixin, TemplateEntityMixin
 
     # relationships
     organization: Mapped["Organization"] = relationship("Organization", back_populates="agents", lazy="raise")
-    tool_exec_environment_variables: Mapped[List["AgentEnvironmentVariable"]] = relationship(
+    tool_exec_environment_variables: Mapped[List["AgentEnvironmentVariable"]] = relationship(  # noqa: F821
         "AgentEnvironmentVariable",
         back_populates="agent",
         cascade="all, delete-orphan",
@@ -161,14 +160,14 @@ class Agent(SqlalchemyBase, OrganizationMixin, ProjectMixin, TemplateEntityMixin
         back_populates="agents",
         passive_deletes=True,
     )
-    groups: Mapped[List["Group"]] = relationship(
+    groups: Mapped[List["Group"]] = relationship(  # noqa: F821
         "Group",
         secondary="groups_agents",
         lazy="raise",
         back_populates="agents",
         passive_deletes=True,
     )
-    multi_agent_group: Mapped["Group"] = relationship(
+    multi_agent_group: Mapped["Group"] = relationship(  # noqa: F821
         "Group",
         lazy="selectin",
         viewonly=True,
@@ -176,7 +175,7 @@ class Agent(SqlalchemyBase, OrganizationMixin, ProjectMixin, TemplateEntityMixin
         foreign_keys="[Group.manager_agent_id]",
         uselist=False,
     )
-    batch_items: Mapped[List["LLMBatchItem"]] = relationship("LLMBatchItem", back_populates="agent", lazy="raise")
+    batch_items: Mapped[List["LLMBatchItem"]] = relationship("LLMBatchItem", back_populates="agent", lazy="raise")  # noqa: F821
     file_agents: Mapped[List["FileAgent"]] = relationship(
         "FileAgent",
         back_populates="agent",

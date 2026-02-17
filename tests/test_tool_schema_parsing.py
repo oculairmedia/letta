@@ -14,7 +14,7 @@ from letta.functions.functions import derive_openai_json_schema
 from letta.functions.schema_generator import validate_google_style_docstring
 from letta.helpers.tool_execution_helper import enable_strict_mode
 from letta.llm_api.helpers import convert_to_structured_output
-from letta.schemas.tool import MCP_TOOL_METADATA_SCHEMA_STATUS, Tool, ToolCreate
+from letta.schemas.tool import MCP_TOOL_METADATA_SCHEMA_STATUS, Tool
 
 
 def _clean_diff(d1, d2):

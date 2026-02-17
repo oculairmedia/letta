@@ -1,22 +1,20 @@
+import asyncio
 import json
+import traceback
 from collections.abc import AsyncGenerator
 from typing import Any, Dict, List, Literal, Optional, Union
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request
-from fastmcp.exceptions import ToolError as FastMCPToolError
 from httpx import ConnectError, HTTPStatusError
 from mcp.shared.exceptions import McpError
 from pydantic import BaseModel, Field
 from starlette.responses import StreamingResponse
 
-from letta.constants import DEFAULT_GENERATE_TOOL_MODEL_HANDLE, MAX_TOOL_NAME_LENGTH
+from letta.constants import DEFAULT_GENERATE_TOOL_MODEL_HANDLE
 from letta.errors import (
     LettaInvalidArgumentError,
-    LettaInvalidMCPSchemaError,
     LettaMCPConnectionError,
     LettaMCPTimeoutError,
-    LettaToolCreateError,
-    LettaToolNameConflictError,
     LLMError,
 )
 from letta.functions.functions import derive_openai_json_schema
@@ -25,7 +23,6 @@ from letta.functions.mcp_client.types import MCPTool, SSEServerConfig, StdioServ
 from letta.helpers.decorators import deprecated
 from letta.llm_api.llm_client import LLMClient
 from letta.log import get_logger
-from letta.orm.errors import UniqueConstraintViolationError
 from letta.orm.mcp_oauth import OAuthSessionStatus
 from letta.prompts.gpt_system import get_system_text
 from letta.schemas.enums import AgentType, LLMCallType, MessageRole, ToolType
@@ -34,16 +31,14 @@ from letta.schemas.letta_message_content import TextContent
 from letta.schemas.mcp import UpdateSSEMCPServer, UpdateStdioMCPServer, UpdateStreamableHTTPMCPServer
 from letta.schemas.message import Message
 from letta.schemas.pip_requirement import PipRequirement
-from letta.schemas.tool import BaseTool, Tool, ToolCreate, ToolRunFromSource, ToolSearchRequest, ToolSearchResult, ToolUpdate
+from letta.schemas.tool import Tool, ToolCreate, ToolRunFromSource, ToolSearchRequest, ToolSearchResult, ToolUpdate
 from letta.server.rest_api.dependencies import HeaderParams, get_headers, get_letta_server
 from letta.server.rest_api.streaming_response import StreamingResponseWithStatusCode
 from letta.server.server import SyncServer
 from letta.services.mcp.oauth_utils import MCPOAuthSession, drill_down_exception, oauth_stream_event
 from letta.services.mcp.stdio_client import AsyncStdioMCPClient
 from letta.services.mcp.types import OauthStreamEvent
-from letta.services.summarizer.summarizer import traceback
 from letta.settings import tool_settings
-from letta.utils import asyncio
 from letta.validators import ToolId
 
 router = APIRouter(prefix="/tools", tags=["tools"])

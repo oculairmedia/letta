@@ -6,8 +6,6 @@ points in the agent execution flow, covering all the issues documented in CANCEL
 """
 
 import asyncio
-from typing import AsyncGenerator
-from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -19,8 +17,7 @@ from letta.schemas.enums import MessageRole, RunStatus
 from letta.schemas.letta_request import LettaStreamingRequest
 from letta.schemas.llm_config import LLMConfig
 from letta.schemas.message import MessageCreate
-from letta.schemas.model import ModelSettings
-from letta.schemas.run import Run as PydanticRun, RunUpdate
+from letta.schemas.run import Run as PydanticRun
 from letta.server.server import SyncServer
 from letta.services.streaming_service import StreamingService
 

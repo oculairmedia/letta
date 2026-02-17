@@ -1,18 +1,17 @@
 """Unit tests for provider trace backends."""
 
-import asyncio
 import json
 import os
 import socket
 import tempfile
 import threading
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
 from letta.schemas.provider_trace import ProviderTrace
 from letta.schemas.user import User
-from letta.services.provider_trace_backends.base import ProviderTraceBackend, ProviderTraceBackendClient
+from letta.services.provider_trace_backends.base import ProviderTraceBackend
 from letta.services.provider_trace_backends.socket import SocketProviderTraceBackend
 
 
@@ -341,7 +340,6 @@ class TestBackendFactory:
 
     def test_get_multiple_backends(self):
         """Test getting multiple backends via environment."""
-        import os
 
         from letta.services.provider_trace_backends.factory import (
             get_provider_trace_backends,

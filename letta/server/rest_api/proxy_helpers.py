@@ -4,7 +4,6 @@ Shared helper functions for Anthropic-compatible proxy endpoints.
 These helpers are used by both the Anthropic and Z.ai proxy routers to reduce code duplication.
 """
 
-import asyncio
 import json
 
 from fastapi import Request

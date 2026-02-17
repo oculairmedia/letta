@@ -24,14 +24,12 @@ from letta_client.types import (
     TerminalToolRule,
     ToolReturnMessage,
 )
-from letta_client.types.agents.text_content_param import TextContentParam
 from letta_client.types.tool import BaseTool
 from pydantic import BaseModel, Field
 
 from letta.config import LettaConfig
 from letta.jobs.llm_batch_job_polling import poll_running_llm_batches
 from letta.server.server import SyncServer
-from tests.helpers.utils import upload_file_and_wait
 from tests.utils import wait_for_server
 
 # Constants

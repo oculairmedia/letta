@@ -532,7 +532,8 @@ def test_agent_uses_search_files_correctly(disable_pinecone, disable_turbopuffer
     # Check it returned successfully
     tool_returns = [msg for msg in search_files_response.messages if msg.message_type == "tool_return_message"]
     assert len(tool_returns) > 0, "No tool returns found"
-    assert all(tr.status == "success" for tr in tool_returns), f"Tool call failed {tr}"
+    failed_returns = [tr for tr in tool_returns if tr.status != "success"]
+    assert len(failed_returns) == 0, f"Tool call failed: {failed_returns}"
 
 
 def test_agent_uses_grep_correctly_basic(disable_pinecone, disable_turbopuffer, client: LettaSDKClient, agent_state: AgentState):

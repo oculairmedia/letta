@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 from letta.schemas.letta_message import LettaMessageUnion
 from letta.schemas.message import Message
 from letta.schemas.provider_trace import ProviderTrace
-from letta.schemas.step import Step, StepBase
+from letta.schemas.step import Step
 from letta.schemas.step_metrics import StepMetrics
 from letta.server.rest_api.dependencies import HeaderParams, get_headers, get_letta_server
 from letta.server.server import SyncServer

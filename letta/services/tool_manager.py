@@ -24,7 +24,7 @@ from letta.constants import (
     MODAL_SAFE_IMPORT_MODULES,
 )
 from letta.errors import LettaInvalidArgumentError, LettaToolNameConflictError, LettaToolNameSchemaMismatchError
-from letta.functions.functions import derive_openai_json_schema, load_function_set
+from letta.functions.functions import load_function_set
 from letta.helpers.tool_helpers import compute_tool_hash, generate_modal_function_name
 from letta.log import get_logger
 
@@ -32,7 +32,6 @@ from letta.log import get_logger
 from letta.orm.errors import NoResultFound
 from letta.orm.tool import Tool as ToolModel
 from letta.otel.tracing import trace_method, tracer
-from letta.schemas.agent import AgentState
 from letta.schemas.enums import PrimitiveType, SandboxType, ToolType
 from letta.schemas.tool import Tool as PydanticTool, ToolCreate, ToolUpdate
 from letta.schemas.user import User as PydanticUser
@@ -57,7 +56,6 @@ def modal_tool_wrapper(tool: PydanticTool, actor: PydanticUser, sandbox_env_vars
     from typing import Optional
 
     import modal
-    from letta_client import Letta
 
     packages = [str(req) for req in tool.pip_requirements] if tool.pip_requirements else []
     for package in MODAL_SAFE_IMPORT_MODULES:
@@ -1297,7 +1295,6 @@ class ToolManager:
     @trace_method
     async def create_or_update_modal_app(self, tool: PydanticTool, actor: PydanticUser):
         """Create a Modal app with the tool function registered"""
-        import time
 
         import modal
 

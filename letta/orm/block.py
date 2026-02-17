@@ -5,7 +5,6 @@ from sqlalchemy.orm import Mapped, declared_attr, mapped_column, relationship
 
 from letta.constants import CORE_MEMORY_BLOCK_CHAR_LIMIT
 from letta.orm.block_history import BlockHistory
-from letta.orm.blocks_agents import BlocksAgents
 from letta.orm.mixins import OrganizationMixin, ProjectMixin, TemplateEntityMixin, TemplateMixin
 from letta.orm.sqlalchemy_base import SqlalchemyBase
 from letta.schemas.block import Block as PydanticBlock, Human, Persona
@@ -61,7 +60,7 @@ class Block(OrganizationMixin, SqlalchemyBase, ProjectMixin, TemplateEntityMixin
 
     # relationships
     organization: Mapped[Optional["Organization"]] = relationship("Organization", lazy="raise")
-    agents: Mapped[List["Agent"]] = relationship(
+    agents: Mapped[List["Agent"]] = relationship(  # noqa: F821
         "Agent",
         secondary="blocks_agents",
         lazy="raise",
@@ -76,7 +75,7 @@ class Block(OrganizationMixin, SqlalchemyBase, ProjectMixin, TemplateEntityMixin
         back_populates="blocks",
         passive_deletes=True,
     )
-    groups: Mapped[List["Group"]] = relationship(
+    groups: Mapped[List["Group"]] = relationship(  # noqa: F821
         "Group",
         secondary="groups_blocks",
         lazy="raise",

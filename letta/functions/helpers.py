@@ -36,7 +36,8 @@ def {mcp_tool_name}(**kwargs):
 
 
 def generate_langchain_tool_wrapper(
-    tool: "LangChainBaseTool", additional_imports_module_attr_map: dict[str, str] = None
+    tool: "LangChainBaseTool",  # noqa: F821
+    additional_imports_module_attr_map: dict[str, str] = None,
 ) -> tuple[str, str]:
     tool_name = tool.__class__.__name__
     import_statement = f"from langchain_community.tools import {tool_name}"
@@ -72,7 +73,7 @@ def _assert_code_gen_compilable(code_str):
         print(f"Syntax error in code: {e}")
 
 
-def _assert_all_classes_are_imported(tool: Union["LangChainBaseTool"], additional_imports_module_attr_map: dict[str, str]) -> None:
+def _assert_all_classes_are_imported(tool: Union["LangChainBaseTool"], additional_imports_module_attr_map: dict[str, str]) -> None:  # noqa: F821
     # Safety check that user has passed in all required imports:
     tool_name = tool.__class__.__name__
     current_class_imports = {tool_name}
@@ -86,7 +87,7 @@ def _assert_all_classes_are_imported(tool: Union["LangChainBaseTool"], additiona
         raise RuntimeError(err_msg)
 
 
-def _find_required_class_names_for_import(obj: Union["LangChainBaseTool", BaseModel]) -> list[str]:
+def _find_required_class_names_for_import(obj: Union["LangChainBaseTool", BaseModel]) -> list[str]:  # noqa: F821
     """
     Finds all the class names for required imports when instantiating the `obj`.
     NOTE: This does not return the full import path, only the class name.
@@ -224,7 +225,7 @@ def _parse_letta_response_for_assistant_message(
 
 
 async def async_execute_send_message_to_agent(
-    sender_agent: "Agent",
+    sender_agent: "Agent",  # noqa: F821
     messages: List[MessageCreate],
     other_agent_id: str,
     log_prefix: str,
@@ -255,7 +256,7 @@ async def async_execute_send_message_to_agent(
 
 
 def execute_send_message_to_agent(
-    sender_agent: "Agent",
+    sender_agent: "Agent",  # noqa: F821
     messages: List[MessageCreate],
     other_agent_id: str,
     log_prefix: str,
@@ -268,7 +269,7 @@ def execute_send_message_to_agent(
 
 
 async def _send_message_to_agent_no_stream(
-    server: "SyncServer",
+    server: "SyncServer",  # noqa: F821
     agent_id: str,
     actor: User,
     messages: List[MessageCreate],
@@ -301,8 +302,8 @@ async def _send_message_to_agent_no_stream(
 
 
 async def _async_send_message_with_retries(
-    server: "SyncServer",
-    sender_agent: "Agent",
+    server: "SyncServer",  # noqa: F821
+    sender_agent: "Agent",  # noqa: F821
     target_agent_id: str,
     messages: List[MessageCreate],
     max_retries: int,
@@ -352,7 +353,7 @@ async def _async_send_message_with_retries(
 
 
 def fire_and_forget_send_to_agent(
-    sender_agent: "Agent",
+    sender_agent: "Agent",  # noqa: F821
     messages: List[MessageCreate],
     other_agent_id: str,
     log_prefix: str,
@@ -436,7 +437,10 @@ def fire_and_forget_send_to_agent(
 
 
 async def _send_message_to_agents_matching_tags_async(
-    sender_agent: "Agent", server: "SyncServer", messages: List[MessageCreate], matching_agents: List["AgentState"]
+    sender_agent: "Agent",  # noqa: F821
+    server: "SyncServer",  # noqa: F821
+    messages: List[MessageCreate],
+    matching_agents: List["AgentState"],  # noqa: F821
 ) -> List[str]:
     async def _send_single(agent_state):
         return await _async_send_message_with_retries(
@@ -460,7 +464,7 @@ async def _send_message_to_agents_matching_tags_async(
     return final
 
 
-async def _send_message_to_all_agents_in_group_async(sender_agent: "Agent", message: str) -> List[str]:
+async def _send_message_to_all_agents_in_group_async(sender_agent: "Agent", message: str) -> List[str]:  # noqa: F821
     server = get_letta_server()
 
     augmented_message = (

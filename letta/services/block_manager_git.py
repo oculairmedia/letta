@@ -7,7 +7,6 @@ When an agent has the GIT_MEMORY_ENABLED_TAG tag, block operations:
 This provides full version history while maintaining fast reads from PostgreSQL.
 """
 
-import json
 import time
 from typing import List, Optional
 

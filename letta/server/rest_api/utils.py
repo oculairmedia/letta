@@ -5,7 +5,7 @@ import uuid
 from enum import Enum
 from typing import Any, AsyncGenerator, Dict, Iterable, List, Optional, Union, cast
 
-from fastapi import Header, HTTPException
+from fastapi import HTTPException
 from openai.types.chat import ChatCompletionMessageParam
 from openai.types.chat.chat_completion_message_tool_call import ChatCompletionMessageToolCall as OpenAIToolCall, Function as OpenAIFunction
 from openai.types.chat.completion_create_params import CompletionCreateParams

@@ -414,7 +414,7 @@ class VoiceAgent(BaseAgent):
             for t in tools
         ]
 
-    async def _execute_tool(self, user_query: str, tool_name: str, tool_args: dict, agent_state: AgentState) -> "ToolExecutionResult":
+    async def _execute_tool(self, user_query: str, tool_name: str, tool_args: dict, agent_state: AgentState) -> "ToolExecutionResult":  # noqa: F821
         """
         Executes a tool and returns the ToolExecutionResult.
         """

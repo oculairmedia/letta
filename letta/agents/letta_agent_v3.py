@@ -1,7 +1,7 @@
 import asyncio
 import json
 import uuid
-from typing import Any, AsyncGenerator, Dict, Literal, Optional
+from typing import Any, AsyncGenerator, Dict, Optional
 
 from opentelemetry.trace import Span
 
@@ -20,16 +20,15 @@ from letta.agents.helpers import (
     merge_and_validate_prefilled_args,
 )
 from letta.agents.letta_agent_v2 import LettaAgentV2
-from letta.constants import DEFAULT_MAX_STEPS, NON_USER_MSG_PREFIX, REQUEST_HEARTBEAT_PARAM, SUMMARIZATION_TRIGGER_MULTIPLIER
+from letta.constants import DEFAULT_MAX_STEPS, NON_USER_MSG_PREFIX, REQUEST_HEARTBEAT_PARAM
 from letta.errors import ContextWindowExceededError, LLMError, SystemPromptTokenExceededError
 from letta.helpers import ToolRulesSolver
 from letta.helpers.datetime_helpers import get_utc_time, get_utc_timestamp_ns
-from letta.helpers.message_helper import convert_message_creates_to_messages
 from letta.helpers.tool_execution_helper import enable_strict_mode
 from letta.local_llm.constants import INNER_THOUGHTS_KWARG
 from letta.otel.tracing import trace_method
 from letta.schemas.agent import AgentState
-from letta.schemas.enums import LLMCallType, MessageRole
+from letta.schemas.enums import LLMCallType
 from letta.schemas.letta_message import (
     ApprovalReturn,
     CompactionStats,
@@ -44,13 +43,11 @@ from letta.schemas.letta_message_content import OmittedReasoningContent, Reasoni
 from letta.schemas.letta_request import ClientToolSchema
 from letta.schemas.letta_response import LettaResponse, TurnTokenData
 from letta.schemas.letta_stop_reason import LettaStopReason, StopReasonType
-from letta.schemas.llm_config import LLMConfig
 from letta.schemas.message import Message, MessageCreate, ToolReturn
-from letta.schemas.openai.chat_completion_response import ChoiceLogprobs, FunctionCall, ToolCall, ToolCallDenial, UsageStatistics
+from letta.schemas.openai.chat_completion_response import ChoiceLogprobs, ToolCall, ToolCallDenial, UsageStatistics
 from letta.schemas.step import StepProgression
 from letta.schemas.step_metrics import StepMetrics
 from letta.schemas.tool_execution_result import ToolExecutionResult
-from letta.schemas.usage import LettaUsageStatistics
 from letta.schemas.user import User
 from letta.server.rest_api.utils import (
     create_approval_request_message_from_llm_response,
@@ -64,8 +61,8 @@ from letta.services.summarizer.compact import compact_messages
 from letta.services.summarizer.summarizer_config import CompactionSettings
 from letta.services.summarizer.summarizer_sliding_window import count_tokens
 from letta.settings import settings, summarizer_settings
-from letta.system import package_function_response, package_summarize_message_no_counts
-from letta.utils import log_telemetry, safe_create_task_with_return, validate_function_response
+from letta.system import package_function_response
+from letta.utils import safe_create_task_with_return, validate_function_response
 
 
 def extract_compaction_stats_from_message(message: Message) -> CompactionStats | None:
@@ -800,6 +797,7 @@ class LettaAgentV3(LettaAgentV2):
             self.logger.warning("Context token estimate is not set")
 
         step_progression = StepProgression.START
+        caught_exception = None
         # TODO(@caren): clean this up
         tool_calls, content, agent_step_span, first_chunk, step_id, logged_step, step_start_ns, step_metrics = (
             None,
@@ -1272,6 +1270,7 @@ class LettaAgentV3(LettaAgentV2):
                     raise
 
         except Exception as e:
+            caught_exception = e
             # NOTE: message persistence does not happen in the case of an exception (rollback to previous state)
             # Use repr() if str() is empty (happens with Exception() with no args)
             error_detail = str(e) or repr(e)
@@ -1322,8 +1321,8 @@ class LettaAgentV3(LettaAgentV2):
                         await self.step_manager.update_step_error_async(
                             actor=self.actor,
                             step_id=step_id,  # Use original step_id for telemetry
-                            error_type=type(e).__name__ if "e" in locals() else "Unknown",
-                            error_message=str(e) if "e" in locals() else "Unknown error",
+                            error_type=type(caught_exception).__name__ if caught_exception is not None else "Unknown",
+                            error_message=str(caught_exception) if caught_exception is not None else "Unknown error",
                             error_traceback=traceback.format_exc(),
                             stop_reason=self.stop_reason,
                         )

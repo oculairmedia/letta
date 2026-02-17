@@ -43,4 +43,4 @@ class ProviderTrace(SqlalchemyBase, OrganizationMixin):
     )
 
     # Relationships
-    organization: Mapped["Organization"] = relationship("Organization", lazy="selectin")
+    organization: Mapped["Organization"] = relationship("Organization", lazy="selectin")  # noqa: F821

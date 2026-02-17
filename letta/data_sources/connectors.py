@@ -37,7 +37,7 @@ class DataConnector:
         """
 
 
-async def load_data(connector: DataConnector, source: Source, passage_manager: PassageManager, file_manager: FileManager, actor: "User"):
+async def load_data(connector: DataConnector, source: Source, passage_manager: PassageManager, file_manager: FileManager, actor: "User"):  # noqa: F821
     from letta.llm_api.llm_client import LLMClient
 
     """Load data from a connector (generates file and passages) into a specified source_id, associated with a user_id."""

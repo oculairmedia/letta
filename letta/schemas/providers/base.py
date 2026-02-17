@@ -90,7 +90,6 @@ class Provider(ProviderBase):
     def list_llm_models(self) -> list[LLMConfig]:
         """List available LLM models (deprecated: use list_llm_models_async)"""
         import asyncio
-        import warnings
 
         logger.warning("list_llm_models is deprecated, use list_llm_models_async instead", stacklevel=2)
 
@@ -115,7 +114,6 @@ class Provider(ProviderBase):
     def list_embedding_models(self) -> list[EmbeddingConfig]:
         """List available embedding models (deprecated: use list_embedding_models_async)"""
         import asyncio
-        import warnings
 
         logger.warning("list_embedding_models is deprecated, use list_embedding_models_async instead", stacklevel=2)
 

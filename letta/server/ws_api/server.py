@@ -1,11 +1,11 @@
 import asyncio
 import signal
 import sys
-import traceback
 
 import websockets
 
 import letta.server.ws_api.protocol as protocol
+from letta.helpers.json_helpers import json_loads
 from letta.log import get_logger
 from letta.server.constants import WS_DEFAULT_PORT
 from letta.server.server import SyncServer

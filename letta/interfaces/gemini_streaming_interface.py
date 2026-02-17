@@ -124,7 +124,7 @@ class SimpleGeminiStreamingInterface:
         """Return all finalized tool calls collected during this message (parallel supported)."""
         return list(self.collected_tool_calls)
 
-    def get_usage_statistics(self) -> "LettaUsageStatistics":
+    def get_usage_statistics(self) -> "LettaUsageStatistics":  # noqa: F821
         """Extract usage statistics from accumulated streaming data.
 
         Returns:
@@ -148,7 +148,7 @@ class SimpleGeminiStreamingInterface:
     async def process(
         self,
         stream: AsyncIterator[GenerateContentResponse],
-        ttft_span: Optional["Span"] = None,
+        ttft_span: Optional["Span"] = None,  # noqa: F821
     ) -> AsyncGenerator[LettaMessage | LettaStopReason, None]:
         """
         Iterates over the Gemini stream, yielding SSE events.
@@ -202,7 +202,7 @@ class SimpleGeminiStreamingInterface:
     async def _process_event(
         self,
         event: GenerateContentResponse,
-        ttft_span: Optional["Span"] = None,
+        ttft_span: Optional["Span"] = None,  # noqa: F821
         prev_message_type: Optional[str] = None,
         message_index: int = 0,
     ) -> AsyncGenerator[LettaMessage | LettaStopReason, None]:

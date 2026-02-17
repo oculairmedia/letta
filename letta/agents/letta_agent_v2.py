@@ -9,7 +9,6 @@ from letta.adapters.letta_llm_adapter import LettaLLMAdapter
 from letta.adapters.letta_llm_request_adapter import LettaLLMRequestAdapter
 from letta.adapters.letta_llm_stream_adapter import LettaLLMStreamAdapter
 from letta.agents.base_agent_v2 import BaseAgentV2
-from letta.agents.ephemeral_summary_agent import EphemeralSummaryAgent
 from letta.agents.helpers import (
     _build_rule_violation_result,
     _load_last_function_response,
@@ -68,7 +67,7 @@ from letta.services.summarizer.enums import SummarizationMode
 from letta.services.summarizer.summarizer import Summarizer
 from letta.services.telemetry_manager import TelemetryManager
 from letta.services.tool_executor.tool_execution_manager import ToolExecutionManager
-from letta.settings import model_settings, settings, summarizer_settings
+from letta.settings import settings, summarizer_settings
 from letta.system import package_function_response
 from letta.types import JsonDict
 from letta.utils import log_telemetry, safe_create_task, safe_create_task_with_return, united_diff, validate_function_response
@@ -455,6 +454,7 @@ class LettaAgentV2(BaseAgentV2):
             raise AssertionError("run_id is required when enforce_run_id_set is True")
 
         step_progression = StepProgression.START
+        caught_exception = None
         # TODO(@caren): clean this up
         tool_call, reasoning_content, agent_step_span, first_chunk, step_id, logged_step, step_start_ns, step_metrics = (
             None,
@@ -615,6 +615,7 @@ class LettaAgentV2(BaseAgentV2):
                 )
             step_progression, step_metrics = await self._step_checkpoint_finish(step_metrics, agent_step_span, logged_step)
         except Exception as e:
+            caught_exception = e
             self.logger.warning(f"Error during step processing: {e}")
             self.job_update_metadata = {"error": str(e)}
 
@@ -650,8 +651,8 @@ class LettaAgentV2(BaseAgentV2):
                         await self.step_manager.update_step_error_async(
                             actor=self.actor,
                             step_id=step_id,  # Use original step_id for telemetry
-                            error_type=type(e).__name__ if "e" in locals() else "Unknown",
-                            error_message=str(e) if "e" in locals() else "Unknown error",
+                            error_type=type(caught_exception).__name__ if caught_exception is not None else "Unknown",
+                            error_message=str(caught_exception) if caught_exception is not None else "Unknown error",
                             error_traceback=traceback.format_exc(),
                             stop_reason=self.stop_reason,
                         )
@@ -705,14 +706,11 @@ class LettaAgentV2(BaseAgentV2):
     async def _check_credits(self) -> bool:
         """Check if the organization still has credits. Returns True if OK or not configured."""
         try:
-            await self.credit_verification_service.verify_credits(
-                self.actor.organization_id, self.agent_state.id
-            )
+            await self.credit_verification_service.verify_credits(self.actor.organization_id, self.agent_state.id)
             return True
         except InsufficientCreditsError:
             self.logger.warning(
-                f"Insufficient credits for organization {self.actor.organization_id}, "
-                f"agent {self.agent_state.id}, stopping agent loop"
+                f"Insufficient credits for organization {self.actor.organization_id}, agent {self.agent_state.id}, stopping agent loop"
             )
             return False
 

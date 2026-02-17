@@ -35,8 +35,6 @@ class TogetherProvider(OpenAIProvider):
         return self._list_llm_models(models)
 
     async def list_embedding_models_async(self) -> list[EmbeddingConfig]:
-        import warnings
-
         logger.warning(
             "Letta does not currently support listing embedding models for Together. Please "
             "contact support or reach out via GitHub or Discord to get support."
