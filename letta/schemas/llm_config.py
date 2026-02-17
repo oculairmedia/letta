@@ -562,7 +562,11 @@ class LLMConfig(BaseModel):
                 if config.enable_reasoner and config.max_reasoning_tokens == 0:
                     config.max_reasoning_tokens = 1024
                 # Set default effort level for Claude Opus 4.5 and Opus 4.6
-                if (config.model.startswith("claude-opus-4-5") or config.model.startswith("claude-opus-4-6")) and config.effort is None:
+                if (
+                    config.model.startswith("claude-opus-4-5")
+                    or config.model.startswith("claude-opus-4-6")
+                    or config.model.startswith("claude-sonnet-4-6")
+                ) and config.effort is None:
                     config.effort = "medium"
                 return config
 
@@ -631,7 +635,11 @@ class LLMConfig(BaseModel):
                 if config.max_reasoning_tokens == 0:
                     config.max_reasoning_tokens = 1024
                 # Set default effort level for Claude Opus 4.5 and Opus 4.6
-                if (config.model.startswith("claude-opus-4-5") or config.model.startswith("claude-opus-4-6")) and config.effort is None:
+                if (
+                    config.model.startswith("claude-opus-4-5")
+                    or config.model.startswith("claude-opus-4-6")
+                    or config.model.startswith("claude-sonnet-4-6")
+                ) and config.effort is None:
                     config.effort = "medium"
             elif cls.is_google_vertex_reasoning_model(config) or cls.is_google_ai_reasoning_model(config):
                 # Handle as non-reasoner until we support summary

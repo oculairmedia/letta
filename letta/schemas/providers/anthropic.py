@@ -113,6 +113,11 @@ MODEL_LIST = [
         "name": "claude-opus-4-6",
         "context_window": 200000,
     },
+    ## Sonnet 4.6
+    {
+        "name": "claude-sonnet-4-6",
+        "context_window": 200000,
+    },
 ]
 
 
@@ -139,8 +144,8 @@ class AnthropicProvider(Provider):
 
     def get_default_max_output_tokens(self, model_name: str) -> int:
         """Get the default max output tokens for Anthropic models."""
-        if "claude-opus-4-6" in model_name:
-            return 21000  # Opus 4.6 supports up to 128k with streaming, use 21k as default
+        if "claude-opus-4-6" in model_name or "claude-sonnet-4-6" in model_name:
+            return 21000  # Opus 4.6 / Sonnet 4.6 supports up to 128k with streaming, use 21k as default
         elif "opus" in model_name:
             return 16384
         elif "sonnet" in model_name:

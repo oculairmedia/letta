@@ -65,9 +65,9 @@ class AnthropicClient(LLMClientBase):
         client = self._get_anthropic_client(llm_config, async_client=False)
         betas: list[str] = []
 
-        # Opus 4.6 Auto Thinking
+        # Opus 4.6 / Sonnet 4.6 Auto Thinking
         if llm_config.enable_reasoner:
-            if llm_config.model.startswith("claude-opus-4-6"):
+            if llm_config.model.startswith("claude-opus-4-6") or llm_config.model.startswith("claude-sonnet-4-6"):
                 betas.append("adaptive-thinking-2026-01-28")
             # Interleaved thinking for other reasoners (sync path parity)
             else:
@@ -86,13 +86,17 @@ class AnthropicClient(LLMClientBase):
         except Exception:
             pass
 
-        # Effort parameter for Opus 4.5 and Opus 4.6 - to extend to other models, modify the model check
+        # Effort parameter for Opus 4.5, Opus 4.6, and Sonnet 4.6 - to extend to other models, modify the model check
         if (
-            llm_config.model.startswith("claude-opus-4-5") or llm_config.model.startswith("claude-opus-4-6")
+            llm_config.model.startswith("claude-opus-4-5")
+            or llm_config.model.startswith("claude-opus-4-6")
+            or llm_config.model.startswith("claude-sonnet-4-6")
         ) and llm_config.effort is not None:
             betas.append("effort-2025-11-24")
-            # Max effort beta for Opus 4.6
-            if llm_config.model.startswith("claude-opus-4-6") and llm_config.effort == "max":
+            # Max effort beta for Opus 4.6 / Sonnet 4.6
+            if (
+                llm_config.model.startswith("claude-opus-4-6") or llm_config.model.startswith("claude-sonnet-4-6")
+            ) and llm_config.effort == "max":
                 betas.append("max-effort-2026-01-24")
 
         # Context management for Opus 4.5 to preserve thinking blocks (improves cache hits)
@@ -134,9 +138,9 @@ class AnthropicClient(LLMClientBase):
         client = await self._get_anthropic_client_async(llm_config, async_client=True)
         betas: list[str] = []
 
-        # Opus 4.6 Auto Thinking
+        # Opus 4.6 / Sonnet 4.6 Auto Thinking
         if llm_config.enable_reasoner:
-            if llm_config.model.startswith("claude-opus-4-6"):
+            if llm_config.model.startswith("claude-opus-4-6") or llm_config.model.startswith("claude-sonnet-4-6"):
                 betas.append("adaptive-thinking-2026-01-28")
             # Interleaved thinking for other reasoners (sync path parity)
             else:
@@ -155,13 +159,17 @@ class AnthropicClient(LLMClientBase):
         except Exception:
             pass
 
-        # Effort parameter for Opus 4.5 and Opus 4.6 - to extend to other models, modify the model check
+        # Effort parameter for Opus 4.5, Opus 4.6, and Sonnet 4.6 - to extend to other models, modify the model check
         if (
-            llm_config.model.startswith("claude-opus-4-5") or llm_config.model.startswith("claude-opus-4-6")
+            llm_config.model.startswith("claude-opus-4-5")
+            or llm_config.model.startswith("claude-opus-4-6")
+            or llm_config.model.startswith("claude-sonnet-4-6")
         ) and llm_config.effort is not None:
             betas.append("effort-2025-11-24")
-            # Max effort beta for Opus 4.6
-            if llm_config.model.startswith("claude-opus-4-6") and llm_config.effort == "max":
+            # Max effort beta for Opus 4.6 / Sonnet 4.6
+            if (
+                llm_config.model.startswith("claude-opus-4-6") or llm_config.model.startswith("claude-sonnet-4-6")
+            ) and llm_config.effort == "max":
                 betas.append("max-effort-2026-01-24")
 
         # Context management for Opus 4.5 to preserve thinking blocks (improves cache hits)
@@ -311,9 +319,9 @@ class AnthropicClient(LLMClientBase):
         # See: https://docs.anthropic.com/en/docs/build-with-claude/tool-use/fine-grained-streaming
         betas = ["fine-grained-tool-streaming-2025-05-14"]
 
-        # Opus 4.6 Auto Thinking
+        # Opus 4.6 / Sonnet 4.6 Auto Thinking
         if llm_config.enable_reasoner:
-            if llm_config.model.startswith("claude-opus-4-6"):
+            if llm_config.model.startswith("claude-opus-4-6") or llm_config.model.startswith("claude-sonnet-4-6"):
                 betas.append("adaptive-thinking-2026-01-28")
             # Interleaved thinking for other reasoners (sync path parity)
             else:
@@ -332,13 +340,17 @@ class AnthropicClient(LLMClientBase):
         except Exception:
             pass
 
-        # Effort parameter for Opus 4.5 and Opus 4.6 - to extend to other models, modify the model check
+        # Effort parameter for Opus 4.5, Opus 4.6, and Sonnet 4.6 - to extend to other models, modify the model check
         if (
-            llm_config.model.startswith("claude-opus-4-5") or llm_config.model.startswith("claude-opus-4-6")
+            llm_config.model.startswith("claude-opus-4-5")
+            or llm_config.model.startswith("claude-opus-4-6")
+            or llm_config.model.startswith("claude-sonnet-4-6")
         ) and llm_config.effort is not None:
             betas.append("effort-2025-11-24")
-            # Max effort beta for Opus 4.6
-            if llm_config.model.startswith("claude-opus-4-6") and llm_config.effort == "max":
+            # Max effort beta for Opus 4.6 / Sonnet 4.6
+            if (
+                llm_config.model.startswith("claude-opus-4-6") or llm_config.model.startswith("claude-sonnet-4-6")
+            ) and llm_config.effort == "max":
                 betas.append("max-effort-2026-01-24")
 
         # Context management for Opus 4.5 to preserve thinking blocks (improves cache hits)
@@ -528,8 +540,8 @@ class AnthropicClient(LLMClientBase):
         )
 
         if should_enable_thinking:
-            # Opus 4.6 uses Auto Thinking (no budget tokens)
-            if llm_config.model.startswith("claude-opus-4-6"):
+            # Opus 4.6 / Sonnet 4.6 uses Auto Thinking (no budget tokens)
+            if llm_config.model.startswith("claude-opus-4-6") or llm_config.model.startswith("claude-sonnet-4-6"):
                 data["thinking"] = {
                     "type": "adaptive",
                 }
@@ -550,10 +562,12 @@ class AnthropicClient(LLMClientBase):
             # Silently disable prefix_fill for now
             prefix_fill = False
 
-        # Effort configuration for Opus 4.5 and Opus 4.6 (controls token spending)
+        # Effort configuration for Opus 4.5, Opus 4.6, and Sonnet 4.6 (controls token spending)
         # To extend to other models, modify the model check
         if (
-            llm_config.model.startswith("claude-opus-4-5") or llm_config.model.startswith("claude-opus-4-6")
+            llm_config.model.startswith("claude-opus-4-5")
+            or llm_config.model.startswith("claude-opus-4-6")
+            or llm_config.model.startswith("claude-sonnet-4-6")
         ) and llm_config.effort is not None:
             data["output_config"] = {"effort": llm_config.effort}
 
@@ -935,6 +949,8 @@ class AnthropicClient(LLMClientBase):
             or llm_config.model.startswith("claude-opus-4-5")
             # Opus 4.6 support - uses Auto Thinking
             or llm_config.model.startswith("claude-opus-4-6")
+            # Sonnet 4.6 support - same API as Opus 4.6
+            or llm_config.model.startswith("claude-sonnet-4-6")
         )
 
     @trace_method
