@@ -17832,7 +17832,7 @@
                   },
                   "sortBy": {
                     "type": "string",
-                    "enum": ["created_at", "last_run_completion"]
+                    "enum": ["created_at", "last_run_completion", "updated_at"]
                   },
                   "ascending": {
                     "type": "boolean"
