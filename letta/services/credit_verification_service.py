@@ -26,8 +26,6 @@ class CreditVerificationService:
         Returns True if credits are available or if the service is not configured.
         Raises InsufficientCreditsError if no credits remain.
         """
-        # Early return for now
-        return True
 
         if not self.endpoint or not self.auth_key:
             return True
@@ -46,18 +44,29 @@ class CreditVerificationService:
 
             data = response.json()
             if not data.get("hasMoreCredits", True):
-                raise InsufficientCreditsError()
+                # We need to test why this is firing in production.
+                logger.error(
+                    f"[CREDIT VERIFICATION] Insufficient credits would have fired for organization {organization_id} and agent {agent_id}"
+                )
+                return True
 
             return True
 
         except InsufficientCreditsError:
-            raise
+            logger.error(
+                f"[CREDIT VERIFICATION] Insufficient credits would have fired for organization {organization_id} and agent {agent_id}"
+            )
+            return True
         except httpx.TimeoutException:
-            logger.warning(f"Timeout verifying credits for organization {organization_id}, agent {agent_id}")
+            logger.warning(f"[CREDIT VERIFICATION] Timeout verifying credits for organization {organization_id}, agent {agent_id}")
             return True
         except httpx.HTTPStatusError as e:
-            logger.warning(f"HTTP error verifying credits for organization {organization_id}, agent {agent_id}: {e.response.status_code}")
+            logger.warning(
+                f"[CREDIT VERIFICATION] HTTP error verifying credits for organization {organization_id}, agent {agent_id}: {e.response.status_code}"
+            )
             return True
         except Exception as e:
-            logger.error(f"Unexpected error verifying credits for organization {organization_id}, agent {agent_id}: {e}")
+            logger.error(
+                f"[CREDIT VERIFICATION] Unexpected error verifying credits for organization {organization_id}, agent {agent_id}: {e}"
+            )
             return True
