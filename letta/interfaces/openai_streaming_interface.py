@@ -19,6 +19,7 @@ from openai.types.responses import (
     ResponseFunctionCallArgumentsDeltaEvent,
     ResponseFunctionCallArgumentsDoneEvent,
     ResponseFunctionToolCall,
+    ResponseIncompleteEvent,
     ResponseInProgressEvent,
     ResponseOutputItemAddedEvent,
     ResponseOutputItemDoneEvent,
@@ -1021,6 +1022,9 @@ class SimpleOpenAIResponsesStreamingInterface:
         self.last_event_type: str | None = None
         self.total_events_received: int = 0
         self.stream_was_cancelled: bool = False
+        # For downstream finish_reason mapping (e.g. max_output_tokens -> "length")
+        # None means no incomplete reason was observed.
+        self.incomplete_reason: str | None = None
 
     # -------- Mapping helpers (no broad try/except) --------
     def _record_tool_mapping(self, event: object, item: object) -> tuple[str | None, str | None, int | None, str | None]:
@@ -1081,6 +1085,10 @@ class SimpleOpenAIResponsesStreamingInterface:
                             text=response.content[0].text,
                         )
                     )
+                elif len(response.content) == 0:
+                    # Incomplete responses may have an output message with no content parts
+                    # (model started the message item but hit max_output_tokens before producing text)
+                    logger.warning("ResponseOutputMessage has 0 content parts (likely from an incomplete response), skipping.")
                 else:
                     raise ValueError(f"Got {len(response.content)} content parts, expected 1")
 
@@ -1487,31 +1495,55 @@ class SimpleOpenAIResponsesStreamingInterface:
             return
 
         # Generic finish
-        elif isinstance(event, ResponseCompletedEvent):
-            # NOTE we can "rebuild" the final state of the stream using the values in here, instead of relying on the accumulators
+        elif isinstance(event, (ResponseCompletedEvent, ResponseIncompleteEvent)):
+            # ResponseIncompleteEvent has the same response structure as ResponseCompletedEvent,
+            # but indicates the response was cut short (e.g. due to max_output_tokens).
+            # We still extract the partial response and usage data so they aren't silently lost.
+            if isinstance(event, ResponseIncompleteEvent):
+                self.incomplete_reason = (
+                    getattr(event.response.incomplete_details, "reason", None) if event.response.incomplete_details else None
+                )
+                reason = self.incomplete_reason or "unknown"
+                logger.warning(
+                    f"OpenAI Responses API returned an incomplete response (reason: {reason}). "
+                    f"Model: {event.response.model}, output_tokens: {event.response.usage.output_tokens if event.response.usage else 'N/A'}. "
+                    f"The partial response content will still be used."
+                )
+
             self.final_response = event.response
             self.model = event.response.model
-            self.input_tokens = event.response.usage.input_tokens
-            self.output_tokens = event.response.usage.output_tokens
             self.message_id = event.response.id
-            # Store raw usage for transparent provider trace logging
-            try:
-                self.raw_usage = event.response.usage.model_dump(exclude_none=True)
-            except Exception as e:
-                logger.error(f"Failed to capture raw_usage from OpenAI Responses API: {e}")
-                self.raw_usage = None
-            # Capture cache token details (Responses API uses input_tokens_details)
-            # Use `is not None` to capture 0 values (meaning "provider reported 0 cached tokens")
-            if hasattr(event.response.usage, "input_tokens_details") and event.response.usage.input_tokens_details:
-                details = event.response.usage.input_tokens_details
-                if hasattr(details, "cached_tokens") and details.cached_tokens is not None:
-                    self.cached_tokens = details.cached_tokens
-            # Capture reasoning token details (Responses API uses output_tokens_details)
-            # Use `is not None` to capture 0 values (meaning "provider reported 0 reasoning tokens")
-            if hasattr(event.response.usage, "output_tokens_details") and event.response.usage.output_tokens_details:
-                details = event.response.usage.output_tokens_details
-                if hasattr(details, "reasoning_tokens") and details.reasoning_tokens is not None:
-                    self.reasoning_tokens = details.reasoning_tokens
+
+            usage = event.response.usage
+            if usage is not None:
+                self.input_tokens = usage.input_tokens
+                self.output_tokens = usage.output_tokens
+
+                # Store raw usage for transparent provider trace logging
+                try:
+                    self.raw_usage = usage.model_dump(exclude_none=True)
+                except Exception as e:
+                    logger.error(f"Failed to capture raw_usage from OpenAI Responses API: {e}")
+                    self.raw_usage = None
+
+                # Capture cache token details (Responses API uses input_tokens_details)
+                # Use `is not None` to capture 0 values (meaning "provider reported 0 cached tokens")
+                if hasattr(usage, "input_tokens_details") and usage.input_tokens_details:
+                    details = usage.input_tokens_details
+                    if hasattr(details, "cached_tokens") and details.cached_tokens is not None:
+                        self.cached_tokens = details.cached_tokens
+
+                # Capture reasoning token details (Responses API uses output_tokens_details)
+                # Use `is not None` to capture 0 values (meaning "provider reported 0 reasoning tokens")
+                if hasattr(usage, "output_tokens_details") and usage.output_tokens_details:
+                    details = usage.output_tokens_details
+                    if hasattr(details, "reasoning_tokens") and details.reasoning_tokens is not None:
+                        self.reasoning_tokens = details.reasoning_tokens
+            else:
+                logger.warning(
+                    "OpenAI Responses API finish event had no usage payload. "
+                    "Proceeding with partial response but token metrics may be incomplete."
+                )
             return
 
         else:

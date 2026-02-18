@@ -198,6 +198,22 @@ class SimpleLLMStreamAdapter(LettaLLMStreamAdapter):
         # Store any additional data from the interface
         self.message_id = self.interface.letta_message_id
 
+        # Populate finish_reason for downstream continuation logic.
+        # In Responses streaming, max_output_tokens is expressed via incomplete_details.reason.
+        if hasattr(self.interface, "final_response") and self.interface.final_response is not None:
+            resp = self.interface.final_response
+            incomplete_details = getattr(resp, "incomplete_details", None)
+            incomplete_reason = getattr(incomplete_details, "reason", None) if incomplete_details else None
+            if incomplete_reason == "max_output_tokens":
+                self._finish_reason = "length"
+            elif incomplete_reason == "content_filter":
+                self._finish_reason = "content_filter"
+            elif incomplete_reason is not None:
+                # Unknown incomplete reason — preserve it as-is for diagnostics
+                self._finish_reason = incomplete_reason
+            elif getattr(resp, "status", None) == "completed":
+                self._finish_reason = "stop"
+
         # Log request and response data
         self.log_provider_trace(step_id=step_id, actor=actor)
 

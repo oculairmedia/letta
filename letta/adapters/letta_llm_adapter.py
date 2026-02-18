@@ -55,6 +55,7 @@ class LettaLLMAdapter(ABC):
         self.usage: LettaUsageStatistics = LettaUsageStatistics()
         self.telemetry_manager: TelemetryManager = TelemetryManager()
         self.llm_request_finish_timestamp_ns: int | None = None
+        self._finish_reason: str | None = None
 
     @abstractmethod
     async def invoke_llm(
@@ -92,6 +93,8 @@ class LettaLLMAdapter(ABC):
         Returns:
             str | None: The finish_reason if available, None otherwise
         """
+        if self._finish_reason is not None:
+            return self._finish_reason
         if self.chat_completions_response and self.chat_completions_response.choices:
             return self.chat_completions_response.choices[0].finish_reason
         return None
