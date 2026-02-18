@@ -435,16 +435,19 @@ class AnthropicStreamingInterface:
                         if current_inner_thoughts:
                             tool_call_args = tool_call_args.replace(f'"{INNER_THOUGHTS_KWARG}": "{current_inner_thoughts}"', "")
 
+                        tool_call_delta = ToolCallDelta(
+                            name=self.tool_call_name,
+                            tool_call_id=self.tool_call_id,
+                            arguments=tool_call_args,
+                        )
+
                         approval_msg = ApprovalRequestMessage(
                             id=self.letta_message_id,
                             otid=Message.generate_otid_from_id(self.letta_message_id, message_index),
                             date=datetime.now(timezone.utc).isoformat(),
                             name=self.tool_call_name,
-                            tool_call=ToolCallDelta(
-                                name=self.tool_call_name,
-                                tool_call_id=self.tool_call_id,
-                                arguments=tool_call_args,
-                            ),
+                            tool_call=tool_call_delta,
+                            tool_calls=tool_call_delta,
                             run_id=self.run_id,
                             step_id=self.step_id,
                         )
@@ -504,6 +507,9 @@ class AnthropicStreamingInterface:
                         tool_call_msg = ApprovalRequestMessage(
                             id=self.letta_message_id,
                             tool_call=ToolCallDelta(name=self.tool_call_name, tool_call_id=self.tool_call_id, arguments=delta.partial_json),
+                            tool_calls=ToolCallDelta(
+                                name=self.tool_call_name, tool_call_id=self.tool_call_id, arguments=delta.partial_json
+                            ),
                             date=datetime.now(timezone.utc).isoformat(),
                             run_id=self.run_id,
                             step_id=self.step_id,
@@ -838,6 +844,7 @@ class SimpleAnthropicStreamingInterface:
                     tool_call_msg = ApprovalRequestMessage(
                         id=self.letta_message_id,
                         tool_call=ToolCallDelta(name=self.tool_call_name, tool_call_id=self.tool_call_id),
+                        tool_calls=ToolCallDelta(name=self.tool_call_name, tool_call_id=self.tool_call_id),
                         date=datetime.now(timezone.utc).isoformat(),
                         otid=Message.generate_otid_from_id(self.letta_message_id, message_index),
                         run_id=self.run_id,
@@ -922,6 +929,7 @@ class SimpleAnthropicStreamingInterface:
                     tool_call_msg = ApprovalRequestMessage(
                         id=self.letta_message_id,
                         tool_call=ToolCallDelta(name=self.tool_call_name, tool_call_id=self.tool_call_id, arguments=delta.partial_json),
+                        tool_calls=ToolCallDelta(name=self.tool_call_name, tool_call_id=self.tool_call_id, arguments=delta.partial_json),
                         date=datetime.now(timezone.utc).isoformat(),
                         otid=Message.generate_otid_from_id(self.letta_message_id, message_index),
                         run_id=self.run_id,

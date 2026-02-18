@@ -329,15 +329,20 @@ class SimpleGeminiStreamingInterface:
                 self.collected_tool_calls.append(ToolCall(id=call_id, function=FunctionCall(name=name, arguments=arguments_str)))
 
                 if self.tool_call_name and self.tool_call_name in self.requires_approval_tools:
-                    yield ApprovalRequestMessage(
-                        id=decrement_message_uuid(self.letta_message_id),
-                        otid=Message.generate_otid_from_id(decrement_message_uuid(self.letta_message_id), -1),
-                        date=datetime.now(timezone.utc),
-                        tool_call=ToolCallDelta(
+                    tool_call_delta = (
+                        ToolCallDelta(
                             name=name,
                             arguments=arguments_str,
                             tool_call_id=call_id,
                         ),
+                    )
+
+                    yield ApprovalRequestMessage(
+                        id=decrement_message_uuid(self.letta_message_id),
+                        otid=Message.generate_otid_from_id(decrement_message_uuid(self.letta_message_id), -1),
+                        date=datetime.now(timezone.utc),
+                        tool_call=tool_call_delta,
+                        tool_calls=tool_call_delta,
                         run_id=self.run_id,
                         step_id=self.step_id,
                     )

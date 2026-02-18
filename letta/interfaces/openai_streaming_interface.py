@@ -419,25 +419,22 @@ class OpenAIStreamingInterface:
                                 if prev_message_type and prev_message_type != "tool_call_message":
                                     message_index += 1
                                 self.tool_call_name = str(self._get_function_name_buffer())
+                                tool_call_delta = ToolCallDelta(
+                                    name=self._get_function_name_buffer(),
+                                    arguments=None,
+                                    tool_call_id=self._get_current_function_id(),
+                                )
                                 if self.tool_call_name in self.requires_approval_tools:
                                     tool_call_msg = ApprovalRequestMessage(
                                         id=decrement_message_uuid(self.letta_message_id),
                                         date=datetime.now(timezone.utc),
-                                        tool_call=ToolCallDelta(
-                                            name=self._get_function_name_buffer(),
-                                            arguments=None,
-                                            tool_call_id=self._get_current_function_id(),
-                                        ),
+                                        tool_call=tool_call_delta,
+                                        tool_calls=tool_call_delta,
                                         otid=Message.generate_otid_from_id(decrement_message_uuid(self.letta_message_id), -1),
                                         run_id=self.run_id,
                                         step_id=self.step_id,
                                     )
                                 else:
-                                    tool_call_delta = ToolCallDelta(
-                                        name=self._get_function_name_buffer(),
-                                        arguments=None,
-                                        tool_call_id=self._get_current_function_id(),
-                                    )
                                     tool_call_msg = ToolCallMessage(
                                         id=self.letta_message_id,
                                         date=datetime.now(timezone.utc),
@@ -506,26 +503,23 @@ class OpenAIStreamingInterface:
                                     combined_chunk = "".join([*self._function_args_buffer_parts, updates_main_json])
                                     if prev_message_type and prev_message_type != "tool_call_message":
                                         message_index += 1
+                                    tool_call_delta = ToolCallDelta(
+                                        name=self._get_function_name_buffer(),
+                                        arguments=combined_chunk,
+                                        tool_call_id=self._get_current_function_id(),
+                                    )
                                     if self._get_function_name_buffer() in self.requires_approval_tools:
                                         tool_call_msg = ApprovalRequestMessage(
                                             id=decrement_message_uuid(self.letta_message_id),
                                             date=datetime.now(timezone.utc),
-                                            tool_call=ToolCallDelta(
-                                                name=self._get_function_name_buffer(),
-                                                arguments=combined_chunk,
-                                                tool_call_id=self._get_current_function_id(),
-                                            ),
+                                            tool_call=tool_call_delta,
+                                            tool_calls=tool_call_delta,
                                             # name=name,
                                             otid=Message.generate_otid_from_id(decrement_message_uuid(self.letta_message_id), -1),
                                             run_id=self.run_id,
                                             step_id=self.step_id,
                                         )
                                     else:
-                                        tool_call_delta = ToolCallDelta(
-                                            name=self._get_function_name_buffer(),
-                                            arguments=combined_chunk,
-                                            tool_call_id=self._get_current_function_id(),
-                                        )
                                         tool_call_msg = ToolCallMessage(
                                             id=self.letta_message_id,
                                             date=datetime.now(timezone.utc),
@@ -545,26 +539,23 @@ class OpenAIStreamingInterface:
                                     # If there's no buffer to clear, just output a new chunk with new data
                                     if prev_message_type and prev_message_type != "tool_call_message":
                                         message_index += 1
+                                    tool_call_delta = ToolCallDelta(
+                                        name=None,
+                                        arguments=updates_main_json,
+                                        tool_call_id=self._get_current_function_id(),
+                                    )
                                     if self._get_function_name_buffer() in self.requires_approval_tools:
                                         tool_call_msg = ApprovalRequestMessage(
                                             id=decrement_message_uuid(self.letta_message_id),
                                             date=datetime.now(timezone.utc),
-                                            tool_call=ToolCallDelta(
-                                                name=None,
-                                                arguments=updates_main_json,
-                                                tool_call_id=self._get_current_function_id(),
-                                            ),
+                                            tool_call=tool_call_delta,
+                                            tool_calls=tool_call_delta,
                                             # name=name,
                                             otid=Message.generate_otid_from_id(decrement_message_uuid(self.letta_message_id), -1),
                                             run_id=self.run_id,
                                             step_id=self.step_id,
                                         )
                                     else:
-                                        tool_call_delta = ToolCallDelta(
-                                            name=None,
-                                            arguments=updates_main_json,
-                                            tool_call_id=self._get_current_function_id(),
-                                        )
                                         tool_call_msg = ToolCallMessage(
                                             id=self.letta_message_id,
                                             date=datetime.now(timezone.utc),
@@ -945,7 +936,7 @@ class SimpleOpenAIStreamingInterface:
                     if resolved_id is None:
                         continue
 
-                    delta = ToolCallDelta(
+                    tool_call_delta = ToolCallDelta(
                         name=tool_call.function.name if (tool_call.function and tool_call.function.name) else None,
                         arguments=tool_call.function.arguments if (tool_call.function and tool_call.function.arguments) else None,
                         tool_call_id=resolved_id,
@@ -956,7 +947,8 @@ class SimpleOpenAIStreamingInterface:
                         tool_call_msg = ApprovalRequestMessage(
                             id=decrement_message_uuid(self.letta_message_id),
                             date=datetime.now(timezone.utc),
-                            tool_call=delta,
+                            tool_call=tool_call_delta,
+                            tool_calls=tool_call_delta,
                             otid=Message.generate_otid_from_id(decrement_message_uuid(self.letta_message_id), -1),
                             run_id=self.run_id,
                             step_id=self.step_id,
@@ -967,8 +959,8 @@ class SimpleOpenAIStreamingInterface:
                         tool_call_msg = ToolCallMessage(
                             id=self.letta_message_id,
                             date=datetime.now(timezone.utc),
-                            tool_call=delta,
-                            tool_calls=delta,
+                            tool_call=tool_call_delta,
+                            tool_calls=tool_call_delta,
                             otid=Message.generate_otid_from_id(self.letta_message_id, message_index),
                             run_id=self.run_id,
                             step_id=self.step_id,
@@ -1281,27 +1273,24 @@ class SimpleOpenAIResponsesStreamingInterface:
                 self.tool_call_name = name
                 # Record mapping so subsequent argument deltas can be associated
                 self._record_tool_mapping(event, new_event_item)
+                tool_call_delta = ToolCallDelta(
+                    name=name,
+                    arguments=arguments if arguments != "" else None,
+                    tool_call_id=call_id,
+                )
                 if self.tool_call_name and self.tool_call_name in self.requires_approval_tools:
                     yield ApprovalRequestMessage(
                         id=decrement_message_uuid(self.letta_message_id),
                         otid=Message.generate_otid_from_id(decrement_message_uuid(self.letta_message_id), -1),
                         date=datetime.now(timezone.utc),
-                        tool_call=ToolCallDelta(
-                            name=name,
-                            arguments=arguments if arguments != "" else None,
-                            tool_call_id=call_id,
-                        ),
+                        tool_call=tool_call_delta,
+                        tool_calls=tool_call_delta,
                         run_id=self.run_id,
                         step_id=self.step_id,
                     )
                 else:
                     if prev_message_type and prev_message_type != "tool_call_message":
                         message_index += 1
-                    tool_call_delta = ToolCallDelta(
-                        name=name,
-                        arguments=arguments if arguments != "" else None,
-                        tool_call_id=call_id,
-                    )
                     yield ToolCallMessage(
                         id=self.letta_message_id,
                         otid=Message.generate_otid_from_id(self.letta_message_id, message_index),
@@ -1458,27 +1447,24 @@ class SimpleOpenAIResponsesStreamingInterface:
                 return
 
             # We have a call id; emit approval or tool-call message accordingly
+            tool_call_delta = ToolCallDelta(
+                name=None,
+                arguments=delta,
+                tool_call_id=resolved_call_id,
+            )
             if resolved_name and resolved_name in self.requires_approval_tools:
                 yield ApprovalRequestMessage(
                     id=decrement_message_uuid(self.letta_message_id),
                     otid=Message.generate_otid_from_id(decrement_message_uuid(self.letta_message_id), -1),
                     date=datetime.now(timezone.utc),
-                    tool_call=ToolCallDelta(
-                        name=None,
-                        arguments=delta,
-                        tool_call_id=resolved_call_id,
-                    ),
+                    tool_call=tool_call_delta,
+                    tool_calls=tool_call_delta,
                     run_id=self.run_id,
                     step_id=self.step_id,
                 )
             else:
                 if prev_message_type and prev_message_type != "tool_call_message":
                     message_index += 1
-                tool_call_delta = ToolCallDelta(
-                    name=None,
-                    arguments=delta,
-                    tool_call_id=resolved_call_id,
-                )
                 yield ToolCallMessage(
                     id=self.letta_message_id,
                     otid=Message.generate_otid_from_id(self.letta_message_id, message_index),

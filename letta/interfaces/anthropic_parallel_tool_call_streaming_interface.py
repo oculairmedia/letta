@@ -327,6 +327,7 @@ class SimpleAnthropicStreamingInterface:
                         id=decrement_message_uuid(self.letta_message_id),
                         # Do not emit placeholder arguments here to avoid UI duplicates
                         tool_call=ToolCallDelta(name=name, tool_call_id=call_id),
+                        tool_calls=ToolCallDelta(name=name, tool_call_id=call_id),
                         date=datetime.now(timezone.utc).isoformat(),
                         otid=Message.generate_otid_from_id(decrement_message_uuid(self.letta_message_id), -1),
                         run_id=self.run_id,
@@ -432,6 +433,7 @@ class SimpleAnthropicStreamingInterface:
                     tool_call_msg = ApprovalRequestMessage(
                         id=decrement_message_uuid(self.letta_message_id),
                         tool_call=ToolCallDelta(name=name, tool_call_id=call_id, arguments=delta.partial_json),
+                        tool_calls=ToolCallDelta(name=name, tool_call_id=call_id, arguments=delta.partial_json),
                         date=datetime.now(timezone.utc).isoformat(),
                         otid=Message.generate_otid_from_id(decrement_message_uuid(self.letta_message_id), -1),
                         run_id=self.run_id,
