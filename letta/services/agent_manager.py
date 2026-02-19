@@ -24,6 +24,8 @@ from letta.constants import (
     INCLUDE_MODEL_KEYWORDS_BASE_TOOL_RULES,
     RETRIEVAL_QUERY_DEFAULT_PAGE_SIZE,
 )
+
+from letta.errors import LettaAgentNotFoundError, LettaError, LettaInvalidArgumentError
 from letta.helpers import ToolRulesSolver
 from letta.helpers.datetime_helpers import get_utc_time
 from letta.log import get_logger
@@ -598,24 +600,30 @@ class AgentManager:
                     result.tool_exec_environment_variables = env_vars
                     result.secrets = env_vars
 
-                # initial message sequence (skip if _init_with_no_messages is True)
+                # initial message sequence (skip non-system messages if _init_with_no_messages is True)
                 if not _init_with_no_messages:
                     init_messages = await self._generate_initial_message_sequence_async(
                         actor,
                         agent_state=result,
                         supplied_initial_message_sequence=agent_create.initial_message_sequence,
                     )
-                    result.message_ids = [msg.id for msg in init_messages]
-                    new_agent.message_ids = [msg.id for msg in init_messages]
-                    await new_agent.update_async(session, no_refresh=True)
                 else:
-                    init_messages = []
+                    all_messages = await initialize_message_sequence_async(
+                        agent_state=result, memory_edit_timestamp=get_utc_time(), include_initial_boot_message=True
+                    )
+                    init_messages = [
+                        PydanticMessage.dict_to_message(
+                            agent_id=result.id, model=result.llm_config.model, openai_message_dict=all_messages[0]
+                        )
+                    ]
 
-        # Only create messages if we initialized with messages
-        if not _init_with_no_messages:
-            await self.message_manager.create_many_messages_async(
-                pydantic_msgs=init_messages, actor=actor, project_id=result.project_id, template_id=result.template_id
-            )
+                result.message_ids = [msg.id for msg in init_messages]
+                new_agent.message_ids = [msg.id for msg in init_messages]
+                await new_agent.update_async(session, no_refresh=True)
+
+        await self.message_manager.create_many_messages_async(
+            pydantic_msgs=init_messages, actor=actor, project_id=result.project_id, template_id=result.template_id
+        )
 
         # Attach files from sources if this is a template-based creation
         # Use the new agent's sources (already copied from template via source_ids)
@@ -1320,6 +1328,11 @@ class AgentManager:
     @trace_method
     def get_system_message(self, agent_id: str, actor: PydanticUser) -> PydanticMessage:
         message_ids = self.get_agent_by_id(agent_id=agent_id, actor=actor).message_ids
+        if not message_ids:
+            raise LettaError(
+                message=f"Agent {agent_id} has no in-context messages. "
+                "This typically means the agent's system message was not initialized correctly.",
+            )
         return self.message_manager.get_message_by_id(message_id=message_ids[0], actor=actor)
 
     @enforce_types
@@ -1327,6 +1340,11 @@ class AgentManager:
     @trace_method
     async def get_system_message_async(self, agent_id: str, actor: PydanticUser) -> PydanticMessage:
         agent = await self.get_agent_by_id_async(agent_id=agent_id, include_relationships=[], actor=actor)
+        if not agent.message_ids:
+            raise LettaError(
+                message=f"Agent {agent_id} has no in-context messages. "
+                "This typically means the agent's system message was not initialized correctly.",
+            )
         return await self.message_manager.get_message_by_id_async(message_id=agent.message_ids[0], actor=actor)
 
     # TODO: This is duplicated below

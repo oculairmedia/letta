@@ -1538,7 +1538,29 @@ class TestAgentFileEdgeCases:
         imported_agent_id = next(db_id for file_id, db_id in result.id_mappings.items() if file_id == "agent-0")
         imported_agent = await server.agent_manager.get_agent_by_id_async(imported_agent_id, other_user)
 
-        assert len(imported_agent.message_ids) == 0
+        assert len(imported_agent.message_ids) == 1
+
+    async def test_init_with_no_messages_still_has_system_message(self, server, default_user):
+        """Test that _init_with_no_messages=True still creates a system message so context window doesn't crash."""
+        create_agent_request = CreateAgent(
+            name="partially_initialized_agent",
+            system="Test system prompt",
+            llm_config=LLMConfig.default_config("gpt-4o-mini"),
+            embedding_config=EmbeddingConfig.default_config(provider="openai"),
+            initial_message_sequence=[],
+        )
+
+        agent_state = await server.agent_manager.create_agent_async(
+            agent_create=create_agent_request,
+            actor=default_user,
+            _init_with_no_messages=True,
+        )
+
+        assert agent_state.message_ids is not None
+        assert len(agent_state.message_ids) == 1
+
+        context_window = await server.agent_manager.get_context_window(agent_id=agent_state.id, actor=default_user)
+        assert context_window is not None
 
     async def test_large_agent_file(self, server, agent_serialization_manager, default_user, other_user, weather_tool):
         """Test handling of larger agent files with many messages."""

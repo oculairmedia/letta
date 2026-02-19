@@ -755,6 +755,10 @@ class AgentSerializationManager:
                 agent_db_id = file_to_db_ids[agent_schema.id]
                 message_file_to_db_ids = {}
 
+                # Save placeholder message IDs so we can clean them up after successful import
+                agent_state = await self.agent_manager.get_agent_by_id_async(agent_db_id, actor)
+                placeholder_message_ids = list(agent_state.message_ids) if agent_state.message_ids else []
+
                 # Create messages for this agent
                 messages = []
                 for message_schema in agent_schema.messages:
@@ -779,6 +783,10 @@ class AgentSerializationManager:
 
                 # Update agent with the correct message_ids
                 await self.agent_manager.update_message_ids_async(agent_id=agent_db_id, message_ids=in_context_db_ids, actor=actor)
+
+                # Clean up placeholder messages now that import succeeded
+                for placeholder_id in placeholder_message_ids:
+                    await self.message_manager.delete_message_by_id_async(message_id=placeholder_id, actor=actor)
 
             # 8. Create file-agent relationships (depends on agents and files)
             for agent_schema in schema.agents:
