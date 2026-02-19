@@ -1268,11 +1268,14 @@ class SyncServer(object):
 
             # Build LLMConfig objects from database
             provider_cache: Dict[str, Provider] = {}
+            typed_provider_cache: Dict[str, Any] = {}
             for model in provider_models:
                 # Get provider details (with caching to avoid N+1 queries)
                 if model.provider_id not in provider_cache:
                     provider_cache[model.provider_id] = await self.provider_manager.get_provider_async(model.provider_id, actor)
+                    typed_provider_cache[model.provider_id] = provider_cache[model.provider_id].cast_to_subtype()
                 provider = provider_cache[model.provider_id]
+                typed_provider = typed_provider_cache[model.provider_id]
 
                 # Skip non-base providers (they're handled separately)
                 if provider.provider_category != ProviderCategory.base:
@@ -1287,10 +1290,12 @@ class SyncServer(object):
                 # For bedrock, use schema default for base_url since DB may have NULL
                 # TODO: can maybe do this for all models but want to isolate change so we don't break any other providers
                 if provider.provider_type == ProviderType.bedrock:
-                    typed_provider = provider.cast_to_subtype()
                     model_endpoint = typed_provider.base_url
                 else:
                     model_endpoint = provider.base_url
+
+                # Get provider-specific default max_tokens
+                max_tokens = typed_provider.get_default_max_output_tokens(model.name)
 
                 llm_config = LLMConfig(
                     model=model.name,
@@ -1300,6 +1305,7 @@ class SyncServer(object):
                     handle=model.handle,
                     provider_name=provider.name,
                     provider_category=provider.provider_category,
+                    max_tokens=max_tokens,
                 )
                 llm_models.append(llm_config)
 
@@ -1354,6 +1360,7 @@ class SyncServer(object):
                             enabled=True,
                         )
                     for model in provider_llm_models:
+                        max_tokens = typed_provider.get_default_max_output_tokens(model.name)
                         llm_config = LLMConfig(
                             model=model.name,
                             model_endpoint_type=model.model_endpoint_type,
@@ -1362,6 +1369,7 @@ class SyncServer(object):
                             handle=model.handle,
                             provider_name=provider.name,
                             provider_category=ProviderCategory.byok,
+                            max_tokens=max_tokens,
                         )
                         llm_models.append(llm_config)
                 except Exception as e:
