@@ -27178,7 +27178,7 @@
             "type": "boolean",
             "title": "Parallel Tool Calls",
             "description": "Whether to enable parallel tool calling.",
-            "default": false
+            "default": true
           },
           "provider_type": {
             "type": "string",
@@ -28188,7 +28188,7 @@
             "type": "boolean",
             "title": "Parallel Tool Calls",
             "description": "Whether to enable parallel tool calling.",
-            "default": false
+            "default": true
           },
           "provider_type": {
             "type": "string",
@@ -28501,7 +28501,7 @@
             "type": "boolean",
             "title": "Parallel Tool Calls",
             "description": "Whether to enable parallel tool calling.",
-            "default": false
+            "default": true
           },
           "provider_type": {
             "type": "string",
@@ -30344,7 +30344,7 @@
             "type": "boolean",
             "title": "Parallel Tool Calls",
             "description": "Whether to enable parallel tool calling.",
-            "default": false
+            "default": true
           },
           "provider_type": {
             "type": "string",
@@ -32971,7 +32971,7 @@
             "type": "boolean",
             "title": "Parallel Tool Calls",
             "description": "Whether to enable parallel tool calling.",
-            "default": false
+            "default": true
           },
           "provider_type": {
             "type": "string",
@@ -34888,7 +34888,7 @@
             "type": "boolean",
             "title": "Parallel Tool Calls",
             "description": "Whether to enable parallel tool calling.",
-            "default": false
+            "default": true
           },
           "provider_type": {
             "type": "string",
@@ -34957,7 +34957,7 @@
             "type": "boolean",
             "title": "Parallel Tool Calls",
             "description": "Whether to enable parallel tool calling.",
-            "default": false
+            "default": true
           },
           "provider_type": {
             "type": "string",
@@ -35026,7 +35026,7 @@
             "type": "boolean",
             "title": "Parallel Tool Calls",
             "description": "Whether to enable parallel tool calling.",
-            "default": false
+            "default": true
           },
           "provider_type": {
             "type": "string",
@@ -40650,7 +40650,7 @@
             "type": "boolean",
             "title": "Parallel Tool Calls",
             "description": "Whether to enable parallel tool calling.",
-            "default": false
+            "default": true
           },
           "provider_type": {
             "type": "string",
@@ -40737,7 +40737,7 @@
             "type": "boolean",
             "title": "Parallel Tool Calls",
             "description": "Whether to enable parallel tool calling.",
-            "default": false
+            "default": true
           },
           "provider_type": {
             "type": "string",
@@ -45079,7 +45079,7 @@
             "type": "boolean",
             "title": "Parallel Tool Calls",
             "description": "Whether to enable parallel tool calling.",
-            "default": false
+            "default": true
           },
           "provider_type": {
             "type": "string",
@@ -48010,7 +48010,7 @@
             "type": "boolean",
             "title": "Parallel Tool Calls",
             "description": "Whether to enable parallel tool calling.",
-            "default": false
+            "default": true
           },
           "provider_type": {
             "type": "string",
@@ -48072,7 +48072,7 @@
             "type": "boolean",
             "title": "Parallel Tool Calls",
             "description": "Whether to enable parallel tool calling.",
-            "default": false
+            "default": true
           },
           "provider_type": {
             "type": "string",

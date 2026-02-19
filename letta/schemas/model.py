@@ -212,7 +212,7 @@ class ModelSettings(BaseModel):
 
     # model: str = Field(..., description="The name of the model.")
     max_output_tokens: int = Field(4096, description="The maximum number of tokens the model can generate.")
-    parallel_tool_calls: bool = Field(False, description="Whether to enable parallel tool calling.")
+    parallel_tool_calls: bool = Field(True, description="Whether to enable parallel tool calling.")
 
 
 class OpenAIReasoning(BaseModel):
