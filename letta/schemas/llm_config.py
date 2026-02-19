@@ -360,6 +360,7 @@ class LLMConfig(BaseModel):
                 thinking=AnthropicThinking(type=thinking_type, budget_tokens=self.max_reasoning_tokens or 1024),
                 verbosity=self.verbosity,
                 strict=self.strict,
+                effort=self.effort,
             )
         elif self.model_endpoint_type == "google_ai":
             return GoogleAIModelSettings(
