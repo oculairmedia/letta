@@ -386,6 +386,7 @@ LLM_MAX_CONTEXT_WINDOW = {
     "gemini-2.5-computer-use-preview-10-2025": 1048576,
     # gemini 3
     "gemini-3-pro-preview": 1048576,
+    "gemini-3.1-pro-preview": 1048576,
     "gemini-3-flash-preview": 1048576,
     # gemini latest aliases
     "gemini-flash-latest": 1048576,
