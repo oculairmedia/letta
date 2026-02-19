@@ -146,7 +146,7 @@ class GitOperations:
             shutil.rmtree(os.path.dirname(repo_path), ignore_errors=True)
 
     async def _upload_repo(self, local_repo_path: str, agent_id: str, org_id: str) -> None:
-        """Upload a local repo to storage."""
+        """Upload a local repo to storage (full upload)."""
         t_start = time.perf_counter()
         storage_prefix = self._repo_path(agent_id, org_id)
 
@@ -178,6 +178,55 @@ class GitOperations:
         total_time = (time.perf_counter() - t_start) * 1000
         logger.info(
             f"[GIT_PERF] _upload_repo TOTAL {total_time:.2f}ms "
+            f"files={len(upload_tasks)} bytes={total_bytes} "
+            f"upload_time={upload_time:.2f}ms"
+        )
+
+    @staticmethod
+    def _snapshot_git_files(git_dir: str) -> Dict[str, float]:
+        """Snapshot mtime of all files under .git/ for delta detection."""
+        snapshot = {}
+        for root, _dirs, files in os.walk(git_dir):
+            for filename in files:
+                path = os.path.join(root, filename)
+                snapshot[path] = os.path.getmtime(path)
+        return snapshot
+
+    async def _upload_delta(
+        self,
+        local_repo_path: str,
+        agent_id: str,
+        org_id: str,
+        before_snapshot: Dict[str, float],
+    ) -> None:
+        """Upload only new/modified files since before_snapshot."""
+        t_start = time.perf_counter()
+        storage_prefix = self._repo_path(agent_id, org_id)
+        git_dir = os.path.join(local_repo_path, ".git")
+
+        upload_tasks = []
+        total_bytes = 0
+
+        for root, _dirs, files in os.walk(git_dir):
+            for filename in files:
+                local_path = os.path.join(root, filename)
+                old_mtime = before_snapshot.get(local_path)
+                # New file or modified since snapshot
+                if old_mtime is None or os.path.getmtime(local_path) != old_mtime:
+                    rel_path = os.path.relpath(local_path, git_dir)
+                    storage_path = f"{storage_prefix}/{rel_path}"
+                    with open(local_path, "rb") as f:
+                        content = f.read()
+                    total_bytes += len(content)
+                    upload_tasks.append((storage_path, content))
+
+        t0 = time.perf_counter()
+        await asyncio.gather(*[self.storage.upload_bytes(path, content) for path, content in upload_tasks])
+        upload_time = (time.perf_counter() - t0) * 1000
+
+        total_time = (time.perf_counter() - t_start) * 1000
+        logger.info(
+            f"[GIT_PERF] _upload_delta TOTAL {total_time:.2f}ms "
             f"files={len(upload_tasks)} bytes={total_bytes} "
             f"upload_time={upload_time:.2f}ms"
         )
@@ -396,6 +445,9 @@ class GitOperations:
         logger.info(f"[GIT_PERF] _commit_with_lock download phase took {download_time:.2f}ms")
 
         try:
+            # Snapshot git objects before commit for delta upload
+            git_dir = os.path.join(repo_path, ".git")
+            before_snapshot = self._snapshot_git_files(git_dir)
 
             def _commit():
                 t_git_start = time.perf_counter()
@@ -484,11 +536,11 @@ class GitOperations:
             git_thread_time = (time.perf_counter() - t0) * 1000
             logger.info(f"[GIT_PERF] _commit_with_lock git thread took {git_thread_time:.2f}ms")
 
-            # Upload the updated repo
+            # Upload only new/modified objects (delta)
             t0 = time.perf_counter()
-            await self._upload_repo(repo_path, agent_id, org_id)
+            await self._upload_delta(repo_path, agent_id, org_id, before_snapshot)
             upload_time = (time.perf_counter() - t0) * 1000
-            logger.info(f"[GIT_PERF] _commit_with_lock upload phase took {upload_time:.2f}ms")
+            logger.info(f"[GIT_PERF] _commit_with_lock upload phase (delta) took {upload_time:.2f}ms")
 
             total_time = (time.perf_counter() - t_start) * 1000
             logger.info(
