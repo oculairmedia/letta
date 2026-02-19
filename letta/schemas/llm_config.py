@@ -137,13 +137,12 @@ class LLMConfig(BaseModel):
         if model is None:
             return values
 
-        # Set max_tokens defaults based on model
-        if values.get("max_tokens") is None:
+        # Set max_tokens defaults based on model (only if not explicitly provided)
+        if "max_tokens" not in values:
             if model.startswith("gpt-5"):  # Covers both gpt-5 and gpt-5.1
                 values["max_tokens"] = 16384
             elif model == "gpt-4.1":
                 values["max_tokens"] = 8192
-            # For other models, the field default of 4096 will be used
 
         # Set context_window defaults if not provided
         if values.get("context_window") is None:
