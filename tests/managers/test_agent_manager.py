@@ -261,8 +261,8 @@ async def test_compaction_settings_model_uses_separate_llm_config_for_summarizat
     base_llm_config = LLMConfig.default_config("gpt-4o-mini")
     assert base_llm_config.model == "gpt-4o-mini"
 
-    # Configure compaction to use a different summarizer model
-    summarizer_handle = "openai/gpt-5-mini"
+    # Configure compaction to use a different summarizer model (!= default openai summarizer model)
+    summarizer_handle = "openai/gpt-5-nano"
     summarizer_model_settings = OpenAIModelSettings(
         max_output_tokens=1234,
         temperature=0.1,
@@ -354,10 +354,99 @@ async def test_compaction_settings_model_uses_separate_llm_config_for_summarizat
 
     # Summarizer config should use the handle/model from compaction_settings
     assert summarizer_llm_config.handle == summarizer_handle
-    assert summarizer_llm_config.model == "gpt-5-mini"
+    assert summarizer_llm_config.model == "gpt-5-nano"
     # And should reflect overrides from model_settings
     assert summarizer_llm_config.max_tokens == 1234
     assert summarizer_llm_config.temperature == 0.1
+
+
+@pytest.mark.asyncio
+async def test_create_agent_sets_default_compaction_model_anthropic(server: SyncServer, default_user):
+    """When no compaction_settings provided for Anthropic agent, default haiku model should be set."""
+    from letta.schemas.agent import CreateAgent
+
+    await server.init_async(init_with_default_org_and_user=True)
+
+    # Upsert base tools
+    await server.tool_manager.upsert_base_tools_async(actor=default_user)
+
+    # Create agent without compaction_settings using Anthropic LLM
+    agent = await server.create_agent_async(
+        CreateAgent(
+            name="test-default-compaction-anthropic",
+            model="anthropic/claude-sonnet-4-5-20250929",
+            # No compaction_settings
+        ),
+        actor=default_user,
+    )
+
+    # Should have default haiku model set
+    assert agent.compaction_settings is not None
+    assert agent.compaction_settings.model == "anthropic/claude-haiku-4-5"
+
+
+@pytest.mark.asyncio
+async def test_create_agent_sets_default_compaction_model_openai(server: SyncServer, default_user):
+    """When no compaction_settings provided for OpenAI agent, default gpt-5-mini model should be set."""
+    from letta.schemas.agent import CreateAgent
+
+    await server.init_async(init_with_default_org_and_user=True)
+
+    # Upsert base tools
+    await server.tool_manager.upsert_base_tools_async(actor=default_user)
+
+    # Create agent without compaction_settings using OpenAI LLM
+    agent = await server.create_agent_async(
+        CreateAgent(
+            name="test-default-compaction-openai",
+            model="openai/gpt-4o-mini",
+            # No compaction_settings
+        ),
+        actor=default_user,
+    )
+
+    # Should have default gpt-5-mini model set
+    assert agent.compaction_settings is not None
+    assert agent.compaction_settings.model == "openai/gpt-5-mini"
+
+
+@pytest.mark.asyncio
+async def test_create_agent_preserves_compaction_settings_when_model_set(server: SyncServer, default_user):
+    """When compaction_settings.model is already set, it should not be overwritten."""
+    from letta.schemas.agent import CreateAgent
+    from letta.schemas.model import OpenAIModelSettings, OpenAIReasoning
+    from letta.services.summarizer.summarizer_config import CompactionSettings
+
+    await server.init_async(init_with_default_org_and_user=True)
+
+    # Upsert base tools
+    await server.tool_manager.upsert_base_tools_async(actor=default_user)
+
+    summarizer_handle = "gpt-4o-mini"
+
+    summarizer_config = CompactionSettings(
+        model=summarizer_handle,
+        model_settings=OpenAIModelSettings(max_output_tokens=1234, temperature=0.1, reasoning=OpenAIReasoning(reasoning_effort="high")),
+        prompt="You are a summarizer.",
+        clip_chars=2000,
+        mode="all",
+        sliding_window_percentage=0.3,
+    )
+
+    # Create agent with explicit compaction_settings model
+    agent = await server.create_agent_async(
+        CreateAgent(
+            name="test-preserve-compaction",
+            model="openai/gpt-5.2-codex",
+            compaction_settings=summarizer_config,
+        ),
+        actor=default_user,
+    )
+
+    # Should preserve the custom model, not override with gpt-5-mini default
+    assert agent.compaction_settings is not None
+    assert agent.compaction_settings.model == summarizer_handle
+    assert agent.compaction_settings.mode == "all"
 
 
 @pytest.mark.asyncio
@@ -686,9 +775,6 @@ async def test_create_agent_with_compaction_settings(server: SyncServer, default
 async def test_update_agent_compaction_settings(server: SyncServer, comprehensive_test_agent_fixture, default_user):
     """Test that an agent's compaction_settings can be updated"""
     agent, _ = comprehensive_test_agent_fixture
-
-    # Verify initial state (should be None or default)
-    assert agent.compaction_settings is None
 
     # Create new compaction settings
     llm_config = LLMConfig.default_config("gpt-4o-mini")

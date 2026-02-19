@@ -489,6 +489,34 @@ class AgentManager:
                 if tool_rules:
                     check_supports_structured_output(model=agent_create.llm_config.model, tool_rules=tool_rules)
 
+                # Update agent's compaction settings with defaults if needed
+                from letta.schemas.enums import ProviderType
+                from letta.services.summarizer.summarizer_config import CompactionSettings, get_default_summarizer_model
+
+                effective_compaction_settings = agent_create.compaction_settings
+                # Use provider_name if set, otherwise fall back to model_endpoint_type
+                provider_name = agent_create.llm_config.provider_name or agent_create.llm_config.model_endpoint_type
+
+                # Convert to ProviderType enum to get default summarizer model
+                try:
+                    default_model = get_default_summarizer_model(provider_type=ProviderType(provider_name))
+                except (ValueError, TypeError):  # unknown provider
+                    default_model = None
+
+                # Use agent's model as fallback
+                if not default_model:
+                    default_model = agent_create.llm_config.model
+
+                if effective_compaction_settings is None:
+                    # If no settings provided, INITIALIZE with default model
+                    effective_compaction_settings = CompactionSettings(model=default_model)
+                elif effective_compaction_settings is not None and effective_compaction_settings.model is None:
+                    # If settings provided but no model, UPDATE with default model
+                    effective_compaction_settings = effective_compaction_settings.model_copy(update={"model": default_model})
+
+                # Will set mode-specific default prompt if no prompt is provided
+                effective_compaction_settings = effective_compaction_settings.set_mode_specific_prompt()
+
                 new_agent = AgentModel(
                     name=agent_create.name,
                     system=derive_system_message(
@@ -499,7 +527,7 @@ class AgentManager:
                     agent_type=agent_create.agent_type,
                     llm_config=agent_create.llm_config,
                     embedding_config=agent_create.embedding_config,
-                    compaction_settings=agent_create.compaction_settings,
+                    compaction_settings=effective_compaction_settings,
                     organization_id=actor.organization_id,
                     description=agent_create.description,
                     metadata_=agent_create.metadata,

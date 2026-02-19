@@ -2389,7 +2389,21 @@ async def summarize_messages(
 
     agent_loop = LettaAgentV3(agent_state=agent, actor=actor)
     in_context_messages = await server.message_manager.get_messages_by_ids_async(message_ids=agent.message_ids, actor=actor)
-    compaction_settings = request.compaction_settings if request else None
+    # Merge request compaction_settings with agent's settings (request overrides agent)
+    if agent.compaction_settings and request and request.compaction_settings:
+        # Start with agent's settings, override with new values from request
+        # Use model_fields_set to get the fields that were changed in the request (want to ignore the defaults that get set automatically)
+        compaction_settings = agent.compaction_settings
+        changed_fields = request.compaction_settings.model_fields_set
+        for field in changed_fields:
+            setattr(compaction_settings, field, getattr(request.compaction_settings, field))
+
+        # If mode changed from agent's original settings and prompt not explicitly set in request, then use the default prompt for the new mode
+        # Ex: previously was sliding_window, now is all, so we need to use the default prompt for all mode
+        if "mode" in changed_fields and compaction_settings.mode != request.compaction_settings.mode:
+            compaction_settings = compaction_settings.set_mode_specific_prompt()
+    else:
+        compaction_settings = (request and request.compaction_settings) or agent.compaction_settings
     num_messages_before = len(in_context_messages)
     summary_message, messages, summary = await agent_loop.compact(
         messages=in_context_messages,

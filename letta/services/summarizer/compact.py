@@ -13,7 +13,7 @@ from letta.schemas.message import Message, MessageCreate
 from letta.schemas.tool import Tool
 from letta.schemas.user import User
 from letta.services.summarizer.summarizer_all import summarize_all
-from letta.services.summarizer.summarizer_config import CompactionSettings
+from letta.services.summarizer.summarizer_config import CompactionSettings, get_default_summarizer_model
 from letta.services.summarizer.summarizer_sliding_window import (
     count_tokens,
     count_tokens_with_tools,
@@ -54,7 +54,21 @@ async def build_summarizer_llm_config(
     Returns:
         LLMConfig configured for summarization.
     """
-    # If no summarizer model handle is provided, fall back to the agent's config
+    from letta.schemas.enums import ProviderType
+
+    # If no summarizer model specified, use lightweight provider-specific defaults
+    if not summarizer_config.model:
+        provider_name = agent_llm_config.provider_name or agent_llm_config.model_endpoint_type
+        try:
+            provider_type = ProviderType(provider_name)
+            default_model = get_default_summarizer_model(provider_type=provider_type)
+            if default_model:
+                # Use default model
+                summarizer_config = summarizer_config.model_copy(update={"model": default_model})
+        except (ValueError, TypeError):
+            pass  # Unknown provider - will fall back to agent's model below
+
+    # If still no model after defaults, use agent's model
     if not summarizer_config.model:
         return agent_llm_config
 
@@ -71,7 +85,6 @@ async def build_summarizer_llm_config(
         # Check if the summarizer's provider matches the agent's provider
         # If they match, we can safely use the agent's config as a base
         # If they don't match, we need to load the default config for the new provider
-        from letta.schemas.enums import ProviderType
 
         provider_matches = False
         try:
@@ -158,19 +171,11 @@ async def compact_messages(
         CompactResult containing the summary message, compacted messages, summary text,
         and updated context token estimate.
     """
-    # Determine compaction settings
-    if compaction_settings is not None:
-        summarizer_config = compaction_settings
-    elif agent_model_handle is not None:
-        summarizer_config = CompactionSettings(model=agent_model_handle)
-    else:
-        # Fall back to deriving from llm_config
-        handle = agent_llm_config.handle or f"{agent_llm_config.model_endpoint_type}/{agent_llm_config.model}"
-        summarizer_config = CompactionSettings(model=handle)
+    summarizer_config = compaction_settings if compaction_settings else CompactionSettings()
 
     # Build the LLMConfig used for summarization
     summarizer_llm_config = await build_summarizer_llm_config(
-        agent_llm_config=agent_llm_config,
+        agent_llm_config=agent_llm_config,  # used to set default compaction model
         summarizer_config=summarizer_config,
         actor=actor,
     )

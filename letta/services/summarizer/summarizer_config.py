@@ -1,10 +1,30 @@
 from typing import Literal
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field
 
 from letta.prompts.summarizer_prompt import ALL_PROMPT, SLIDING_PROMPT
+from letta.schemas.enums import ProviderType
 from letta.schemas.model import ModelSettingsUnion
 from letta.settings import summarizer_settings
+
+
+def get_default_summarizer_model(provider_type: ProviderType) -> str | None:
+    """Get default model for summarization for given provider type."""
+    summarizer_defaults = {
+        ProviderType.anthropic: "anthropic/claude-haiku-4-5",
+        ProviderType.openai: "openai/gpt-5-mini",
+        ProviderType.google_ai: "google_ai/gemini-2.0-flash",
+    }
+    return summarizer_defaults.get(provider_type)
+
+
+def get_default_prompt_for_mode(mode: Literal["all", "sliding_window"]) -> str:
+    """Get the default prompt for a given compaction mode.
+    Also used in /summarize endpoint if mode is changed and prompt is not explicitly set."""
+    if mode == "all":
+        return ALL_PROMPT
+    else:  # sliding_window
+        return SLIDING_PROMPT
 
 
 class CompactionSettings(BaseModel):
@@ -16,10 +36,10 @@ class CompactionSettings(BaseModel):
     """
 
     # Summarizer model handle (provider/model-name).
-    # This is required whenever compaction_settings is provided.
-    model: str = Field(
-        ...,
-        description="Model handle to use for summarization (format: provider/model-name).",
+    # If None, uses lightweight provider-specific defaults (e.g., haiku for Anthropic, gpt-5-mini for OpenAI).
+    model: str | None = Field(
+        default=None,
+        description="Model handle to use for summarization (format: provider/model-name). If None, uses lightweight provider-specific defaults.",
     )
 
     # Optional provider-specific model settings for the summarizer model
@@ -36,18 +56,15 @@ class CompactionSettings(BaseModel):
         default=50000, description="The maximum length of the summary in characters. If none, no clipping is performed."
     )
 
-    mode: Literal["all", "sliding_window"] = Field(default="sliding_window", description="The type of summarization technique use.")
+    mode: Literal["all", "sliding_window", "self"] = Field(default="sliding_window", description="The type of summarization technique use.")
     sliding_window_percentage: float = Field(
         default_factory=lambda: summarizer_settings.partial_evict_summarizer_percentage,
         description="The percentage of the context window to keep post-summarization (only used in sliding window mode).",
     )
 
-    @model_validator(mode="after")
+    # Called upon agent creation and if mode is changed in summarize endpoint request
     def set_mode_specific_prompt(self):
         """Set mode-specific default prompt if none provided."""
         if self.prompt is None:
-            if self.mode == "all":
-                self.prompt = ALL_PROMPT
-            else:  # sliding_window
-                self.prompt = SLIDING_PROMPT
+            self.prompt = get_default_prompt_for_mode(self.mode)
         return self

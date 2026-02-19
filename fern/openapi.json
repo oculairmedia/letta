@@ -30600,9 +30600,16 @@
       "CompactionSettings-Input": {
         "properties": {
           "model": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Model",
-            "description": "Model handle to use for summarization (format: provider/model-name)."
+            "description": "Model handle to use for summarization (format: provider/model-name). If None, uses lightweight provider-specific defaults."
           },
           "model_settings": {
             "anyOf": [
@@ -30707,7 +30714,7 @@
           },
           "mode": {
             "type": "string",
-            "enum": ["all", "sliding_window"],
+            "enum": ["all", "sliding_window", "self"],
             "title": "Mode",
             "description": "The type of summarization technique use.",
             "default": "sliding_window"
@@ -30719,16 +30726,22 @@
           }
         },
         "type": "object",
-        "required": ["model"],
         "title": "CompactionSettings",
         "description": "Configuration for conversation compaction / summarization.\n\n``model`` is the only required user-facing field – it specifies the summarizer\nmodel handle (e.g. ``\"openai/gpt-4o-mini\"``). Per-model settings (temperature,\nmax tokens, etc.) are derived from the default configuration for that handle."
       },
       "CompactionSettings-Output": {
         "properties": {
           "model": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Model",
-            "description": "Model handle to use for summarization (format: provider/model-name)."
+            "description": "Model handle to use for summarization (format: provider/model-name). If None, uses lightweight provider-specific defaults."
           },
           "model_settings": {
             "anyOf": [
@@ -30833,7 +30846,7 @@
           },
           "mode": {
             "type": "string",
-            "enum": ["all", "sliding_window"],
+            "enum": ["all", "sliding_window", "self"],
             "title": "Mode",
             "description": "The type of summarization technique use.",
             "default": "sliding_window"
@@ -30845,7 +30858,6 @@
           }
         },
         "type": "object",
-        "required": ["model"],
         "title": "CompactionSettings",
         "description": "Configuration for conversation compaction / summarization.\n\n``model`` is the only required user-facing field – it specifies the summarizer\nmodel handle (e.g. ``\"openai/gpt-4o-mini\"``). Per-model settings (temperature,\nmax tokens, etc.) are derived from the default configuration for that handle."
       },
