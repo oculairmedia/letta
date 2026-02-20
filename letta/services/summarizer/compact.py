@@ -73,48 +73,21 @@ async def build_summarizer_llm_config(
         return agent_llm_config
 
     try:
-        # Parse provider/model from the handle, falling back to the agent's
-        # provider type when only a model name is given.
-        if "/" in summarizer_config.model:
-            provider_name, model_name = summarizer_config.model.split("/", 1)
-        else:
-            provider_name = agent_llm_config.provider_name
-            model_name = summarizer_config.model
+        # Load default config for the summarizer model handle, using the agent's context window
+        from letta.services.provider_manager import ProviderManager
 
-        # Start from the agent's config and override model + provider_name + handle
-        # Check if the summarizer's provider matches the agent's provider
-        # If they match, we can safely use the agent's config as a base
-        # If they don't match, we need to load the default config for the new provider
-
-        provider_matches = False
+        provider_manager = ProviderManager()
         try:
-            # Check if provider_name is a valid ProviderType that matches agent's endpoint type
-            provider_type = ProviderType(provider_name)
-            provider_matches = provider_type.value == agent_llm_config.model_endpoint_type
-        except ValueError:
-            # provider_name is a custom label - check if it matches agent's provider_name
-            provider_matches = provider_name == agent_llm_config.provider_name
-
-        if provider_matches:
-            # Same provider - use agent's config as base and override model/handle
-            base = agent_llm_config.model_copy()
-            base.model = model_name
-            base.handle = summarizer_config.model
-        else:
-            # Different provider - load default config for this handle
-            from letta.services.provider_manager import ProviderManager
-
-            provider_manager = ProviderManager()
-            try:
-                base = await provider_manager.get_llm_config_from_handle(
-                    handle=summarizer_config.model,
-                    actor=actor,
-                )
-            except Exception as e:
-                logger.warning(
-                    f"Failed to load LLM config for summarizer handle '{summarizer_config.model}': {e}. Falling back to agent's LLM config."
-                )
-                return agent_llm_config
+            # automatically sets the context window to the max available for the summarizer model
+            base = await provider_manager.get_llm_config_from_handle(
+                handle=summarizer_config.model,
+                actor=actor,
+            )
+        except Exception as e:
+            logger.warning(
+                f"Failed to load LLM config for summarizer handle '{summarizer_config.model}': {e}. Falling back to agent's LLM config."
+            )
+            return agent_llm_config
 
         # If explicit model_settings are provided for the summarizer, apply
         # them just like server.create_agent_async does for agents.

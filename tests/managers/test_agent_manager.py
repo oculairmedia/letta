@@ -242,7 +242,7 @@ async def test_create_agent_with_model_handle_uses_correct_llm_config(server: Sy
 
 
 @pytest.mark.asyncio
-async def test_compaction_settings_model_uses_separate_llm_config_for_summarization(default_user):
+async def test_compaction_settings_model_uses_separate_llm_config_for_summarization(server: SyncServer, default_user):
     """When compaction_settings.model differs from the agent model, use a separate llm_config.
 
     This test exercises the summarization helpers directly to avoid external
@@ -256,6 +256,8 @@ async def test_compaction_settings_model_uses_separate_llm_config_for_summarizat
     from letta.schemas.message import Message as PydanticMessage
     from letta.schemas.model import OpenAIModelSettings, OpenAIReasoning
     from letta.services.summarizer.compact import build_summarizer_llm_config
+
+    await server.init_async(init_with_default_org_and_user=True)
 
     # Base agent LLM config
     base_llm_config = LLMConfig.default_config("gpt-4o-mini")
@@ -382,7 +384,7 @@ async def test_create_agent_sets_default_compaction_model_anthropic(server: Sync
 
     # Should have default haiku model set
     assert agent.compaction_settings is not None
-    assert agent.compaction_settings.model == "anthropic/claude-haiku-4-5"
+    assert agent.compaction_settings.model == "anthropic/claude-haiku-4-5-20251001"
 
 
 @pytest.mark.asyncio
