@@ -21592,6 +21592,57 @@
                   },
                   "settings": {
                     "type": "string"
+                  },
+                  "local_time": {
+                    "type": "string"
+                  },
+                  "device_type": {
+                    "type": "string"
+                  },
+                  "cwd": {
+                    "type": "string"
+                  },
+                  "total_api_ms": {
+                    "type": "number"
+                  },
+                  "total_wall_ms": {
+                    "type": "number"
+                  },
+                  "step_count": {
+                    "type": "number"
+                  },
+                  "prompt_tokens": {
+                    "type": "number"
+                  },
+                  "completion_tokens": {
+                    "type": "number"
+                  },
+                  "total_tokens": {
+                    "type": "number"
+                  },
+                  "cached_input_tokens": {
+                    "type": "number"
+                  },
+                  "cache_write_tokens": {
+                    "type": "number"
+                  },
+                  "reasoning_tokens": {
+                    "type": "number"
+                  },
+                  "context_tokens": {
+                    "type": "number"
+                  },
+                  "agent_name": {
+                    "type": "string"
+                  },
+                  "agent_description": {
+                    "type": "string"
+                  },
+                  "model": {
+                    "type": "string"
+                  },
+                  "billing_tier": {
+                    "type": "string"
                   }
                 },
                 "required": ["message"]
