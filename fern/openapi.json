@@ -21696,6 +21696,13 @@
                   },
                   "billing_tier": {
                     "type": "string"
+                  },
+                  "recent_chunks": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": {}
+                    }
                   }
                 },
                 "required": ["message"]
