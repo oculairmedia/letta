@@ -60,7 +60,9 @@ async def create_conversation(
 
 @router.get("/", response_model=List[Conversation], operation_id="list_conversations")
 async def list_conversations(
-    agent_id: Optional[str] = Query(None, description="The agent ID to list conversations for (optional - returns all conversations if not provided)"),
+    agent_id: Optional[str] = Query(
+        None, description="The agent ID to list conversations for (optional - returns all conversations if not provided)"
+    ),
     limit: int = Query(50, description="Maximum number of conversations to return"),
     after: Optional[str] = Query(None, description="Cursor for pagination (conversation ID)"),
     summary_search: Optional[str] = Query(None, description="Search for text within conversation summaries"),
@@ -104,6 +106,26 @@ async def update_conversation(
     return await conversation_manager.update_conversation(
         conversation_id=conversation_id,
         conversation_update=conversation_update,
+        actor=actor,
+    )
+
+
+@router.delete("/{conversation_id}", response_model=None, operation_id="delete_conversation")
+async def delete_conversation(
+    conversation_id: ConversationId,
+    server: SyncServer = Depends(get_letta_server),
+    headers: HeaderParams = Depends(get_headers),
+):
+    """
+    Delete a conversation (soft delete).
+
+    This marks the conversation as deleted but does not permanently remove it from the database.
+    The conversation will no longer appear in list operations.
+    Any isolated blocks associated with the conversation will be permanently deleted.
+    """
+    actor = await server.user_manager.get_actor_or_default_async(actor_id=headers.actor_id)
+    await conversation_manager.delete_conversation(
+        conversation_id=conversation_id,
         actor=actor,
     )
 

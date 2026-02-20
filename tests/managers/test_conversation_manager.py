@@ -167,6 +167,110 @@ async def test_delete_conversation(conversation_manager, server: SyncServer, sar
 
 
 @pytest.mark.asyncio
+async def test_delete_conversation_removes_from_list(conversation_manager, server: SyncServer, sarah_agent, default_user):
+    """Test that soft-deleted conversations are excluded from list results."""
+    # Create two conversations
+    conv1 = await conversation_manager.create_conversation(
+        agent_id=sarah_agent.id,
+        conversation_create=CreateConversation(summary="Keep me"),
+        actor=default_user,
+    )
+    conv2 = await conversation_manager.create_conversation(
+        agent_id=sarah_agent.id,
+        conversation_create=CreateConversation(summary="Delete me"),
+        actor=default_user,
+    )
+
+    # Delete one
+    await conversation_manager.delete_conversation(
+        conversation_id=conv2.id,
+        actor=default_user,
+    )
+
+    # List should only return the non-deleted conversation
+    conversations = await conversation_manager.list_conversations(
+        agent_id=sarah_agent.id,
+        actor=default_user,
+    )
+    conv_ids = [c.id for c in conversations]
+    assert conv1.id in conv_ids
+    assert conv2.id not in conv_ids
+
+
+@pytest.mark.asyncio
+async def test_delete_conversation_double_delete_raises(conversation_manager, server: SyncServer, sarah_agent, default_user):
+    """Test that deleting an already-deleted conversation raises NoResultFound."""
+    created = await conversation_manager.create_conversation(
+        agent_id=sarah_agent.id,
+        conversation_create=CreateConversation(summary="Delete me twice"),
+        actor=default_user,
+    )
+
+    await conversation_manager.delete_conversation(
+        conversation_id=created.id,
+        actor=default_user,
+    )
+
+    # Second delete should raise
+    with pytest.raises(NoResultFound):
+        await conversation_manager.delete_conversation(
+            conversation_id=created.id,
+            actor=default_user,
+        )
+
+
+@pytest.mark.asyncio
+async def test_update_deleted_conversation_raises(conversation_manager, server: SyncServer, sarah_agent, default_user):
+    """Test that updating a soft-deleted conversation raises NoResultFound."""
+    created = await conversation_manager.create_conversation(
+        agent_id=sarah_agent.id,
+        conversation_create=CreateConversation(summary="Original"),
+        actor=default_user,
+    )
+
+    await conversation_manager.delete_conversation(
+        conversation_id=created.id,
+        actor=default_user,
+    )
+
+    with pytest.raises(NoResultFound):
+        await conversation_manager.update_conversation(
+            conversation_id=created.id,
+            conversation_update=UpdateConversation(summary="Should fail"),
+            actor=default_user,
+        )
+
+
+@pytest.mark.asyncio
+async def test_delete_conversation_excluded_from_summary_search(conversation_manager, server: SyncServer, sarah_agent, default_user):
+    """Test that soft-deleted conversations are excluded from summary search results."""
+    await conversation_manager.create_conversation(
+        agent_id=sarah_agent.id,
+        conversation_create=CreateConversation(summary="alpha search term"),
+        actor=default_user,
+    )
+    to_delete = await conversation_manager.create_conversation(
+        agent_id=sarah_agent.id,
+        conversation_create=CreateConversation(summary="alpha deleted term"),
+        actor=default_user,
+    )
+
+    await conversation_manager.delete_conversation(
+        conversation_id=to_delete.id,
+        actor=default_user,
+    )
+
+    results = await conversation_manager.list_conversations(
+        agent_id=sarah_agent.id,
+        actor=default_user,
+        summary_search="alpha",
+    )
+    result_ids = [c.id for c in results]
+    assert to_delete.id not in result_ids
+    assert len(results) == 1
+
+
+@pytest.mark.asyncio
 async def test_conversation_isolation_by_agent(conversation_manager, server: SyncServer, sarah_agent, charles_agent, default_user):
     """Test that conversations are isolated by agent."""
     # Create conversation for sarah_agent

@@ -129,20 +129,16 @@ class ConversationManager:
                 # Build where conditions
                 conditions = [
                     ConversationModel.organization_id == actor.organization_id,
+                    ConversationModel.is_deleted == False,
                     ConversationModel.summary.isnot(None),
                     ConversationModel.summary.contains(summary_search),
                 ]
-                
+
                 # Add agent_id filter if provided
                 if agent_id is not None:
                     conditions.append(ConversationModel.agent_id == agent_id)
 
-                stmt = (
-                    select(ConversationModel)
-                    .where(and_(*conditions))
-                    .order_by(ConversationModel.created_at.desc())
-                    .limit(limit)
-                )
+                stmt = select(ConversationModel).where(and_(*conditions)).order_by(ConversationModel.created_at.desc()).limit(limit)
 
                 if after:
                     # Add cursor filtering
@@ -162,6 +158,7 @@ class ConversationManager:
                 db_session=session,
                 actor=actor,
                 agent_id=agent_id,
+                is_deleted=False,
                 limit=limit,
                 after=after,
                 ascending=False,
@@ -182,6 +179,7 @@ class ConversationManager:
                 db_session=session,
                 identifier=conversation_id,
                 actor=actor,
+                check_is_deleted=True,
             )
 
             # Set attributes on the model
@@ -209,6 +207,7 @@ class ConversationManager:
                 db_session=session,
                 identifier=conversation_id,
                 actor=actor,
+                check_is_deleted=True,
             )
 
             # Get isolated blocks before modifying conversation

@@ -8922,6 +8922,52 @@
             }
           }
         }
+      },
+      "delete": {
+        "tags": ["conversations"],
+        "summary": "Delete Conversation",
+        "description": "Delete a conversation (soft delete).\n\nThis marks the conversation as deleted but does not permanently remove it from the database.\nThe conversation will no longer appear in list operations.\nAny isolated blocks associated with the conversation will be permanently deleted.",
+        "operationId": "delete_conversation",
+        "parameters": [
+          {
+            "name": "conversation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 41,
+              "pattern": "^(default|conv-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$",
+              "description": "The conversation identifier. Either the special value 'default' or an ID in the format 'conv-<uuid4>'",
+              "examples": [
+                "default",
+                "conv-123e4567-e89b-42d3-8456-426614174000"
+              ],
+              "title": "Conversation Id"
+            },
+            "description": "The conversation identifier. Either the special value 'default' or an ID in the format 'conv-<uuid4>'"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/v1/conversations/{conversation_id}/messages": {
