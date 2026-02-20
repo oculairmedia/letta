@@ -717,6 +717,10 @@ class SyncServer(object):
                 agent = await self.agent_manager.get_agent_by_id_async(agent_id=agent_id, actor=actor)
                 request.llm_config = agent.llm_config.model_copy()
             update_llm_config_params = request.model_settings._to_legacy_config_params()
+            # Don't clobber max_tokens with the Pydantic default when the caller
+            # didn't explicitly provide max_output_tokens in the request.
+            if "max_output_tokens" not in request.model_settings.model_fields_set:
+                update_llm_config_params.pop("max_tokens", None)
             request.llm_config = request.llm_config.model_copy(update=update_llm_config_params)
 
         # Copy parallel_tool_calls from request to llm_config if provided
