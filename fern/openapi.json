@@ -25983,6 +25983,15 @@
                           },
                           "lastHeartbeat": {
                             "type": "number"
+                          },
+                          "currentMode": {
+                            "type": "string",
+                            "enum": [
+                              "default",
+                              "acceptEdits",
+                              "plan",
+                              "bypassPermissions"
+                            ]
                           }
                         },
                         "required": [
@@ -26226,6 +26235,86 @@
           },
           "503": {
             "description": "503",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "errorCode": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["errorCode", "message"]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/listeners/{connectionId}/mode": {
+      "post": {
+        "description": "Change the permission mode of a specific listener connection",
+        "summary": "Change Listener Mode",
+        "tags": ["listeners"],
+        "parameters": [
+          {
+            "name": "connectionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "operationId": "listeners.sendModeChange",
+        "requestBody": {
+          "description": "Body",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "mode": {
+                    "type": "string",
+                    "enum": [
+                      "default",
+                      "acceptEdits",
+                      "plan",
+                      "bypassPermissions"
+                    ]
+                  }
+                },
+                "required": ["mode"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "200",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["success", "message"]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "404",
             "content": {
               "application/json": {
                 "schema": {
