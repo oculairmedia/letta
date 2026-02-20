@@ -2389,6 +2389,25 @@ async def summarize_messages(
 
     agent_loop = LettaAgentV3(agent_state=agent, actor=actor)
     in_context_messages = await server.message_manager.get_messages_by_ids_async(message_ids=agent.message_ids, actor=actor)
+
+    # Early return if there's nothing to compact (only system message, or system + summary)
+    non_system_summary_messages = [m for m in in_context_messages if m.role not in (MessageRole.system, MessageRole.summary)]
+    if not non_system_summary_messages:
+        existing_summary = None
+        for m in in_context_messages:
+            if m.role == MessageRole.summary and m.content:
+                try:
+                    summary_json = json.loads(m.content[0].text)
+                    existing_summary = summary_json.get("message")
+                except (json.JSONDecodeError, IndexError, AttributeError):
+                    existing_summary = m.content[0].text if m.content else None
+                break
+        return CompactionResponse(
+            summary=existing_summary,
+            num_messages_before=len(in_context_messages),
+            num_messages_after=len(in_context_messages),
+        )
+
     # Merge request compaction_settings with agent's settings (request overrides agent)
     if agent.compaction_settings and request and request.compaction_settings:
         # Start with agent's settings, override with new values from request
