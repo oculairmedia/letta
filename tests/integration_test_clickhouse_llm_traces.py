@@ -48,7 +48,7 @@ def _require_clickhouse_env() -> dict[str, str]:
 
 def _anthropic_llm_config() -> LLMConfig:
     return LLMConfig(
-        model="claude-3-5-haiku-20241022",
+        model="claude-haiku-4-5-20251001",
         model_endpoint_type="anthropic",
         model_endpoint="https://api.anthropic.com/v1",
         context_window=200000,

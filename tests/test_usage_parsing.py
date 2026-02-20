@@ -200,7 +200,7 @@ async def test_anthropic_usage_via_adapter():
 
     client = AnthropicClient()
     llm_config = LLMConfig(
-        model="claude-3-5-haiku-20241022",
+        model="claude-haiku-4-5-20251001",
         model_endpoint_type="anthropic",
         model_endpoint="https://api.anthropic.com/v1",
         context_window=200000,
@@ -363,7 +363,7 @@ async def test_anthropic_prefix_caching_via_adapter():
 
     client = AnthropicClient()
     llm_config = LLMConfig(
-        model="claude-3-5-haiku-20241022",
+        model="claude-haiku-4-5-20251001",
         model_endpoint_type="anthropic",
         model_endpoint="https://api.anthropic.com/v1",
         context_window=200000,

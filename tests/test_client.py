@@ -168,7 +168,7 @@ def agent(client: Letta):
     agent_state = client.agents.create(
         name="test_client",
         memory_blocks=[{"label": "human", "value": ""}, {"label": "persona", "value": ""}],
-        model="anthropic/claude-haiku-4-5-20251001",
+        model="anthropic/claude-haiku-4-5",
         embedding="openai/text-embedding-3-small",
     )
 
@@ -184,7 +184,7 @@ def search_agent_one(client: Letta):
     agent_state = client.agents.create(
         name="Search Agent One",
         memory_blocks=[{"label": "human", "value": ""}, {"label": "persona", "value": ""}],
-        model="anthropic/claude-haiku-4-5-20251001",
+        model="anthropic/claude-haiku-4-5",
         embedding="openai/text-embedding-3-small",
     )
 
@@ -200,7 +200,7 @@ def search_agent_two(client: Letta):
     agent_state = client.agents.create(
         name="Search Agent Two",
         memory_blocks=[{"label": "human", "value": ""}, {"label": "persona", "value": ""}],
-        model="anthropic/claude-haiku-4-5-20251001",
+        model="anthropic/claude-haiku-4-5",
         embedding="openai/text-embedding-3-small",
     )
 
@@ -237,7 +237,7 @@ def test_add_and_manage_tags_for_agent(client: Letta):
     # Step 0: create an agent with no tags
     agent = client.agents.create(
         memory_blocks=[],
-        model="anthropic/claude-haiku-4-5-20251001",
+        model="anthropic/claude-haiku-4-5",
         embedding="openai/text-embedding-3-small",
     )
     assert len(agent.tags) == 0
@@ -281,21 +281,21 @@ def test_agent_tags(client: Letta, clear_tables):
     agent1 = client.agents.create(
         name=f"test_agent_{str(uuid.uuid4())}",
         tags=["test", "agent1", "production"],
-        model="anthropic/claude-haiku-4-5-20251001",
+        model="anthropic/claude-haiku-4-5",
         embedding="openai/text-embedding-3-small",
     )
 
     agent2 = client.agents.create(
         name=f"test_agent_{str(uuid.uuid4())}",
         tags=["test", "agent2", "development"],
-        model="anthropic/claude-haiku-4-5-20251001",
+        model="anthropic/claude-haiku-4-5",
         embedding="openai/text-embedding-3-small",
     )
 
     agent3 = client.agents.create(
         name=f"test_agent_{str(uuid.uuid4())}",
         tags=["test", "agent3", "production"],
-        model="anthropic/claude-haiku-4-5-20251001",
+        model="anthropic/claude-haiku-4-5",
         embedding="openai/text-embedding-3-small",
     )
 
@@ -348,14 +348,14 @@ def test_shared_blocks(disable_e2b_api_key, client: Letta):
         name="agent1",
         memory_blocks=[{"label": "persona", "value": "you are agent 1"}],
         block_ids=[block.id],
-        model="anthropic/claude-haiku-4-5-20251001",
+        model="anthropic/claude-haiku-4-5",
         embedding="openai/text-embedding-3-small",
     )
     agent_state2 = client.agents.create(
         name="agent2",
         memory_blocks=[{"label": "persona", "value": "you are agent 2"}],
         block_ids=[block.id],
-        model="anthropic/claude-haiku-4-5-20251001",
+        model="anthropic/claude-haiku-4-5",
         embedding="openai/text-embedding-3-small",
     )
 
@@ -374,7 +374,7 @@ def test_update_agent_memory_label(client: Letta):
     """Test that we can update the label of a block in an agent's memory"""
 
     agent = client.agents.create(
-        model="anthropic/claude-haiku-4-5-20251001",
+        model="anthropic/claude-haiku-4-5",
         embedding="openai/text-embedding-3-small",
         memory_blocks=[{"label": "human", "value": ""}],
     )
@@ -426,7 +426,7 @@ def test_update_agent_memory_limit(client: Letta):
     """Test that we can update the limit of a block in an agent's memory"""
 
     agent = client.agents.create(
-        model="anthropic/claude-haiku-4-5-20251001",
+        model="anthropic/claude-haiku-4-5",
         embedding="openai/text-embedding-3-small",
         memory_blocks=[
             {"label": "human", "value": "username: sarah", "limit": 1000},
@@ -485,7 +485,7 @@ def test_function_always_error(client: Letta):
 
     tool = client.tools.upsert_from_function(func=testing_method)
     agent = client.agents.create(
-        model="anthropic/claude-haiku-4-5-20251001",
+        model="anthropic/claude-haiku-4-5",
         embedding="openai/text-embedding-3-small",
         memory_blocks=[
             {
@@ -687,7 +687,7 @@ def test_agent_creation(client: Letta):
             },
             {"label": "persona", "value": "you are an assistant"},
         ],
-        model="anthropic/claude-haiku-4-5-20251001",
+        model="anthropic/claude-haiku-4-5",
         embedding="openai/text-embedding-3-small",
         tool_ids=[tool1.id, tool2.id],
         include_base_tools=False,
@@ -726,7 +726,7 @@ def test_initial_sequence(client: Letta):
     # create an agent
     agent = client.agents.create(
         memory_blocks=[{"label": "human", "value": ""}, {"label": "persona", "value": ""}],
-        model="anthropic/claude-haiku-4-5-20251001",
+        model="anthropic/claude-haiku-4-5",
         embedding="openai/text-embedding-3-small",
         initial_message_sequence=[
             MessageCreateParam(
@@ -758,7 +758,7 @@ def test_initial_sequence(client: Letta):
 # def test_timezone(client: Letta):
 #     agent = client.agents.create(
 #         memory_blocks=[{"label": "human", "value": ""}, {"label": "persona", "value": ""}],
-#         model="anthropic/claude-haiku-4-5-20251001",
+#         model="anthropic/claude-haiku-4-5",
 #         embedding="openai/text-embedding-3-small",
 #         timezone="America/Los_Angeles",
 #     )
@@ -793,7 +793,7 @@ def test_initial_sequence(client: Letta):
 def test_attach_sleeptime_block(client: Letta):
     agent = client.agents.create(
         memory_blocks=[{"label": "human", "value": ""}, {"label": "persona", "value": ""}],
-        model="anthropic/claude-haiku-4-5-20251001",
+        model="anthropic/claude-haiku-4-5",
         embedding="openai/text-embedding-3-small",
         enable_sleeptime=True,
     )

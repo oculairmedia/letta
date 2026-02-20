@@ -37,7 +37,7 @@ from tests.utils import create_tool_from_func
 # Model identifiers used in tests
 MODELS = {
     "sonnet": "anthropic/claude-sonnet-4-20250514",
-    "haiku": "anthropic/claude-haiku-4-5-20251001",
+    "haiku": "anthropic/claude-haiku-4-5",
     "opus": "anthropic/claude-opus-4-1-20250805",
 }
 

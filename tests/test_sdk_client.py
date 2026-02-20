@@ -1112,7 +1112,7 @@ def test_include_return_message_types(client: LettaSDKClient, agent: AgentState,
         memory_blocks=[
             CreateBlockParam(label="user", value="Name: Charles"),
         ],
-        model="anthropic/claude-haiku-4-5-20251001",
+        model="anthropic/claude-haiku-4-5",
         embedding="openai/text-embedding-3-small",
     )
 
