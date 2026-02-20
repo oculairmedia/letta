@@ -103,16 +103,16 @@ class ConversationManager:
     @trace_method
     async def list_conversations(
         self,
-        agent_id: str,
+        agent_id: Optional[str],
         actor: PydanticUser,
         limit: int = 50,
         after: Optional[str] = None,
         summary_search: Optional[str] = None,
     ) -> List[PydanticConversation]:
-        """List conversations for an agent with cursor-based pagination.
+        """List conversations for an agent (or all conversations) with cursor-based pagination.
 
         Args:
-            agent_id: The agent ID to list conversations for
+            agent_id: The agent ID to list conversations for (optional - returns all if not provided)
             actor: The user performing the action
             limit: Maximum number of conversations to return
             after: Cursor for pagination (conversation ID)
@@ -126,16 +126,20 @@ class ConversationManager:
             if summary_search:
                 from sqlalchemy import and_
 
+                # Build where conditions
+                conditions = [
+                    ConversationModel.organization_id == actor.organization_id,
+                    ConversationModel.summary.isnot(None),
+                    ConversationModel.summary.contains(summary_search),
+                ]
+                
+                # Add agent_id filter if provided
+                if agent_id is not None:
+                    conditions.append(ConversationModel.agent_id == agent_id)
+
                 stmt = (
                     select(ConversationModel)
-                    .where(
-                        and_(
-                            ConversationModel.agent_id == agent_id,
-                            ConversationModel.organization_id == actor.organization_id,
-                            ConversationModel.summary.isnot(None),
-                            ConversationModel.summary.contains(summary_search),
-                        )
-                    )
+                    .where(and_(*conditions))
                     .order_by(ConversationModel.created_at.desc())
                     .limit(limit)
                 )

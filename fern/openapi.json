@@ -8718,19 +8718,26 @@
       "get": {
         "tags": ["conversations"],
         "summary": "List Conversations",
-        "description": "List all conversations for an agent.",
+        "description": "List all conversations for an agent (or all conversations if agent_id not provided).",
         "operationId": "list_conversations",
         "parameters": [
           {
             "name": "agent_id",
             "in": "query",
-            "required": true,
+            "required": false,
             "schema": {
-              "type": "string",
-              "description": "The agent ID to list conversations for",
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The agent ID to list conversations for (optional - returns all conversations if not provided)",
               "title": "Agent Id"
             },
-            "description": "The agent ID to list conversations for"
+            "description": "The agent ID to list conversations for (optional - returns all conversations if not provided)"
           },
           {
             "name": "limit",

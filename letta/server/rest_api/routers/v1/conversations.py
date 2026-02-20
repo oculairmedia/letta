@@ -60,14 +60,14 @@ async def create_conversation(
 
 @router.get("/", response_model=List[Conversation], operation_id="list_conversations")
 async def list_conversations(
-    agent_id: str = Query(..., description="The agent ID to list conversations for"),
+    agent_id: Optional[str] = Query(None, description="The agent ID to list conversations for (optional - returns all conversations if not provided)"),
     limit: int = Query(50, description="Maximum number of conversations to return"),
     after: Optional[str] = Query(None, description="Cursor for pagination (conversation ID)"),
     summary_search: Optional[str] = Query(None, description="Search for text within conversation summaries"),
     server: SyncServer = Depends(get_letta_server),
     headers: HeaderParams = Depends(get_headers),
 ):
-    """List all conversations for an agent."""
+    """List all conversations for an agent (or all conversations if agent_id not provided)."""
     actor = await server.user_manager.get_actor_or_default_async(actor_id=headers.actor_id)
     return await conversation_manager.list_conversations(
         agent_id=agent_id,
