@@ -269,11 +269,30 @@ async def _prepare_in_context_messages_no_persist_async(
             for msg in reversed(recent_messages):
                 if msg.role == "tool" and validate_persisted_tool_call_ids(msg, input_messages[0]):
                     logger.info(
-                        f"Idempotency check: Found matching tool return in recent history. "
+                        f"Idempotency check: Found matching tool return in recent in-context history. "
                         f"tool_returns={msg.tool_returns}, approval_response.approvals={input_messages[0].approvals}"
                     )
                     approval_already_processed = True
                     break
+
+            # If not found in context and summarization just happened, check full history
+            non_system_summary_messages = [
+                m for m in current_in_context_messages if m.role not in (MessageRole.system, MessageRole.summary)
+            ]
+            if not approval_already_processed and len(non_system_summary_messages) == 0:
+                last_tool_messages = await message_manager.list_messages(
+                    actor=actor,
+                    agent_id=agent_state.id,
+                    roles=[MessageRole.tool],
+                    limit=1,
+                    ascending=False,  # Most recent first
+                )
+                if len(last_tool_messages) == 1 and validate_persisted_tool_call_ids(last_tool_messages[0], input_messages[0]):
+                    logger.info(
+                        f"Idempotency check: Found matching tool return in full history (post-compaction). "
+                        f"tool_returns={last_tool_messages[0].tool_returns}, approval_response.approvals={input_messages[0].approvals}"
+                    )
+                    approval_already_processed = True
 
             if approval_already_processed:
                 # Approval already handled, just process follow-up messages if any or manually inject keep-alive message
