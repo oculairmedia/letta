@@ -2438,7 +2438,7 @@ def test_calling_tools(client: LettaSDKClient, agent: AgentState) -> None:
     assert len(blocks) == 1, f"Expected 1 block, got {len(blocks)}"
 
     # test calling a stateful tool
-    result = client.agents.tools.run(agent_id=agent.id, tool_name="memory_insert", args={"label": "human", "new_str": "test"})
+    result = client.agents.tools.run(agent_id=agent.id, tool_name="memory_insert", args={"label": "human", "new_string": "test"})
     assert result.status == "success", f"Expected success, got {result.status}"
     # get the block
     block = client.agents.blocks.retrieve(agent_id=agent.id, block_label="human")

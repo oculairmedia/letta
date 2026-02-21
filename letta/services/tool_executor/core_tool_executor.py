@@ -343,48 +343,55 @@ class LettaCoreToolExecutor(ToolExecutor):
         await self.agent_manager.update_memory_if_changed_async(agent_id=agent_state.id, new_memory=agent_state.memory, actor=actor)
         return new_value
 
-    async def memory_replace(self, agent_state: AgentState, actor: User, label: str, old_str: str, new_str: str) -> str:
+    async def memory_replace(
+        self,
+        agent_state: AgentState,
+        actor: User,
+        label: str,
+        old_string: str,
+        new_string: str,
+    ) -> str:
         if agent_state.memory.get_block(label).read_only:
             raise ValueError(f"{READ_ONLY_BLOCK_EDIT_ERROR}")
 
-        if bool(MEMORY_TOOLS_LINE_NUMBER_PREFIX_REGEX.search(old_str)):
+        if bool(MEMORY_TOOLS_LINE_NUMBER_PREFIX_REGEX.search(old_string)):
             raise ValueError(
-                "old_str contains a line number prefix, which is not allowed. "
+                "old_string contains a line number prefix, which is not allowed. "
                 "Do not include line numbers when calling memory tools (line "
                 "numbers are for display purposes only)."
             )
-        if CORE_MEMORY_LINE_NUMBER_WARNING in old_str:
+        if CORE_MEMORY_LINE_NUMBER_WARNING in old_string:
             raise ValueError(
-                "old_str contains a line number warning, which is not allowed. "
+                "old_string contains a line number warning, which is not allowed. "
                 "Do not include line number information when calling memory tools "
                 "(line numbers are for display purposes only)."
             )
-        if bool(MEMORY_TOOLS_LINE_NUMBER_PREFIX_REGEX.search(new_str)):
+        if bool(MEMORY_TOOLS_LINE_NUMBER_PREFIX_REGEX.search(new_string)):
             raise ValueError(
-                "new_str contains a line number prefix, which is not allowed. "
+                "new_string contains a line number prefix, which is not allowed. "
                 "Do not include line numbers when calling memory tools (line "
                 "numbers are for display purposes only)."
             )
 
-        old_str = str(old_str).expandtabs()
-        new_str = str(new_str).expandtabs()
+        old_string = str(old_string).expandtabs()
+        new_string = str(new_string).expandtabs()
         current_value = str(agent_state.memory.get_block(label).value).expandtabs()
 
-        # Check if old_str is unique in the block
-        occurences = current_value.count(old_str)
+        # Check if old_string is unique in the block
+        occurences = current_value.count(old_string)
         if occurences == 0:
             raise ValueError(
-                f"No replacement was performed, old_str `{old_str}` did not appear verbatim in memory block with label `{label}`."
+                f"No replacement was performed, old_string `{old_string}` did not appear verbatim in memory block with label `{label}`."
             )
         elif occurences > 1:
             content_value_lines = current_value.split("\n")
-            lines = [idx + 1 for idx, line in enumerate(content_value_lines) if old_str in line]
+            lines = [idx + 1 for idx, line in enumerate(content_value_lines) if old_string in line]
             raise ValueError(
-                f"No replacement was performed. Multiple occurrences of old_str `{old_str}` in lines {lines}. Please ensure it is unique."
+                f"No replacement was performed. Multiple occurrences of old_string `{old_string}` in lines {lines}. Please ensure it is unique."
             )
 
-        # Replace old_str with new_str
-        new_value = current_value.replace(str(old_str), str(new_str))
+        # Replace old_string with new_string
+        new_value = current_value.replace(str(old_string), str(new_string))
 
         # Write the new content to the block
         agent_state.memory.update_block_value(label=label, value=new_value)
@@ -678,27 +685,27 @@ class LettaCoreToolExecutor(ToolExecutor):
         agent_state: AgentState,
         actor: User,
         label: str,
-        new_str: str,
+        new_string: str,
         insert_line: int = -1,
     ) -> str:
         if agent_state.memory.get_block(label).read_only:
             raise ValueError(f"{READ_ONLY_BLOCK_EDIT_ERROR}")
 
-        if bool(MEMORY_TOOLS_LINE_NUMBER_PREFIX_REGEX.search(new_str)):
+        if bool(MEMORY_TOOLS_LINE_NUMBER_PREFIX_REGEX.search(new_string)):
             raise ValueError(
-                "new_str contains a line number prefix, which is not allowed. Do not "
+                "new_string contains a line number prefix, which is not allowed. Do not "
                 "include line numbers when calling memory tools (line numbers are for "
                 "display purposes only)."
             )
-        if CORE_MEMORY_LINE_NUMBER_WARNING in new_str:
+        if CORE_MEMORY_LINE_NUMBER_WARNING in new_string:
             raise ValueError(
-                "new_str contains a line number warning, which is not allowed. Do not "
+                "new_string contains a line number warning, which is not allowed. Do not "
                 "include line number information when calling memory tools (line numbers "
                 "are for display purposes only)."
             )
 
         current_value = str(agent_state.memory.get_block(label).value).expandtabs()
-        new_str = str(new_str).expandtabs()
+        new_string = str(new_string).expandtabs()
         current_value_lines = current_value.split("\n")
         n_lines = len(current_value_lines)
 
@@ -714,11 +721,11 @@ class LettaCoreToolExecutor(ToolExecutor):
 
         # Insert the new string as a line
         SNIPPET_LINES = 3
-        new_str_lines = new_str.split("\n")
-        new_value_lines = current_value_lines[:insert_line] + new_str_lines + current_value_lines[insert_line:]
+        new_string_lines = new_string.split("\n")
+        new_value_lines = current_value_lines[:insert_line] + new_string_lines + current_value_lines[insert_line:]
         snippet_lines = (
             current_value_lines[max(0, insert_line - SNIPPET_LINES) : insert_line]
-            + new_str_lines
+            + new_string_lines
             + current_value_lines[insert_line : insert_line + SNIPPET_LINES]
         )
 
@@ -874,7 +881,14 @@ class LettaCoreToolExecutor(ToolExecutor):
             f"Your system prompt has been recompiled with the new memory block and is now active in your context."
         )
 
-    async def memory_str_replace(self, agent_state: AgentState, actor: User, path: str, old_str: str, new_str: str) -> str:
+    async def memory_str_replace(
+        self,
+        agent_state: AgentState,
+        actor: User,
+        path: str,
+        old_string: str,
+        new_string: str,
+    ) -> str:
         """Replace text in a memory block."""
         label = path.removeprefix("/memories/").removeprefix("/")
 
@@ -885,44 +899,44 @@ class LettaCoreToolExecutor(ToolExecutor):
         if memory_block.read_only:
             raise ValueError(f"{READ_ONLY_BLOCK_EDIT_ERROR}")
 
-        if bool(MEMORY_TOOLS_LINE_NUMBER_PREFIX_REGEX.search(old_str)):
+        if bool(MEMORY_TOOLS_LINE_NUMBER_PREFIX_REGEX.search(old_string)):
             raise ValueError(
-                "old_str contains a line number prefix, which is not allowed. "
+                "old_string contains a line number prefix, which is not allowed. "
                 "Do not include line numbers when calling memory tools (line "
                 "numbers are for display purposes only)."
             )
-        if CORE_MEMORY_LINE_NUMBER_WARNING in old_str:
+        if CORE_MEMORY_LINE_NUMBER_WARNING in old_string:
             raise ValueError(
-                "old_str contains a line number warning, which is not allowed. "
+                "old_string contains a line number warning, which is not allowed. "
                 "Do not include line number information when calling memory tools "
                 "(line numbers are for display purposes only)."
             )
-        if bool(MEMORY_TOOLS_LINE_NUMBER_PREFIX_REGEX.search(new_str)):
+        if bool(MEMORY_TOOLS_LINE_NUMBER_PREFIX_REGEX.search(new_string)):
             raise ValueError(
-                "new_str contains a line number prefix, which is not allowed. "
+                "new_string contains a line number prefix, which is not allowed. "
                 "Do not include line numbers when calling memory tools (line "
                 "numbers are for display purposes only)."
             )
 
-        old_str = str(old_str).expandtabs()
-        new_str = str(new_str).expandtabs()
+        old_string = str(old_string).expandtabs()
+        new_string = str(new_string).expandtabs()
         current_value = str(memory_block.value).expandtabs()
 
-        # Check if old_str is unique in the block
-        occurences = current_value.count(old_str)
+        # Check if old_string is unique in the block
+        occurences = current_value.count(old_string)
         if occurences == 0:
             raise ValueError(
-                f"No replacement was performed, old_str `{old_str}` did not appear verbatim in memory block with label `{label}`."
+                f"No replacement was performed, old_string `{old_string}` did not appear verbatim in memory block with label `{label}`."
             )
         elif occurences > 1:
             content_value_lines = current_value.split("\n")
-            lines = [idx + 1 for idx, line in enumerate(content_value_lines) if old_str in line]
+            lines = [idx + 1 for idx, line in enumerate(content_value_lines) if old_string in line]
             raise ValueError(
-                f"No replacement was performed. Multiple occurrences of old_str `{old_str}` in lines {lines}. Please ensure it is unique."
+                f"No replacement was performed. Multiple occurrences of old_string `{old_string}` in lines {lines}. Please ensure it is unique."
             )
 
-        # Replace old_str with new_str
-        new_value = current_value.replace(str(old_str), str(new_str))
+        # Replace old_string with new_string
+        new_value = current_value.replace(str(old_string), str(new_string))
 
         # Write the new content to the block
         await self.block_manager.update_block_async(block_id=memory_block.id, block_update=BlockUpdate(value=new_value), actor=actor)
