@@ -320,9 +320,6 @@ class OpenAIStreamingInterface:
         # Track events for diagnostics
         self.total_events_received += 1
         self.last_event_type = "ChatCompletionChunk"
-        # Track events for diagnostics
-        self.total_events_received += 1
-        self.last_event_type = "ChatCompletionChunk"
 
         if not self.model or not self.message_id:
             self.model = chunk.model
@@ -833,6 +830,10 @@ class SimpleOpenAIStreamingInterface:
         prev_message_type: Optional[str] = None,
         message_index: int = 0,
     ) -> AsyncGenerator[LettaMessage | LettaStopReason, None]:
+        # Track events for diagnostics
+        self.total_events_received += 1
+        self.last_event_type = "ChatCompletionChunk"
+
         if not self.model or not self.message_id:
             self.model = chunk.model
             self.message_id = chunk.id
