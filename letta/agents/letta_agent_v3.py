@@ -493,8 +493,10 @@ class LettaAgentV3(LettaAgentV2):
                     if first_chunk:
                         request_span = self._request_checkpoint_ttft(request_span, request_start_timestamp_ns)
 
-                    # Log chunks with missing id or otid for debugging
-                    if isinstance(chunk, LettaMessage) and (not chunk.id or not chunk.otid):
+                    # Log chunks with missing id or otid for debugging.
+                    # Compaction EventMessage is intentionally metadata-only and may omit otid.
+                    is_compaction_event = isinstance(chunk, EventMessage) and chunk.event_type == "compaction"
+                    if isinstance(chunk, LettaMessage) and (not chunk.id or not chunk.otid) and not is_compaction_event:
                         self.logger.warning(
                             "Streaming chunk missing id or otid: message_type=%s id=%s otid=%s step_id=%s",
                             chunk.message_type,
