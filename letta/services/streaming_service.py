@@ -45,6 +45,7 @@ from letta.server.rest_api.streaming_response import (
     get_cancellation_event_for_run,
 )
 from letta.server.rest_api.utils import capture_sentry_exception
+from letta.services.conversation_manager import ConversationManager
 from letta.services.run_manager import RunManager
 from letta.settings import settings
 from letta.utils import safe_create_task
@@ -101,6 +102,22 @@ class StreamingService:
             actor,
             include_relationships=["memory", "multi_agent_group", "sources", "tool_exec_environment_variables", "tools", "tags"],
         )
+
+        # Apply conversation-level model override if set (lower priority than request override)
+        if conversation_id and not request.override_model:
+            conversation = await ConversationManager().get_conversation_by_id(
+                conversation_id=conversation_id,
+                actor=actor,
+            )
+            if conversation.model:
+                conversation_llm_config = await self.server.get_llm_config_from_handle_async(
+                    actor=actor,
+                    handle=conversation.model,
+                )
+                if conversation.model_settings is not None:
+                    update_params = conversation.model_settings._to_legacy_config_params()
+                    conversation_llm_config = conversation_llm_config.model_copy(update=update_params)
+                agent = agent.model_copy(update={"llm_config": conversation_llm_config})
 
         # Handle model override if specified in the request
         if request.override_model:

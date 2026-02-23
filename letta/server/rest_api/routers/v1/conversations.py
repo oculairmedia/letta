@@ -250,6 +250,17 @@ async def send_conversation_message(
         include_relationships=["memory", "multi_agent_group", "sources", "tool_exec_environment_variables", "tools", "tags"],
     )
 
+    # Apply conversation-level model override if set (lower priority than request override)
+    if conversation.model and not request.override_model:
+        conversation_llm_config = await server.get_llm_config_from_handle_async(
+            actor=actor,
+            handle=conversation.model,
+        )
+        if conversation.model_settings is not None:
+            update_params = conversation.model_settings._to_legacy_config_params()
+            conversation_llm_config = conversation_llm_config.model_copy(update=update_params)
+        agent = agent.model_copy(update={"llm_config": conversation_llm_config})
+
     if request.override_model:
         override_llm_config = await server.get_llm_config_from_handle_async(
             actor=actor,

@@ -54,6 +54,8 @@ class ConversationManager:
                 agent_id=agent_id,
                 summary=conversation_create.summary,
                 organization_id=actor.organization_id,
+                model=conversation_create.model,
+                model_settings=conversation_create.model_settings.model_dump() if conversation_create.model_settings else None,
             )
             await conversation.create_async(session, actor=actor)
 
@@ -185,7 +187,11 @@ class ConversationManager:
             # Set attributes on the model
             update_data = conversation_update.model_dump(exclude_none=True)
             for key, value in update_data.items():
-                setattr(conversation, key, value)
+                # model_settings needs to be serialized to dict for the JSON column
+                if key == "model_settings" and value is not None:
+                    setattr(conversation, key, conversation_update.model_settings.model_dump() if conversation_update.model_settings else value)
+                else:
+                    setattr(conversation, key, value)
 
             # Commit the update
             updated_conversation = await conversation.update_async(
