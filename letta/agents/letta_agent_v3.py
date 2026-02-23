@@ -930,8 +930,8 @@ class LettaAgentV3(LettaAgentV2):
                                 or len([t for t in self.agent_state.tool_rules if t.type != "requires_approval"]) == 0
                             )
 
-                            # Anthropic/Bedrock parallel tool use
-                            if self.agent_state.llm_config.model_endpoint_type in ["anthropic", "bedrock"]:
+                            # Anthropic/Bedrock/MiniMax parallel tool use (MiniMax uses Anthropic-compatible API)
+                            if self.agent_state.llm_config.model_endpoint_type in ["anthropic", "bedrock", "minimax"]:
                                 if (
                                     isinstance(request_data.get("tool_choice"), dict)
                                     and "disable_parallel_tool_use" in request_data["tool_choice"]

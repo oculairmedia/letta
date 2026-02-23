@@ -104,6 +104,8 @@ class MiniMaxProvider(Provider):
                     max_tokens=model["max_output"],
                     # MiniMax models support native thinking, similar to Claude's extended thinking
                     put_inner_thoughts_in_kwargs=True,
+                    # MiniMax models support parallel tool calling via Anthropic-compatible API
+                    parallel_tool_calls=True,
                     provider_name=self.name,
                     provider_category=self.provider_category,
                 )
