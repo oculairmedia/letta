@@ -593,9 +593,15 @@ class AnthropicStreamingInterface:
             pass
         elif isinstance(event, BetaRawContentBlockStopEvent):
             # If we're exiting a tool use block and there are still buffered messages,
-            # we should flush them now
+            # we should flush them now.
+            # Ensure each flushed chunk has an otid before yielding.
             if self.anthropic_mode == EventMode.TOOL_USE and self.tool_call_buffer:
                 for buffered_msg in self.tool_call_buffer:
+                    if not buffered_msg.otid:
+                        if prev_message_type and prev_message_type != buffered_msg.message_type:
+                            message_index += 1
+                        buffered_msg.otid = Message.generate_otid_from_id(buffered_msg.id, message_index)
+                    prev_message_type = buffered_msg.message_type
                     yield buffered_msg
                 self.tool_call_buffer = []
 
