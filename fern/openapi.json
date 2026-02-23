@@ -8786,6 +8786,32 @@
               "title": "Summary Search"
             },
             "description": "Search for text within conversation summaries"
+          },
+          {
+            "name": "order",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": ["asc", "desc"],
+              "type": "string",
+              "description": "Sort order for conversations. 'asc' for oldest first, 'desc' for newest first",
+              "default": "desc",
+              "title": "Order"
+            },
+            "description": "Sort order for conversations. 'asc' for oldest first, 'desc' for newest first"
+          },
+          {
+            "name": "order_by",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": ["created_at", "last_run_completion"],
+              "type": "string",
+              "description": "Field to sort by",
+              "default": "created_at",
+              "title": "Order By"
+            },
+            "description": "Field to sort by"
           }
         ],
         "responses": {

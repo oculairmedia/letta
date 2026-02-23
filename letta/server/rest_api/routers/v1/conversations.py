@@ -66,17 +66,24 @@ async def list_conversations(
     limit: int = Query(50, description="Maximum number of conversations to return"),
     after: Optional[str] = Query(None, description="Cursor for pagination (conversation ID)"),
     summary_search: Optional[str] = Query(None, description="Search for text within conversation summaries"),
+    order: Literal["asc", "desc"] = Query(
+        "desc", description="Sort order for conversations. 'asc' for oldest first, 'desc' for newest first"
+    ),
+    order_by: Literal["created_at", "last_run_completion"] = Query("created_at", description="Field to sort by"),
     server: SyncServer = Depends(get_letta_server),
     headers: HeaderParams = Depends(get_headers),
 ):
     """List all conversations for an agent (or all conversations if agent_id not provided)."""
     actor = await server.user_manager.get_actor_or_default_async(actor_id=headers.actor_id)
+    ascending = order == "asc"
     return await conversation_manager.list_conversations(
         agent_id=agent_id,
         actor=actor,
         limit=limit,
         after=after,
         summary_search=summary_search,
+        ascending=ascending,
+        sort_by=order_by,
     )
 
 
