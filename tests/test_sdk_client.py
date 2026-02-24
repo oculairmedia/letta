@@ -2145,13 +2145,13 @@ async def test_create_batch(client: LettaSDKClient, server: SyncServer):
     agent1 = client.agents.create(
         name="agent1_batch",
         memory_blocks=[{"label": "persona", "value": "you are agent 1"}],
-        model="anthropic/claude-3-7-sonnet-20250219",
+        model="anthropic/claude-sonnet-4-20250514",
         embedding="openai/text-embedding-3-small",
     )
     agent2 = client.agents.create(
         name="agent2_batch",
         memory_blocks=[{"label": "persona", "value": "you are agent 2"}],
-        model="anthropic/claude-3-7-sonnet-20250219",
+        model="anthropic/claude-sonnet-4-20250514",
         embedding="openai/text-embedding-3-small",
     )
 
