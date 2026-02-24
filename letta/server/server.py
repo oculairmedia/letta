@@ -89,8 +89,7 @@ from letta.services.mcp.sse_client import MCP_CONFIG_TOPLEVEL_KEY
 from letta.services.mcp.stdio_client import AsyncStdioMCPClient
 from letta.services.mcp_manager import MCPManager
 from letta.services.mcp_server_manager import MCPServerManager
-from letta.services.memory_repo import MemoryRepoManager
-from letta.services.memory_repo.storage.gcs import GCSStorageBackend
+from letta.services.memory_repo import MemfsClient
 from letta.services.message_manager import MessageManager
 from letta.services.organization_manager import OrganizationManager
 from letta.services.passage_manager import PassageManager
@@ -414,62 +413,22 @@ class SyncServer(object):
                         force_recreate=True,
                     )
 
-    def _init_memory_repo_manager(self) -> Optional[MemoryRepoManager]:
+    def _init_memory_repo_manager(self) -> Optional[MemfsClient]:
         """Initialize the memory repository manager if configured.
 
-        If LETTA_MEMFS_SERVICE_URL is set, uses the external memfs service.
-        Otherwise, configure the object store via settings (recommended):
-
-            LETTA_OBJECT_STORE_URI="gs://my-bucket/repository?project=my-gcp-project"
-
-        Supported schemes:
-        - gs:// (or gcs://) -> Google Cloud Storage
+        Requires LETTA_MEMFS_SERVICE_URL to be set to the external memfs service URL.
 
         Returns:
-            MemoryRepoManager (or MemfsClient) if configured, None otherwise
+            MemfsClient if configured, None otherwise
         """
-
-        # Keep import local to avoid import/circular issues during server bootstrap.
-        from urllib.parse import parse_qs, urlparse
-
         from letta.settings import settings
 
-        # Check if memfs service is configured (takes priority over local object store)
-        if settings.memfs_service_url:
-            from letta.services.memory_repo import MemfsClient
-
-            logger.info("Memory repo manager using memfs service: %s", settings.memfs_service_url)
-            return MemfsClient(base_url=settings.memfs_service_url)
-
-        uri = settings.object_store_uri
-        if not uri:
-            logger.debug("Memory repo manager not configured (object_store_uri not set)")
+        if not settings.memfs_service_url:
+            logger.debug("Memory repo manager not configured (memfs_service_url not set)")
             return None
 
-        try:
-            parsed = urlparse(uri)
-            scheme = (parsed.scheme or "").lower()
-
-            if scheme in {"gs", "gcs"}:
-                bucket = parsed.netloc
-                if not bucket:
-                    raise ValueError(f"Invalid GCS object store URI (missing bucket): {uri}")
-
-                # URI path is treated as the storage prefix
-                prefix = parsed.path.lstrip("/") or "repository"
-                qs = parse_qs(parsed.query)
-
-                # Allow settings-level overrides (handy for templated URIs).
-                project = settings.object_store_project or (qs.get("project") or [None])[0]
-
-                storage = GCSStorageBackend(bucket=bucket, prefix=prefix, project=project)
-                logger.info("Memory repo manager initialized with object store: %s", uri)
-                return MemoryRepoManager(storage=storage)
-
-            raise ValueError(f"Unsupported object store scheme '{scheme}' in URI: {uri}")
-        except Exception as e:
-            logger.warning(f"Failed to initialize memory repo manager: {e}")
-            return None
+        logger.info("Memory repo manager using memfs service: %s", settings.memfs_service_url)
+        return MemfsClient(base_url=settings.memfs_service_url)
 
     def _get_enabled_provider(self, provider_name: str) -> Optional[Provider]:
         """Find and return an enabled provider by name.

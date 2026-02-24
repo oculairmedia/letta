@@ -114,12 +114,6 @@ bedrock = [
     "aioboto3>=14.3.0",
 ]
 
-# ====== Git State (git-backed memory repos) ======
-git-state = [
-    "google-cloud-storage>=2.10.0",
-    "dulwich>=0.22.0",
-]
-
 # ====== Development ======
 dev = [
     "pytest",

@@ -1,15 +1,14 @@
-"""Git operations for memory repositories using dulwich.
-
-Dulwich is a pure-Python implementation of Git that allows us to
-manipulate git repositories without requiring libgit2 or the git CLI.
+"""Git operations for memory repositories using git CLI.
 
 This module provides high-level operations for working with git repos
-stored in object storage (GCS/S3).
+stored in object storage (GCS/S3), using the git command-line tool
+instead of dulwich for better compatibility and maintenance.
 """
 
 import asyncio
 import os
 import shutil
+import subprocess
 import tempfile
 import time
 import uuid
@@ -24,6 +23,29 @@ from letta.services.memory_repo.storage.base import StorageBackend
 logger = get_logger(__name__)
 
 
+def _run_git(args: List[str], cwd: str, check: bool = True) -> subprocess.CompletedProcess:
+    """Run a git command and return the result.
+
+    Args:
+        args: Git command arguments (without 'git' prefix)
+        cwd: Working directory
+        check: Whether to raise on non-zero exit
+
+    Returns:
+        CompletedProcess with stdout/stderr
+    """
+    result = subprocess.run(
+        ["git", *args],
+        cwd=cwd,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if check and result.returncode != 0:
+        raise subprocess.CalledProcessError(result.returncode, ["git", *args], result.stdout, result.stderr)
+    return result
+
+
 class GitOperations:
     """High-level git operations for memory repositories.
 
@@ -36,7 +58,7 @@ class GitOperations:
     packfiles directly.
 
     Requirements:
-        pip install dulwich
+        git CLI must be installed and available in PATH
     """
 
     def __init__(self, storage: StorageBackend):
@@ -46,21 +68,25 @@ class GitOperations:
             storage: Storage backend for repo persistence
         """
         self.storage = storage
-        self._dulwich = None
+        self._git_available = None
 
-    def _get_dulwich(self):
-        """Lazily import dulwich."""
-        if self._dulwich is None:
+    def _check_git(self) -> None:
+        """Check that git is available."""
+        if self._git_available is None:
             try:
-                import dulwich
-                import dulwich.objects
-                import dulwich.porcelain
-                import dulwich.repo
-
-                self._dulwich = dulwich
-            except ImportError:
-                raise ImportError("dulwich is required for git operations. Install with: pip install dulwich")
-        return self._dulwich
+                result = subprocess.run(
+                    ["git", "--version"],
+                    capture_output=True,
+                    text=True,
+                    check=True,
+                )
+                self._git_available = True
+                logger.debug(f"Git available: {result.stdout.strip()}")
+            except (subprocess.CalledProcessError, FileNotFoundError):
+                self._git_available = False
+                raise RuntimeError("git CLI is required for git operations but was not found in PATH")
+        elif not self._git_available:
+            raise RuntimeError("git CLI is required for git operations but was not found in PATH")
 
     def _repo_path(self, agent_id: str, org_id: str) -> str:
         """Get the storage path for an agent's repo."""
@@ -86,22 +112,20 @@ class GitOperations:
         Returns:
             Initial commit SHA
         """
-        dulwich = self._get_dulwich()
+        self._check_git()
 
         def _create():
-            # Create a temporary directory for the repo
             temp_dir = tempfile.mkdtemp(prefix="letta-memrepo-")
             try:
                 repo_path = os.path.join(temp_dir, "repo")
                 os.makedirs(repo_path)
 
-                # Initialize a new repository
-                dulwich.repo.Repo.init(repo_path)
+                # Initialize a new repository with main as default branch
+                _run_git(["init", "-b", "main"], cwd=repo_path)
 
-                # Use `main` as the default branch (git's modern default).
-                head_path = os.path.join(repo_path, ".git", "HEAD")
-                with open(head_path, "wb") as f:
-                    f.write(b"ref: refs/heads/main\n")
+                # Configure user for this repo
+                _run_git(["config", "user.name", author_name], cwd=repo_path)
+                _run_git(["config", "user.email", author_email], cwd=repo_path)
 
                 # Add initial files if provided
                 if initial_files:
@@ -110,8 +134,7 @@ class GitOperations:
                         os.makedirs(os.path.dirname(full_path), exist_ok=True)
                         with open(full_path, "w", encoding="utf-8") as f:
                             f.write(content)
-                        # Stage the file
-                        dulwich.porcelain.add(repo_path, paths=[file_path])
+                        _run_git(["add", file_path], cwd=repo_path)
                 else:
                     # Create an empty .letta directory to initialize
                     letta_dir = os.path.join(repo_path, ".letta")
@@ -119,18 +142,16 @@ class GitOperations:
                     config_path = os.path.join(letta_dir, "config.json")
                     with open(config_path, "w") as f:
                         f.write('{"version": 1}')
-                    dulwich.porcelain.add(repo_path, paths=[".letta/config.json"])
+                    _run_git(["add", ".letta/config.json"], cwd=repo_path)
 
-                # Create initial commit using porcelain (dulwich 1.0+ API)
-                commit_sha = dulwich.porcelain.commit(
-                    repo_path,
-                    message=b"Initial commit",
-                    committer=f"{author_name} <{author_email}>".encode(),
-                    author=f"{author_name} <{author_email}>".encode(),
-                )
+                # Create initial commit
+                _run_git(["commit", "-m", "Initial commit"], cwd=repo_path)
 
-                # Return the repo directory and commit SHA for upload
-                return repo_path, commit_sha.decode() if isinstance(commit_sha, bytes) else str(commit_sha)
+                # Get commit SHA
+                result = _run_git(["rev-parse", "HEAD"], cwd=repo_path)
+                commit_sha = result.stdout.strip()
+
+                return repo_path, commit_sha
             except Exception:
                 shutil.rmtree(temp_dir, ignore_errors=True)
                 raise
@@ -138,11 +159,9 @@ class GitOperations:
         repo_path, commit_sha = await asyncio.to_thread(_create)
 
         try:
-            # Upload the repo to storage
             await self._upload_repo(repo_path, agent_id, org_id)
             return commit_sha
         finally:
-            # Clean up temp directory
             shutil.rmtree(os.path.dirname(repo_path), ignore_errors=True)
 
     async def _upload_repo(self, local_repo_path: str, agent_id: str, org_id: str) -> None:
@@ -150,7 +169,6 @@ class GitOperations:
         t_start = time.perf_counter()
         storage_prefix = self._repo_path(agent_id, org_id)
 
-        # Walk through the .git directory and collect all files
         git_dir = os.path.join(local_repo_path, ".git")
         upload_tasks = []
         total_bytes = 0
@@ -170,7 +188,6 @@ class GitOperations:
         read_time = (time.perf_counter() - t0) * 1000
         logger.info(f"[GIT_PERF] _upload_repo read files took {read_time:.2f}ms files={len(upload_tasks)}")
 
-        # Upload all files in parallel
         t0 = time.perf_counter()
         await asyncio.gather(*[self.storage.upload_bytes(path, content) for path, content in upload_tasks])
         upload_time = (time.perf_counter() - t0) * 1000
@@ -211,7 +228,6 @@ class GitOperations:
             for filename in files:
                 local_path = os.path.join(root, filename)
                 old_mtime = before_snapshot.get(local_path)
-                # New file or modified since snapshot
                 if old_mtime is None or os.path.getmtime(local_path) != old_mtime:
                     rel_path = os.path.relpath(local_path, git_dir)
                     storage_path = f"{storage_prefix}/{rel_path}"
@@ -240,7 +256,6 @@ class GitOperations:
         t_start = time.perf_counter()
         storage_prefix = self._repo_path(agent_id, org_id)
 
-        # List all files in the repo
         t0 = time.perf_counter()
         files = await self.storage.list_files(storage_prefix)
         list_time = (time.perf_counter() - t0) * 1000
@@ -249,7 +264,6 @@ class GitOperations:
         if not files:
             raise FileNotFoundError(f"No repository found for agent {agent_id}")
 
-        # Create temp directory
         t0 = time.perf_counter()
         temp_dir = tempfile.mkdtemp(prefix="letta-memrepo-")
         repo_path = os.path.join(temp_dir, "repo")
@@ -258,7 +272,6 @@ class GitOperations:
         mkdir_time = (time.perf_counter() - t0) * 1000
         logger.info(f"[GIT_PERF] _download_repo tempdir creation took {mkdir_time:.2f}ms path={temp_dir}")
 
-        # Compute local paths and create directories first
         file_info = []
         for file_path in files:
             if file_path.startswith(storage_prefix):
@@ -270,7 +283,6 @@ class GitOperations:
             os.makedirs(os.path.dirname(local_path), exist_ok=True)
             file_info.append((file_path, local_path))
 
-        # Download all files in parallel
         t0 = time.perf_counter()
         download_tasks = [self.storage.download_bytes(fp) for fp, _ in file_info]
         contents = await asyncio.gather(*download_tasks)
@@ -278,7 +290,6 @@ class GitOperations:
         total_bytes = sum(len(c) for c in contents)
         logger.info(f"[GIT_PERF] _download_repo parallel download took {download_time:.2f}ms files={len(files)} bytes={total_bytes}")
 
-        # Write all files to disk
         t0 = time.perf_counter()
         for (_, local_path), content in zip(file_info, contents):
             with open(local_path, "wb") as f:
@@ -310,53 +321,32 @@ class GitOperations:
         Returns:
             Dict mapping file paths to content
         """
-        dulwich = self._get_dulwich()
+        self._check_git()
         repo_path = await self._download_repo(agent_id, org_id)
 
         try:
 
             def _get_files():
-                repo = dulwich.repo.Repo(repo_path)
+                # List all files tracked by git at the given ref
+                result = _run_git(["ls-tree", "-r", "--name-only", ref], cwd=repo_path)
+                file_paths = result.stdout.strip().split("\n") if result.stdout.strip() else []
 
-                # Resolve ref to commit
-                if ref == "HEAD":
-                    commit_sha = repo.head()
-                else:
-                    # Try as branch name first
-                    try:
-                        commit_sha = repo.refs[f"refs/heads/{ref}".encode()]
-                    except KeyError:
-                        # Try as commit SHA
-                        commit_sha = ref.encode() if isinstance(ref, str) else ref
-
-                commit = repo[commit_sha]
-                tree = repo[commit.tree]
-
-                # Walk the tree and get all files
                 files = {}
-                self._walk_tree(repo, tree, "", files)
+                for file_path in file_paths:
+                    if not file_path:
+                        continue
+                    # Get file content at ref
+                    try:
+                        content_result = _run_git(["show", f"{ref}:{file_path}"], cwd=repo_path)
+                        files[file_path] = content_result.stdout
+                    except subprocess.CalledProcessError:
+                        pass  # Skip files that can't be read
+
                 return files
 
             return await asyncio.to_thread(_get_files)
         finally:
             shutil.rmtree(os.path.dirname(repo_path), ignore_errors=True)
-
-    def _walk_tree(self, repo, tree, prefix: str, files: Dict[str, str]) -> None:
-        """Recursively walk a git tree and collect files."""
-        dulwich = self._get_dulwich()
-        for entry in tree.items():
-            name = entry.path.decode() if isinstance(entry.path, bytes) else entry.path
-            path = f"{prefix}/{name}" if prefix else name
-            obj = repo[entry.sha]
-
-            if isinstance(obj, dulwich.objects.Blob):
-                try:
-                    files[path] = obj.data.decode("utf-8")
-                except UnicodeDecodeError:
-                    # Skip binary files
-                    pass
-            elif isinstance(obj, dulwich.objects.Tree):
-                self._walk_tree(repo, obj, path, files)
 
     async def commit(
         self,
@@ -390,7 +380,6 @@ class GitOperations:
         t_start = time.perf_counter()
         logger.info(f"[GIT_PERF] GitOperations.commit START agent={agent_id} changes={len(changes)}")
 
-        # Acquire lock to prevent concurrent modifications
         t0 = time.perf_counter()
         redis_client = await get_redis_client()
         lock_token = f"commit:{uuid.uuid4().hex}"
@@ -414,7 +403,6 @@ class GitOperations:
             logger.info(f"[GIT_PERF] GitOperations.commit TOTAL {total_time:.2f}ms")
             return result
         finally:
-            # Release lock
             t0 = time.perf_counter()
             if lock:
                 try:
@@ -436,27 +424,35 @@ class GitOperations:
     ) -> MemoryCommit:
         """Internal commit implementation (called while holding lock)."""
         t_start = time.perf_counter()
-        dulwich = self._get_dulwich()
+        self._check_git()
 
-        # Download repo from GCS to temp dir
         t0 = time.perf_counter()
         repo_path = await self._download_repo(agent_id, org_id)
         download_time = (time.perf_counter() - t0) * 1000
         logger.info(f"[GIT_PERF] _commit_with_lock download phase took {download_time:.2f}ms")
 
         try:
-            # Snapshot git objects before commit for delta upload
             git_dir = os.path.join(repo_path, ".git")
             before_snapshot = self._snapshot_git_files(git_dir)
 
             def _commit():
                 t_git_start = time.perf_counter()
-                repo = dulwich.repo.Repo(repo_path)
 
-                # Checkout the working directory
+                # Configure user for this repo
+                _run_git(["config", "user.name", author_name], cwd=repo_path)
+                _run_git(["config", "user.email", author_email], cwd=repo_path)
+
+                # Reset to clean state
                 t0_reset = time.perf_counter()
-                dulwich.porcelain.reset(repo, "hard")
+                _run_git(["reset", "--hard"], cwd=repo_path)
                 reset_time = (time.perf_counter() - t0_reset) * 1000
+
+                # Get parent SHA before making changes
+                try:
+                    parent_result = _run_git(["rev-parse", "HEAD"], cwd=repo_path, check=False)
+                    parent_sha = parent_result.stdout.strip() if parent_result.returncode == 0 else None
+                except Exception:
+                    parent_sha = None
 
                 # Apply changes
                 files_changed = []
@@ -470,17 +466,14 @@ class GitOperations:
                     full_path = os.path.join(repo_path, file_path)
 
                     if change.change_type == "delete" or change.content is None:
-                        # Delete file
                         if os.path.exists(full_path):
                             with open(full_path, "r") as f:
                                 deletions += len(f.read())
                             os.remove(full_path)
-                            dulwich.porcelain.remove(repo_path, paths=[file_path])
+                            _run_git(["rm", "-f", file_path], cwd=repo_path, check=False)
                     else:
-                        # Add or modify file
                         os.makedirs(os.path.dirname(full_path), exist_ok=True)
 
-                        # Calculate additions/deletions
                         if os.path.exists(full_path):
                             with open(full_path, "r") as f:
                                 old_content = f.read()
@@ -489,28 +482,19 @@ class GitOperations:
 
                         with open(full_path, "w", encoding="utf-8") as f:
                             f.write(change.content)
-                        dulwich.porcelain.add(repo_path, paths=[file_path])
+                        _run_git(["add", file_path], cwd=repo_path)
 
                     files_changed.append(file_path)
                     apply_time += (time.perf_counter() - t0_apply) * 1000
 
-                # Get parent SHA
-                try:
-                    parent_sha = repo.head().decode()
-                except Exception:
-                    parent_sha = None
-
-                # Create commit using porcelain (dulwich 1.0+ API)
+                # Create commit
                 t0_commit = time.perf_counter()
-                commit_sha = dulwich.porcelain.commit(
-                    repo_path,
-                    message=message.encode(),
-                    committer=f"{author_name} <{author_email}>".encode(),
-                    author=f"{author_name} <{author_email}>".encode(),
-                )
+                _run_git(["commit", "-m", message], cwd=repo_path)
                 commit_time = (time.perf_counter() - t0_commit) * 1000
 
-                sha_str = commit_sha.decode() if isinstance(commit_sha, bytes) else str(commit_sha)
+                # Get new commit SHA
+                result = _run_git(["rev-parse", "HEAD"], cwd=repo_path)
+                sha_str = result.stdout.strip()
 
                 git_total = (time.perf_counter() - t_git_start) * 1000
                 logger.info(
@@ -536,7 +520,6 @@ class GitOperations:
             git_thread_time = (time.perf_counter() - t0) * 1000
             logger.info(f"[GIT_PERF] _commit_with_lock git thread took {git_thread_time:.2f}ms")
 
-            # Upload only new/modified objects (delta)
             t0 = time.perf_counter()
             await self._upload_delta(repo_path, agent_id, org_id, before_snapshot)
             upload_time = (time.perf_counter() - t0) * 1000
@@ -572,37 +555,43 @@ class GitOperations:
         Returns:
             List of commits, newest first
         """
-        dulwich = self._get_dulwich()
+        self._check_git()
         repo_path = await self._download_repo(agent_id, org_id)
 
         try:
 
             def _get_history():
-                repo = dulwich.repo.Repo(repo_path)
+                # Use git log with custom format for easy parsing
+                # Format: SHA|parent_sha|author_name|timestamp|message
+                format_str = "%H|%P|%an|%at|%s"
+                args = ["log", f"--format={format_str}", f"-n{limit}"]
+                if path:
+                    args.extend(["--", path])
+
+                result = _run_git(args, cwd=repo_path)
+                lines = result.stdout.strip().split("\n") if result.stdout.strip() else []
+
                 commits = []
+                for line in lines:
+                    if not line:
+                        continue
+                    parts = line.split("|", 4)
+                    if len(parts) < 5:
+                        continue
 
-                # Walk the commit history
-                walker = repo.get_walker(max_entries=limit)
-
-                for entry in walker:
-                    commit = entry.commit
-                    sha = commit.id.decode() if isinstance(commit.id, bytes) else str(commit.id)
-                    parent_sha = commit.parents[0].decode() if commit.parents else None
-
-                    # Parse author
-                    author_str = commit.author.decode() if isinstance(commit.author, bytes) else commit.author
-                    author_name = author_str.split("<")[0].strip() if "<" in author_str else author_str
+                    sha, parents, author_name, timestamp_str, message = parts
+                    parent_sha = parents.split()[0] if parents else None
 
                     commits.append(
                         MemoryCommit(
                             sha=sha,
                             parent_sha=parent_sha,
-                            message=commit.message.decode() if isinstance(commit.message, bytes) else commit.message,
+                            message=message,
                             author_type="system",
                             author_id="",
                             author_name=author_name,
-                            timestamp=datetime.fromtimestamp(commit.commit_time, tz=timezone.utc),
-                            files_changed=[],  # Would need to compute diff for this
+                            timestamp=datetime.fromtimestamp(int(timestamp_str), tz=timezone.utc),
+                            files_changed=[],
                             additions=0,
                             deletions=0,
                         )
@@ -624,15 +613,14 @@ class GitOperations:
         Returns:
             HEAD commit SHA
         """
-        dulwich = self._get_dulwich()
+        self._check_git()
         repo_path = await self._download_repo(agent_id, org_id)
 
         try:
 
             def _get_head():
-                repo = dulwich.repo.Repo(repo_path)
-                head = repo.head()
-                return head.decode() if isinstance(head, bytes) else str(head)
+                result = _run_git(["rev-parse", "HEAD"], cwd=repo_path)
+                return result.stdout.strip()
 
             return await asyncio.to_thread(_get_head)
         finally:

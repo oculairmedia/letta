@@ -18,7 +18,7 @@ from letta.schemas.block import Block as PydanticBlock, BlockUpdate, CreateBlock
 from letta.schemas.user import User as PydanticUser
 from letta.server.db import db_registry
 from letta.services.block_manager import BlockManager
-from letta.services.memory_repo.manager import MemoryRepoManager
+from letta.services.memory_repo import MemfsClient
 from letta.utils import enforce_types
 
 logger = get_logger(__name__)
@@ -39,7 +39,7 @@ class GitEnabledBlockManager(BlockManager):
     - Behaves exactly like the standard BlockManager
     """
 
-    def __init__(self, memory_repo_manager: Optional[MemoryRepoManager] = None):
+    def __init__(self, memory_repo_manager: Optional[MemfsClient] = None):
         """Initialize the git-enabled block manager.
 
         Args:

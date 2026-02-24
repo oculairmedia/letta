@@ -230,15 +230,14 @@ async def lifespan(app_: FastAPI):
     global server
     await server.init_async(init_with_default_org_and_user=not settings.no_default_actor)
 
-    # Set server instance for git HTTP endpoints and start dulwich sidecar
+    # Set server instance for git HTTP endpoints
     try:
-        from letta.server.rest_api.routers.v1.git_http import set_server_instance, start_dulwich_server
+        from letta.server.rest_api.routers.v1.git_http import set_server_instance
 
         set_server_instance(server)
-        start_dulwich_server()
-        logger.info(f"[Worker {worker_id}] Git HTTP server instance set (dulwich sidecar started)")
+        logger.info(f"[Worker {worker_id}] Git HTTP server instance set")
     except Exception as e:
-        logger.warning(f"[Worker {worker_id}] Failed to start git HTTP sidecar: {e}")
+        logger.warning(f"[Worker {worker_id}] Failed to set git HTTP server instance: {e}")
 
     try:
         await start_scheduler_with_leader_election(server)
@@ -844,8 +843,6 @@ def create_application() -> "FastAPI":
 
     # /api/auth endpoints
     app.include_router(setup_auth_router(server, interface, random_password), prefix=API_PREFIX)
-
-    # Git smart HTTP is served by a dulwich sidecar and proxied by the /v1/git router.
 
     # / static files
     mount_static_files(app)

@@ -1,8 +1,6 @@
 """Git-based memory repository services."""
 
-from letta.services.memory_repo.manager import MemoryRepoManager
 from letta.services.memory_repo.storage.base import StorageBackend
-from letta.services.memory_repo.storage.gcs import GCSStorageBackend
 from letta.services.memory_repo.storage.local import LocalStorageBackend
 
 # MemfsClient: try cloud implementation first, fall back to local filesystem
@@ -12,9 +10,7 @@ except ImportError:
     from letta.services.memory_repo.memfs_client_base import MemfsClient
 
 __all__ = [
-    "GCSStorageBackend",
     "LocalStorageBackend",
     "MemfsClient",
-    "MemoryRepoManager",
     "StorageBackend",
 ]
