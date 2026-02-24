@@ -29104,7 +29104,7 @@
             "type": "integer",
             "title": "Limit",
             "description": "Character limit of the block.",
-            "default": 20000
+            "default": 100000
           },
           "project_id": {
             "anyOf": [
@@ -29317,7 +29317,7 @@
             "type": "integer",
             "title": "Limit",
             "description": "Character limit of the block.",
-            "default": 20000
+            "default": 100000
           },
           "project_id": {
             "anyOf": [
@@ -29535,7 +29535,7 @@
             "type": "integer",
             "title": "Limit",
             "description": "Character limit of the block.",
-            "default": 20000
+            "default": 100000
           },
           "project_id": {
             "anyOf": [
@@ -33178,7 +33178,7 @@
             "type": "integer",
             "title": "Limit",
             "description": "Character limit of the block.",
-            "default": 20000
+            "default": 100000
           },
           "project_id": {
             "anyOf": [
@@ -34592,7 +34592,7 @@
             "type": "integer",
             "title": "Limit",
             "description": "Character limit of the block.",
-            "default": 20000
+            "default": 100000
           },
           "project_id": {
             "anyOf": [
@@ -37733,7 +37733,7 @@
             "type": "integer",
             "title": "Limit",
             "description": "Character limit of the block.",
-            "default": 20000
+            "default": 100000
           },
           "project_id": {
             "anyOf": [

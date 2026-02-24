@@ -88,7 +88,7 @@ def supports_none_reasoning_effort(model: str) -> bool:
 
     Currently, GPT-5.1 and GPT-5.2 models support the 'none' reasoning effort level.
     """
-    return model.startswith("gpt-5.1") or model.startswith("gpt-5.2")
+    return model.startswith("gpt-5.1") or model.startswith("gpt-5.2") or model.startswith("gpt-5.3")
 
 
 def is_openai_5_model(model: str) -> bool:
