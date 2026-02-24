@@ -226,8 +226,6 @@ class Memory(BaseModel, validate_assignment=True):
             front_lines = []
             if block.description:
                 front_lines.append(f"description: {block.description}")
-            if block.limit is not None:
-                front_lines.append(f"limit: {block.limit}")
             if getattr(block, "read_only", False):
                 front_lines.append("read_only: true")
 
