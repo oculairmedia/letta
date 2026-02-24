@@ -62,12 +62,14 @@ class TestConversationsSDK:
         # Create a conversation
         created = client.conversations.create(agent_id=agent.id)
 
-        # Retrieve it (should have empty in_context_message_ids initially)
+        # Retrieve it (should have system message from creation)
         retrieved = client.conversations.retrieve(conversation_id=created.id)
 
         assert retrieved.id == created.id
         assert retrieved.agent_id == created.agent_id
-        assert retrieved.in_context_message_ids == []
+        # Conversation should have 1 system message immediately after creation
+        assert len(retrieved.in_context_message_ids) == 1
+        assert retrieved.in_context_message_ids[0].startswith("message-")
 
         # Send a message to the conversation
         list(
@@ -834,3 +836,132 @@ class TestConversationCompact:
         )
 
         assert response.status_code == 404
+
+
+class TestConversationSystemMessageRecompilation:
+    """Tests that verify the system message is recompiled with latest memory state on new conversation creation."""
+
+    def test_new_conversation_recompiles_system_message_with_updated_memory(self, client: Letta, server_url: str):
+        """Test the full workflow:
+        1. Agent is created
+        2. Send message to agent (through a conversation)
+        3. Modify the memory block -> check system message is NOT updated with the modified value
+        4. Create a new conversation
+        5. Check new conversation system message DOES have the modified value
+        """
+        unique_marker = f"UNIQUE_MARKER_{uuid.uuid4().hex[:8]}"
+
+        # Step 1: Create an agent with known memory blocks
+        agent = client.agents.create(
+            name=f"test_sys_msg_recompile_{uuid.uuid4().hex[:8]}",
+            model="openai/gpt-4o-mini",
+            embedding="openai/text-embedding-3-small",
+            memory_blocks=[
+                {"label": "human", "value": "The user is a test user."},
+                {"label": "persona", "value": "You are a helpful assistant."},
+            ],
+        )
+
+        try:
+            # Step 2: Create a conversation and send a message to it
+            conv1 = client.conversations.create(agent_id=agent.id)
+
+            list(
+                client.conversations.messages.create(
+                    conversation_id=conv1.id,
+                    messages=[{"role": "user", "content": "Hello, just a quick test."}],
+                )
+            )
+
+            # Verify the conversation has messages including a system message
+            conv1_messages = client.conversations.messages.list(
+                conversation_id=conv1.id,
+                order="asc",
+            )
+            assert len(conv1_messages) >= 3  # system + user + assistant
+            assert conv1_messages[0].message_type == "system_message"
+
+            # Get the original system message content
+            original_system_content = conv1_messages[0].content
+            assert unique_marker not in original_system_content, "Marker should not be in original system message"
+
+            # Step 3: Modify the memory block with a unique marker
+            client.agents.blocks.update(
+                agent_id=agent.id,
+                block_label="human",
+                value=f"The user is a test user. {unique_marker}",
+            )
+
+            # Verify the block was actually updated
+            updated_block = client.agents.blocks.retrieve(agent_id=agent.id, block_label="human")
+            assert unique_marker in updated_block.value
+
+            # Check that the OLD conversation's system message is NOT updated
+            conv1_messages_after_update = client.conversations.messages.list(
+                conversation_id=conv1.id,
+                order="asc",
+            )
+            old_system_content = conv1_messages_after_update[0].content
+            assert unique_marker not in old_system_content, (
+                "Old conversation system message should NOT contain the updated memory value"
+            )
+
+            # Step 4: Create a new conversation
+            conv2 = client.conversations.create(agent_id=agent.id)
+
+            # Step 5: Check the new conversation's system message has the updated value
+            # The system message should be compiled at creation time with the latest memory
+            conv2_retrieved = client.conversations.retrieve(conversation_id=conv2.id)
+            assert len(conv2_retrieved.in_context_message_ids) == 1, (
+                f"New conversation should have exactly 1 system message, got {len(conv2_retrieved.in_context_message_ids)}"
+            )
+
+            conv2_messages = client.conversations.messages.list(
+                conversation_id=conv2.id,
+                order="asc",
+            )
+            assert len(conv2_messages) >= 1
+            assert conv2_messages[0].message_type == "system_message"
+
+            new_system_content = conv2_messages[0].content
+            assert unique_marker in new_system_content, (
+                f"New conversation system message should contain the updated memory value '{unique_marker}', "
+                f"but system message content did not include it"
+            )
+
+        finally:
+            client.agents.delete(agent_id=agent.id)
+
+    def test_conversation_creation_initializes_system_message(self, client: Letta, server_url: str):
+        """Test that creating a conversation immediately initializes it with a system message."""
+        agent = client.agents.create(
+            name=f"test_conv_init_{uuid.uuid4().hex[:8]}",
+            model="openai/gpt-4o-mini",
+            embedding="openai/text-embedding-3-small",
+            memory_blocks=[
+                {"label": "human", "value": "Test user for system message init."},
+                {"label": "persona", "value": "You are a helpful assistant."},
+            ],
+        )
+
+        try:
+            # Create a conversation (without sending any messages)
+            conversation = client.conversations.create(agent_id=agent.id)
+
+            # Verify the conversation has a system message immediately
+            retrieved = client.conversations.retrieve(conversation_id=conversation.id)
+            assert len(retrieved.in_context_message_ids) == 1, (
+                f"Expected 1 system message after conversation creation, got {len(retrieved.in_context_message_ids)}"
+            )
+
+            # Verify the system message content contains memory block values
+            messages = client.conversations.messages.list(
+                conversation_id=conversation.id,
+                order="asc",
+            )
+            assert len(messages) == 1
+            assert messages[0].message_type == "system_message"
+            assert "Test user for system message init." in messages[0].content
+
+        finally:
+            client.agents.delete(agent_id=agent.id)

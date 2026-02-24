@@ -7,6 +7,7 @@ if TYPE_CHECKING:
 from sqlalchemy import and_, asc, delete, desc, func, nulls_last, or_, select
 
 from letta.errors import LettaInvalidArgumentError
+from letta.helpers.datetime_helpers import get_utc_time
 from letta.orm.agent import Agent as AgentModel
 from letta.orm.block import Block as BlockModel
 from letta.orm.blocks_conversations import BlocksConversations
@@ -73,7 +74,101 @@ class ConversationManager:
 
             pydantic_conversation = conversation.to_pydantic()
             pydantic_conversation.isolated_block_ids = isolated_block_ids
-            return pydantic_conversation
+
+        # Compile and persist the initial system message for this conversation
+        # This ensures the conversation captures the latest memory block state at creation time
+        await self.compile_and_save_system_message_for_conversation(
+            conversation_id=pydantic_conversation.id,
+            agent_id=agent_id,
+            actor=actor,
+        )
+
+        return pydantic_conversation
+
+    @trace_method
+    async def compile_and_save_system_message_for_conversation(
+        self,
+        conversation_id: str,
+        agent_id: str,
+        actor: PydanticUser,
+        agent_state: Optional["AgentState"] = None,
+        message_manager: Optional[object] = None,
+    ) -> PydanticMessage:
+        """Compile and persist the initial system message for a conversation.
+
+        This recompiles the system prompt with the latest memory block values
+        and metadata, ensuring the conversation starts with an up-to-date
+        system message.
+
+        This is the single source of truth for creating a conversation's system
+        message — used both at conversation creation time and as a fallback
+        when a conversation has no messages yet.
+
+        Args:
+            conversation_id: The conversation to add the system message to
+            agent_id: The agent this conversation belongs to
+            actor: The user performing the action
+            agent_state: Optional pre-loaded agent state (avoids redundant DB load)
+            message_manager: Optional pre-loaded MessageManager instance
+
+        Returns:
+            The persisted system message
+        """
+        # Lazy imports to avoid circular dependencies
+        from letta.prompts.prompt_generator import PromptGenerator
+        from letta.services.message_manager import MessageManager
+        from letta.services.passage_manager import PassageManager
+
+        if message_manager is None:
+            message_manager = MessageManager()
+
+        if agent_state is None:
+            from letta.services.agent_manager import AgentManager
+
+            agent_state = await AgentManager().get_agent_by_id_async(
+                agent_id=agent_id,
+                include_relationships=["memory", "sources"],
+                actor=actor,
+            )
+
+        passage_manager = PassageManager()
+        num_messages = await message_manager.size_async(actor=actor, agent_id=agent_id)
+        num_archival_memories = await passage_manager.agent_passage_size_async(actor=actor, agent_id=agent_id)
+
+        # Compile the system message with current memory state
+        system_message_str = await PromptGenerator.compile_system_message_async(
+            system_prompt=agent_state.system,
+            in_context_memory=agent_state.memory,
+            in_context_memory_last_edit=get_utc_time(),
+            timezone=agent_state.timezone,
+            user_defined_variables=None,
+            append_icm_if_missing=True,
+            previous_message_count=num_messages,
+            archival_memory_size=num_archival_memories,
+            sources=agent_state.sources,
+            max_files_open=agent_state.max_files_open,
+        )
+
+        system_message = PydanticMessage.dict_to_message(
+            agent_id=agent_id,
+            model=agent_state.llm_config.model,
+            openai_message_dict={"role": "system", "content": system_message_str},
+        )
+
+        # Persist the new system message
+        persisted_messages = await message_manager.create_many_messages_async([system_message], actor=actor)
+        system_message = persisted_messages[0]
+
+        # Add it to the conversation tracking at position 0
+        await self.add_messages_to_conversation(
+            conversation_id=conversation_id,
+            agent_id=agent_id,
+            message_ids=[system_message.id],
+            actor=actor,
+            starting_position=0,
+        )
+
+        return system_message
 
     @enforce_types
     @trace_method
