@@ -209,7 +209,7 @@ class TestSummarizeSlidingWindowTelemetryContext:
             await summarizer_sliding_window.summarize_via_sliding_window(
                 actor=mock_actor,
                 llm_config=mock_llm_config,
-                agent_llm_config=mock_llm_config,  # case where agent and summarizer have same config
+                agent_llm_config=mock_llm_config, # case where agent and summarizer have same config
                 summarizer_config=mock_compaction_settings,
                 in_context_messages=mock_messages,
                 agent_id=agent_id,

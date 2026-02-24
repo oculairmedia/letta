@@ -4,21 +4,24 @@ from dataclasses import dataclass
 from typing import List, Optional
 
 from letta.helpers.message_helper import convert_message_creates_to_messages
+from letta.llm_api.llm_client import LLMClient
 from letta.log import get_logger
 from letta.otel.tracing import trace_method
+from letta.schemas.agent import AgentType
 from letta.schemas.enums import MessageRole
 from letta.schemas.letta_message_content import TextContent
 from letta.schemas.llm_config import LLMConfig
 from letta.schemas.message import Message, MessageCreate
-from letta.schemas.tool import Tool
 from letta.schemas.user import User
+from letta.services.summarizer.self_summarizer import self_summarize_all, self_summarize_sliding_window
 from letta.services.summarizer.summarizer_all import summarize_all
-from letta.services.summarizer.summarizer_config import CompactionSettings, get_default_summarizer_model
+from letta.services.summarizer.summarizer_config import CompactionSettings, get_default_prompt_for_mode, get_default_summarizer_model
 from letta.services.summarizer.summarizer_sliding_window import (
     count_tokens,
     count_tokens_with_tools,
     summarize_via_sliding_window,
 )
+from letta.services.telemetry_manager import TelemetryManager
 from letta.system import package_summarize_message_no_counts
 
 logger = get_logger(__name__)
@@ -106,12 +109,14 @@ async def compact_messages(
     actor: User,
     agent_id: str,
     agent_llm_config: LLMConfig,
+    telemetry_manager: TelemetryManager,
+    llm_client: LLMClient,
+    agent_type: AgentType,
     messages: List[Message],
     timezone: str,
     compaction_settings: Optional[CompactionSettings] = None,
-    agent_model_handle: Optional[str] = None,
     agent_tags: Optional[List[str]] = None,
-    tools: Optional[List[Tool]] = None,
+    tools: Optional[List[dict]] = None,  # Tool json schemas
     trigger_threshold: Optional[int] = None,
     run_id: Optional[str] = None,
     step_id: Optional[str] = None,
@@ -154,7 +159,105 @@ async def compact_messages(
     )
 
     summarization_mode_used = summarizer_config.mode
-    if summarizer_config.mode == "all":
+    if summarizer_config.mode == "self_compact_all":
+        try:
+            summary, compacted_messages = await self_summarize_all(
+                actor=actor,
+                agent_id=agent_id,
+                agent_llm_config=agent_llm_config,
+                telemetry_manager=telemetry_manager,
+                llm_client=llm_client,
+                agent_type=agent_type,
+                messages=messages,
+                compaction_settings=summarizer_config,
+                run_id=run_id,
+                step_id=step_id,
+                timezone=timezone,
+                agent_tags=agent_tags,
+                tools=tools,
+            )
+        except Exception as e:
+            logger.error(f"Self summarization failed with exception: {str(e)}. Falling back to self sliding window mode.")
+            try:
+                fallback_config = summarizer_config.model_copy(
+                    update={
+                        "mode": "self_compact_sliding_window",
+                        "prompt": get_default_prompt_for_mode("self_compact_sliding_window"),
+                    }
+                )
+                summary, compacted_messages = await self_summarize_sliding_window(
+                    actor=actor,
+                    agent_id=agent_id,
+                    agent_llm_config=agent_llm_config,
+                    telemetry_manager=telemetry_manager,
+                    llm_client=llm_client,
+                    agent_type=agent_type,
+                    messages=messages,
+                    compaction_settings=fallback_config,
+                    run_id=run_id,
+                    step_id=step_id,
+                    timezone=timezone,
+                    agent_tags=agent_tags,
+                    tools=tools,
+                )
+                summarization_mode_used = "self_compact_sliding_window"
+            except Exception as e:
+                logger.error(f"Self sliding window summarization failed with exception: {str(e)}. Falling back to all mode.")
+                fallback_config = summarizer_config.model_copy(
+                    update={
+                        "mode": "all",
+                        "prompt": get_default_prompt_for_mode("all"),
+                    }
+                )
+                summary, compacted_messages = await summarize_all(
+                    actor=actor,
+                    llm_config=summarizer_llm_config,
+                    summarizer_config=fallback_config,
+                    in_context_messages=messages,
+                    agent_id=agent_id,
+                    agent_tags=agent_tags,
+                    run_id=run_id,
+                    step_id=step_id,
+                )
+                summarization_mode_used = "all"
+    elif summarizer_config.mode == "self_compact_sliding_window":
+        try:
+            summary, compacted_messages = await self_summarize_sliding_window(
+                actor=actor,
+                agent_id=agent_id,
+                agent_llm_config=agent_llm_config,
+                telemetry_manager=telemetry_manager,
+                llm_client=llm_client,
+                agent_type=agent_type,
+                messages=messages,
+                compaction_settings=summarizer_config,
+                run_id=run_id,
+                step_id=step_id,
+                timezone=timezone,
+                agent_tags=agent_tags,
+                tools=tools,
+            )
+        except Exception as e:
+            # Prompts for all and self mode should be similar --> can use original prompt
+            logger.error(f"Self sliding window summarization failed with exception: {str(e)}. Falling back to all mode.")
+            fallback_config = summarizer_config.model_copy(
+                update={
+                    "mode": "all",
+                    "prompt": get_default_prompt_for_mode("all"),
+                }
+            )
+            summary, compacted_messages = await summarize_all(
+                actor=actor,
+                llm_config=summarizer_llm_config,
+                summarizer_config=fallback_config,
+                in_context_messages=messages,
+                agent_id=agent_id,
+                agent_tags=agent_tags,
+                run_id=run_id,
+                step_id=step_id,
+            )
+            summarization_mode_used = "all"
+    elif summarizer_config.mode == "all":
         summary, compacted_messages = await summarize_all(
             actor=actor,
             llm_config=summarizer_llm_config,
@@ -180,10 +283,16 @@ async def compact_messages(
             )
         except Exception as e:
             logger.error(f"Sliding window summarization failed with exception: {str(e)}. Falling back to all mode.")
+            fallback_config = summarizer_config.model_copy(
+                update={
+                    "mode": "all",
+                    "prompt": get_default_prompt_for_mode("all"),
+                }
+            )
             summary, compacted_messages = await summarize_all(
                 actor=actor,
                 llm_config=summarizer_llm_config,
-                summarizer_config=summarizer_config,
+                summarizer_config=fallback_config,
                 in_context_messages=messages,
                 agent_id=agent_id,
                 agent_tags=agent_tags,
@@ -271,6 +380,7 @@ async def compact_messages(
         summary=summary,
         timezone=timezone,
         compaction_stats=compaction_stats,
+        mode=summarization_mode_used,
     )
 
     if use_summary_role:

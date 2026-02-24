@@ -1014,7 +1014,8 @@ class LettaAgentV3(LettaAgentV2):
 
                                 # Ensure system prompt is recompiled before summarization so compaction
                                 # operates on the latest system+memory state (including recent repairs).
-                                messages = await self._refresh_messages(messages, force_system_prompt_refresh=True)
+                                # NOTE: we no longer refresh the system prompt before compaction so we can leverage cache for self mode
+                                # messages = await self._refresh_messages(messages, force_system_prompt_refresh=True)
 
                                 summary_message, messages, summary_text = await self.compact(
                                     messages,
@@ -1233,7 +1234,8 @@ class LettaAgentV3(LettaAgentV2):
                 try:
                     # Ensure system prompt is recompiled before summarization so compaction
                     # operates on the latest system+memory state (including recent repairs).
-                    messages = await self._refresh_messages(messages, force_system_prompt_refresh=True)
+                    # NOTE: we no longer refresh the system prompt before compaction so we can leverage cache for self mode
+                    # messages = await self._refresh_messages(messages, force_system_prompt_refresh=True)
 
                     summary_message, messages, summary_text = await self.compact(
                         messages,
@@ -1874,6 +1876,7 @@ class LettaAgentV3(LettaAgentV2):
             context_tokens_before: Token count before compaction (for stats).
             messages_count_before: Message count before compaction (for stats).
         """
+
         # Determine compaction settings: passed-in > agent's > global defaults
         effective_compaction_settings = compaction_settings or self.agent_state.compaction_settings
 
@@ -1881,12 +1884,14 @@ class LettaAgentV3(LettaAgentV2):
             actor=self.actor,
             agent_id=self.agent_state.id,
             agent_llm_config=self.agent_state.llm_config,
+            telemetry_manager=self.telemetry_manager,
+            llm_client=self.llm_client,
+            agent_type=self.agent_state.agent_type,
             messages=messages,
             timezone=self.agent_state.timezone,
             compaction_settings=effective_compaction_settings,
-            agent_model_handle=self.agent_state.model,
             agent_tags=self.agent_state.tags,
-            tools=self.agent_state.tools,
+            tools=await self._get_valid_tools(),  # Pass json schemas including client tools for cache compatibility (for self compaction)
             trigger_threshold=trigger_threshold,
             run_id=run_id,
             step_id=step_id,

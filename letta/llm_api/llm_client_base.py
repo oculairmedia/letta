@@ -61,8 +61,11 @@ class LLMClientBase:
         user_id: Optional[str] = None,
         compaction_settings: Optional[Dict] = None,
         llm_config: Optional[Dict] = None,
+        actor: Optional["User"] = None,
     ) -> None:
         """Set telemetry context for provider trace logging."""
+        if actor is not None:
+            self.actor = actor
         self._telemetry_manager = telemetry_manager
         self._telemetry_agent_id = agent_id
         self._telemetry_agent_tags = agent_tags

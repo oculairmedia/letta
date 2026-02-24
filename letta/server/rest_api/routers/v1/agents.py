@@ -2385,7 +2385,7 @@ async def summarize_messages(
     """
 
     actor = await server.user_manager.get_actor_or_default_async(actor_id=headers.actor_id)
-    agent = await server.agent_manager.get_agent_by_id_async(agent_id, actor, include_relationships=["multi_agent_group"])
+    agent = await server.agent_manager.get_agent_by_id_async(agent_id, actor, include_relationships=["multi_agent_group", "tools"])
 
     agent_loop = LettaAgentV3(agent_state=agent, actor=actor)
     in_context_messages = await server.message_manager.get_messages_by_ids_async(message_ids=agent.message_ids, actor=actor)
@@ -2412,15 +2412,17 @@ async def summarize_messages(
     if agent.compaction_settings and request and request.compaction_settings:
         # Start with agent's settings, override with new values from request
         # Use model_fields_set to get the fields that were changed in the request (want to ignore the defaults that get set automatically)
-        compaction_settings = agent.compaction_settings
+        compaction_settings = agent.compaction_settings.copy()  # do not mutate original agent compaction settings
         changed_fields = request.compaction_settings.model_fields_set
         for field in changed_fields:
             setattr(compaction_settings, field, getattr(request.compaction_settings, field))
 
         # If mode changed from agent's original settings and prompt not explicitly set in request, then use the default prompt for the new mode
         # Ex: previously was sliding_window, now is all, so we need to use the default prompt for all mode
-        if "mode" in changed_fields and compaction_settings.mode != request.compaction_settings.mode:
-            compaction_settings = compaction_settings.set_mode_specific_prompt()
+        if "mode" in changed_fields and agent.compaction_settings.mode != request.compaction_settings.mode:
+            from letta.services.summarizer.summarizer_config import get_default_prompt_for_mode
+
+            compaction_settings.prompt = get_default_prompt_for_mode(compaction_settings.mode)
     else:
         compaction_settings = (request and request.compaction_settings) or agent.compaction_settings
     num_messages_before = len(in_context_messages)
@@ -2434,6 +2436,7 @@ async def summarize_messages(
     # update the agent state
     logger.info(f"Summarized {num_messages_before} messages to {num_messages_after}")
     if num_messages_before <= num_messages_after:
+        logger.warning(f"Summarization failed to reduce the number of messages. {num_messages_before} messages -> {num_messages_after}.")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Summarization failed to reduce the number of messages. You may need to use a different CompactionSettings (e.g. using `all` mode).",

@@ -77,7 +77,13 @@ async def count_tokens_with_tools(
         actor=actor,
     )
 
-    tool_definitions = [OpenAITool(type="function", function=t.json_schema) for t in tools if t.json_schema]
+    # Tools can be either Tool objects (with .json_schema) or dicts (json schemas directly)
+    # For compatibility with how tools need to be passed in for self compaction
+    tool_definitions = [
+        OpenAITool(type="function", function=t.json_schema if hasattr(t, "json_schema") else t)
+        for t in tools
+        if (hasattr(t, "json_schema") and t.json_schema) or (isinstance(t, dict) and t)
+    ]
     tool_tokens = await token_counter.count_tool_tokens(tool_definitions) if tool_definitions else 0
 
     # Apply safety margin for approximate counting (message_tokens already has margin applied)
@@ -127,6 +133,11 @@ async def summarize_via_sliding_window(
     else:
         maximum_message_index = total_message_count - 1
 
+    # simple version: summarize(in_context[1:round(summarizer_config.sliding_window_percentage * len(in_context_messages))])
+    # this evicts 30% of the messages (via summarization) and keeps the remaining 70%
+    # problem: we need the cutoff point to be an assistant message, so will grow the cutoff point until we find an assistant message
+    # also need to grow the cutoff point until the token count is less than the target token count
+
     # Starts at N% (eg 70%), and increments up until 100%
     max(
         1 - summarizer_config.sliding_window_percentage, 0.10
@@ -146,11 +157,6 @@ async def summarize_via_sliding_window(
             return message.tool_calls is not None and len(message.tool_calls) > 0
         return False
 
-    # simple version: summarize(in_context[1:round(summarizer_config.sliding_window_percentage * len(in_context_messages))])
-    # this evicts 30% of the messages (via summarization) and keeps the remaining 70%
-    # problem: we need the cutoff point to be an assistant message, so will grow the cutoff point until we find an assistant message
-    # also need to grow the cutoff point until the token count is less than the target token count
-
     while approx_token_count >= goal_tokens and eviction_percentage < 1.0:
         # more eviction percentage
         eviction_percentage += 0.10
@@ -168,7 +174,9 @@ async def summarize_via_sliding_window(
             None,
         )
         if assistant_message_index is None:
-            logger.warning(f"No assistant message found for evicting up to index {message_cutoff_index}, incrementing eviction percentage")
+            logger.warning(
+                f"No assistant/approval message found for evicting up to index {message_cutoff_index}, incrementing eviction percentage"
+            )
             continue
 
         # update token count
@@ -210,7 +218,7 @@ async def summarize_via_sliding_window(
         },
     )
 
-    logger.info(f"\n==================\nSummary message string: {summary_message_str[:100]}\n==================\n")
+    logger.info(f"\n==================\nSummary message string: {summary_message_str[:100]}...\n==================\n")
 
     if summarizer_config.clip_chars is not None and len(summary_message_str) > summarizer_config.clip_chars:
         logger.warning(f"Summary length {len(summary_message_str)} exceeds clip length {summarizer_config.clip_chars}. Truncating.")

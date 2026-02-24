@@ -78,7 +78,7 @@ DEFAULT_CONTEXT_WINDOW = 32000
 
 # Summarization trigger threshold (multiplier of context_window limit)
 # Summarization triggers when step usage > context_window * SUMMARIZATION_TRIGGER_MULTIPLIER
-SUMMARIZATION_TRIGGER_MULTIPLIER = 1.0
+SUMMARIZATION_TRIGGER_MULTIPLIER = 0.9  # using instead of 1.0 to avoid "too many tokens in prompt" fallbacks
 
 # number of concurrent embedding requests to sent
 EMBEDDING_BATCH_SIZE = 200

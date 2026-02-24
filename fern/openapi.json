@@ -31151,7 +31151,7 @@
               }
             ],
             "title": "Model",
-            "description": "Model handle to use for summarization (format: provider/model-name). If None, uses lightweight provider-specific defaults."
+            "description": "Model handle to use for sliding_window/all summarization (format: provider/model-name). If None, uses lightweight provider-specific defaults."
           },
           "model_settings": {
             "anyOf": [
@@ -31256,7 +31256,12 @@
           },
           "mode": {
             "type": "string",
-            "enum": ["all", "sliding_window", "self"],
+            "enum": [
+              "all",
+              "sliding_window",
+              "self_compact_all",
+              "self_compact_sliding_window"
+            ],
             "title": "Mode",
             "description": "The type of summarization technique use.",
             "default": "sliding_window"
@@ -31264,12 +31269,12 @@
           "sliding_window_percentage": {
             "type": "number",
             "title": "Sliding Window Percentage",
-            "description": "The percentage of the context window to keep post-summarization (only used in sliding window mode)."
+            "description": "The percentage of the context window to keep post-summarization (only used in sliding window modes)."
           }
         },
         "type": "object",
         "title": "CompactionSettings",
-        "description": "Configuration for conversation compaction / summarization.\n\n``model`` is the only required user-facing field – it specifies the summarizer\nmodel handle (e.g. ``\"openai/gpt-4o-mini\"``). Per-model settings (temperature,\nmax tokens, etc.) are derived from the default configuration for that handle."
+        "description": "Configuration for conversation compaction / summarization.\n\nPer-model settings (temperature,\nmax tokens, etc.) are derived from the default configuration for that handle."
       },
       "CompactionSettings-Output": {
         "properties": {
@@ -31283,7 +31288,7 @@
               }
             ],
             "title": "Model",
-            "description": "Model handle to use for summarization (format: provider/model-name). If None, uses lightweight provider-specific defaults."
+            "description": "Model handle to use for sliding_window/all summarization (format: provider/model-name). If None, uses lightweight provider-specific defaults."
           },
           "model_settings": {
             "anyOf": [
@@ -31388,7 +31393,12 @@
           },
           "mode": {
             "type": "string",
-            "enum": ["all", "sliding_window", "self"],
+            "enum": [
+              "all",
+              "sliding_window",
+              "self_compact_all",
+              "self_compact_sliding_window"
+            ],
             "title": "Mode",
             "description": "The type of summarization technique use.",
             "default": "sliding_window"
@@ -31396,12 +31406,12 @@
           "sliding_window_percentage": {
             "type": "number",
             "title": "Sliding Window Percentage",
-            "description": "The percentage of the context window to keep post-summarization (only used in sliding window mode)."
+            "description": "The percentage of the context window to keep post-summarization (only used in sliding window modes)."
           }
         },
         "type": "object",
         "title": "CompactionSettings",
-        "description": "Configuration for conversation compaction / summarization.\n\n``model`` is the only required user-facing field – it specifies the summarizer\nmodel handle (e.g. ``\"openai/gpt-4o-mini\"``). Per-model settings (temperature,\nmax tokens, etc.) are derived from the default configuration for that handle."
+        "description": "Configuration for conversation compaction / summarization.\n\nPer-model settings (temperature,\nmax tokens, etc.) are derived from the default configuration for that handle."
       },
       "CompactionStats": {
         "properties": {

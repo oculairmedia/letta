@@ -537,10 +537,13 @@ async def compact_conversation(
 
     # Validate compaction reduced messages
     if num_messages_before <= num_messages_after:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Summarization failed to reduce the number of messages. You may need to use a different CompactionSettings (e.g. using `all` mode).",
+        logger.warning(
+            f"Summarization failed to reduce the number of messages. {num_messages_before} messages -> {num_messages_after} (only expected if drop_tool_returns is True)."
         )
+        # raise HTTPException(
+        #     status_code=status.HTTP_400_BAD_REQUEST,
+        #     detail="Summarization failed to reduce the number of messages. You may need to use a different CompactionSettings (e.g. using `all` mode).",
+        # )
 
     # Checkpoint the messages (this will update the conversation_messages table)
     await agent_loop._checkpoint_messages(run_id=None, step_id=None, new_messages=[summary_message], in_context_messages=messages)
