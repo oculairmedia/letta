@@ -557,16 +557,31 @@ async def test_server_startup_syncs_base_providers(default_user, default_organiz
     async def mock_openai_get_model_list_async(*args, **kwargs):
         return mock_openai_models
 
-    # Mock Anthropic models.list() response
-    from unittest.mock import MagicMock
+    # Mock Anthropic models.list() response as an async iterable
+    # (the real SDK returns an AsyncPage that supports async iteration)
 
-    mock_anthropic_response = MagicMock()
-    mock_anthropic_response.model_dump.return_value = mock_anthropic_models
+    class MockAnthropicModelItem:
+        def __init__(self, data):
+            self._data = data
+
+        def model_dump(self):
+            return self._data
+
+    class MockAnthropicAsyncPage:
+        def __init__(self, items):
+            self._items = [MockAnthropicModelItem(item) for item in items]
+
+        def __aiter__(self):
+            return self._async_iter()
+
+        async def _async_iter(self):
+            for item in self._items:
+                yield item
 
     # Mock the Anthropic AsyncAnthropic client
     class MockAnthropicModels:
         async def list(self):
-            return mock_anthropic_response
+            return MockAnthropicAsyncPage(mock_anthropic_models["data"])
 
     class MockAsyncAnthropic:
         def __init__(self, *args, **kwargs):
@@ -833,24 +848,38 @@ async def test_server_startup_handles_api_errors_gracefully(default_user, defaul
     async def mock_openai_fail(*args, **kwargs):
         raise Exception("OpenAI API is down")
 
-    # Mock Anthropic to succeed
-    from unittest.mock import MagicMock
+    # Mock Anthropic to succeed (as async iterable, matching real SDK pagination)
 
-    mock_anthropic_response = MagicMock()
-    mock_anthropic_response.model_dump.return_value = {
-        "data": [
-            {
-                "id": "claude-3-5-sonnet-20241022",
-                "type": "model",
-                "display_name": "Claude 3.5 Sonnet",
-                "created_at": "2024-10-22T00:00:00Z",
-            }
-        ]
-    }
+    mock_anthropic_data = [
+        {
+            "id": "claude-3-5-sonnet-20241022",
+            "type": "model",
+            "display_name": "Claude 3.5 Sonnet",
+            "created_at": "2024-10-22T00:00:00Z",
+        }
+    ]
+
+    class MockAnthropicModelItem:
+        def __init__(self, data):
+            self._data = data
+
+        def model_dump(self):
+            return self._data
+
+    class MockAnthropicAsyncPage:
+        def __init__(self, items):
+            self._items = [MockAnthropicModelItem(item) for item in items]
+
+        def __aiter__(self):
+            return self._async_iter()
+
+        async def _async_iter(self):
+            for item in self._items:
+                yield item
 
     class MockAnthropicModels:
         async def list(self):
-            return mock_anthropic_response
+            return MockAnthropicAsyncPage(mock_anthropic_data)
 
     class MockAsyncAnthropic:
         def __init__(self, *args, **kwargs):

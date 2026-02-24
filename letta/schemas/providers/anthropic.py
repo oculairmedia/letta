@@ -182,7 +182,11 @@ class AnthropicProvider(Provider):
             raise ValueError("No API key provided")
 
         try:
-            models = await anthropic_client.models.list()
+            # Auto-paginate through all pages to ensure we get every model.
+            # The default page size is 20, and Anthropic now has more models than that.
+            models_data = []
+            async for model in anthropic_client.models.list():
+                models_data.append(model.model_dump())
         except AttributeError as e:
             if "_set_private_attributes" in str(e):
                 raise LLMError(
@@ -190,10 +194,6 @@ class AnthropicProvider(Provider):
                     code=ErrorCode.INTERNAL_SERVER_ERROR,
                 )
             raise
-
-        models_json = models.model_dump()
-        assert "data" in models_json, f"Anthropic model query response missing 'data' field: {models_json}"
-        models_data = models_json["data"]
 
         return self._list_llm_models(models_data)
 
