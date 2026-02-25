@@ -26243,13 +26243,13 @@
         }
       }
     },
-    "/v1/listeners/register": {
+    "/v1/environments/register": {
       "post": {
         "description": "Register a new listener connection and get connectionId for WebSocket",
-        "summary": "Register Listener",
-        "tags": ["listeners"],
+        "summary": "Register Environment",
+        "tags": ["environments"],
         "parameters": [],
-        "operationId": "listeners.register",
+        "operationId": "environments.register",
         "requestBody": {
           "description": "Body",
           "content": {
@@ -26314,11 +26314,11 @@
         }
       }
     },
-    "/v1/listeners": {
+    "/v1/environments": {
       "get": {
-        "description": "List all active listener connections for the organization",
-        "summary": "List Listener Connections",
-        "tags": ["listeners"],
+        "description": "List all active environment connections for the organization",
+        "summary": "List Environment Connections",
+        "tags": ["environments"],
         "parameters": [
           {
             "name": "limit",
@@ -26349,7 +26349,7 @@
             }
           }
         ],
-        "operationId": "listeners.listConnections",
+        "operationId": "environments.listConnections",
         "responses": {
           "200": {
             "description": "200",
@@ -26426,11 +26426,11 @@
         }
       }
     },
-    "/v1/listeners/{connectionId}/messages": {
+    "/v1/environments/{connectionId}/messages": {
       "post": {
-        "description": "Send a message to a specific listener connection",
-        "summary": "Send Message to Listener",
-        "tags": ["listeners"],
+        "description": "Send a message to a specific environment connection",
+        "summary": "Send Message to Environment",
+        "tags": ["environments"],
         "parameters": [
           {
             "name": "connectionId",
@@ -26441,7 +26441,7 @@
             }
           }
         ],
-        "operationId": "listeners.sendMessage",
+        "operationId": "environments.sendMessage",
         "requestBody": {
           "description": "Body",
           "content": {
@@ -26664,11 +26664,11 @@
         }
       }
     },
-    "/v1/listeners/{connectionId}/mode": {
+    "/v1/environments/{connectionId}/mode": {
       "post": {
-        "description": "Change the permission mode of a specific listener connection",
-        "summary": "Change Listener Mode",
-        "tags": ["listeners"],
+        "description": "Change the permission mode of a specific environment connection",
+        "summary": "Change Environment Mode",
+        "tags": ["environments"],
         "parameters": [
           {
             "name": "connectionId",
@@ -26679,7 +26679,7 @@
             }
           }
         ],
-        "operationId": "listeners.sendModeChange",
+        "operationId": "environments.sendModeChange",
         "requestBody": {
           "description": "Body",
           "content": {
