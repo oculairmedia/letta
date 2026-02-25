@@ -21,7 +21,7 @@ from letta.agents.helpers import (
 )
 from letta.agents.letta_agent_v2 import LettaAgentV2
 from letta.constants import DEFAULT_MAX_STEPS, NON_USER_MSG_PREFIX, REQUEST_HEARTBEAT_PARAM
-from letta.errors import ContextWindowExceededError, LLMError, SystemPromptTokenExceededError
+from letta.errors import ContextWindowExceededError, LLMEmptyResponseError, LLMError, SystemPromptTokenExceededError
 from letta.helpers import ToolRulesSolver
 from letta.helpers.datetime_helpers import get_utc_time, get_utc_timestamp_ns
 from letta.helpers.tool_execution_helper import enable_strict_mode
@@ -988,6 +988,9 @@ class LettaAgentV3(LettaAgentV2):
                         # If you've reached this point without an error, break out of retry loop
                         break
                     except ValueError as e:
+                        self.stop_reason = LettaStopReason(stop_reason=StopReasonType.invalid_llm_response.value)
+                        raise e
+                    except LLMEmptyResponseError as e:
                         self.stop_reason = LettaStopReason(stop_reason=StopReasonType.invalid_llm_response.value)
                         raise e
                     except LLMError as e:
