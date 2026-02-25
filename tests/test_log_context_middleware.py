@@ -52,8 +52,8 @@ class TestLogContextMiddleware:
             async def get_files(self, agent_id, org_id, ref):
                 assert ref == "HEAD"
                 return {
-                    "system/human.md": "---\ndescription: human\nlimit: 20000\n---\nname: sarah",
-                    "system/persona.md": "---\ndescription: persona\nlimit: 20000\n---\nbe helpful",
+                    "system/human.md": "---\ndescription: human\n---\nname: sarah",
+                    "system/persona.md": "---\ndescription: persona\n---\nbe helpful",
                 }
 
         class DummyMemoryRepoManager:

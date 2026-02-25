@@ -25,9 +25,9 @@ def test_chat_memory_init_and_utils(chat_memory: Memory):
 
 def test_memory_limit_validation(chat_memory: Memory):
     with pytest.raises(ValueError):
-        ChatMemory(persona="x " * 50000, human="y " * 50000)
+        ChatMemory(persona="x " * 60000, human="y " * 60000)
     with pytest.raises(ValueError):
-        chat_memory.get_block("persona").value = "x " * 50000
+        chat_memory.get_block("persona").value = "x " * 60000
 
 
 def test_get_block_not_found(chat_memory: Memory):
