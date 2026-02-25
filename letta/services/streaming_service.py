@@ -15,6 +15,7 @@ from letta.errors import (
     LettaInvalidArgumentError,
     LettaServiceUnavailableError,
     LLMAuthenticationError,
+    LLMEmptyResponseError,
     LLMError,
     LLMRateLimitError,
     LLMTimeoutError,
@@ -438,6 +439,21 @@ class StreamingService:
                 )
                 error_data = {"error": error_message.model_dump()}
                 logger.warning(f"Run {run_id} stopped with LLM authentication error: {e}, error_data: {error_message.model_dump()}")
+                yield f"data: {stop_reason.model_dump_json()}\n\n"
+                yield f"event: error\ndata: {error_message.model_dump_json()}\n\n"
+                # Send [DONE] marker to properly close the stream
+                yield "data: [DONE]\n\n"
+            except LLMEmptyResponseError as e:
+                run_status = RunStatus.failed
+                stop_reason = LettaStopReason(stop_reason=StopReasonType.invalid_llm_response)
+                error_message = LettaErrorMessage(
+                    run_id=run_id,
+                    error_type="llm_empty_response",
+                    message="LLM returned an empty response.",
+                    detail=str(e),
+                )
+                error_data = {"error": error_message.model_dump()}
+                logger.warning(f"Run {run_id} stopped with LLM empty response: {e}, error_data: {error_message.model_dump()}")
                 yield f"data: {stop_reason.model_dump_json()}\n\n"
                 yield f"event: error\ndata: {error_message.model_dump_json()}\n\n"
                 # Send [DONE] marker to properly close the stream
