@@ -21968,6 +21968,13 @@
                                 },
                                 "model_id": {
                                   "type": "string"
+                                },
+                                "recent_chunks": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "additionalProperties": {}
+                                  }
                                 }
                               },
                               "required": [
