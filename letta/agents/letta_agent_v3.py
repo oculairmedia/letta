@@ -764,7 +764,12 @@ class LettaAgentV3(LettaAgentV2):
             ]
         else:
             # Old behavior: UserMessage with packed JSON
-            return list(Message.to_letta_messages(summary_message))
+            messages = list(Message.to_letta_messages(summary_message))
+            # Set otid on returned messages (summary Message doesn't have otid set at creation)
+            for i, msg in enumerate(messages):
+                if not msg.otid:
+                    msg.otid = Message.generate_otid_from_id(summary_message.id, i)
+            return messages
 
     @trace_method
     async def _step(
