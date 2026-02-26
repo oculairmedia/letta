@@ -133,7 +133,8 @@ class MemfsClient:
         except FileNotFoundError:
             return []
 
-        # Convert block files to PydanticBlock (metadata is in frontmatter)
+        # Convert block files to PydanticBlock (metadata is in frontmatter).
+        # skills/ is intentionally excluded from block sync/render.
         blocks = []
         for file_path, content in files.items():
             if file_path.endswith(".md"):

@@ -309,3 +309,48 @@ def test_compile_git_memory_filesystem_no_description_when_empty():
     assert "notes.md\n" in out or "notes.md\n" in out
     # reference/api.md has a description
     assert "api.md (API docs)" in out
+
+
+def test_compile_git_memory_filesystem_condenses_skills_to_top_level_entries():
+    """skills/ should render as top-level skill folders with description.
+
+    We intentionally avoid showing nested files under skills/ in the system prompt
+    tree to keep context concise.
+    """
+
+    m = Memory(
+        agent_type=AgentType.letta_v1_agent,
+        git_enabled=True,
+        blocks=[
+            Block(label="system/human", value="human data", limit=100),
+            Block(
+                label="skills/searching-messages/SKILL",
+                value="# searching messages",
+                limit=100,
+                description="Search past messages to recall context.",
+            ),
+            Block(
+                label="skills/creating-skills/SKILL",
+                value="# creating skills",
+                limit=100,
+                description="Guide for creating effective skills.",
+            ),
+            Block(
+                label="skills/creating-skills/references/workflows",
+                value="nested docs",
+                limit=100,
+                description="Nested workflow docs (should not appear)",
+            ),
+        ],
+    )
+
+    out = m.compile()
+
+    # Condensed top-level skill entries with descriptions.
+    assert "searching-messages/ (Search past messages to recall context.)" in out
+    assert "creating-skills/ (Guide for creating effective skills.)" in out
+
+    # Do not show SKILL.md or nested skill docs in tree.
+    assert "skills/searching-messages/SKILL.md" not in out
+    assert "skills/creating-skills/SKILL.md" not in out
+    assert "references/workflows" not in out

@@ -34,6 +34,23 @@ logger = get_logger(__name__)
 
 _background_tasks: set[asyncio.Task] = set()
 
+
+def _is_syncable_block_markdown_path(path: str) -> bool:
+    """Return whether a markdown path should be mirrored into block cache.
+
+    For skills/, do not mirror any files into block cache.
+    Agent-scoped skills are stored in MemFS, but they should not be injected
+    into block-backed core memory/system prompt.
+    """
+    if not path.endswith(".md"):
+        return False
+
+    if path.startswith("skills/"):
+        return False
+
+    return True
+
+
 router = APIRouter(prefix="/git", tags=["git"], include_in_schema=False)
 
 # Global storage for the server instance (set during app startup)
@@ -100,7 +117,7 @@ async def _sync_after_push(actor_id: str, agent_id: str) -> None:
     expected_labels = set()
     from letta.services.memory_repo.block_markdown import parse_block_markdown
 
-    md_file_paths = sorted([file_path for file_path in files if file_path.endswith(".md")])
+    md_file_paths = sorted([file_path for file_path in files if _is_syncable_block_markdown_path(file_path)])
     nested_md_file_paths = [file_path for file_path in md_file_paths if "/" in file_path[:-3]]
     logger.info(
         "Post-push sync file scan: agent=%s total_files=%d md_files=%d nested_md_files=%d sample_md_paths=%s",
@@ -113,7 +130,7 @@ async def _sync_after_push(actor_id: str, agent_id: str) -> None:
 
     synced = 0
     for file_path, content in files.items():
-        if not file_path.endswith(".md"):
+        if not _is_syncable_block_markdown_path(file_path):
             continue
 
         label = file_path[:-3]

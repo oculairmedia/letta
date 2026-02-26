@@ -289,15 +289,28 @@ class Memory(BaseModel, validate_assignment=True):
 
         s.write("\n\n<memory_filesystem>\n")
 
-        def _render_tree(node: dict, prefix: str = "", in_system: bool = False):
+        def _render_tree(node: dict, prefix: str = "", in_system: bool = False, path_parts: tuple[str, ...] = ()):
             # Sort: directories first, then files. If a node is both a directory and a
             # leaf (LEAF_KEY present), show both <name>/ and <name>.md.
             dirs = []
             files = []
+            skill_summary_blocks = {}
             for name, val in node.items():
                 if name == LEAF_KEY:
                     continue
                 if isinstance(val, dict):
+                    # Special-case skills/<skill_name>/SKILL.md so the skills section
+                    # is concise in the system prompt:
+                    #   skills/
+                    #     skills/<skill_name> (description)
+                    # instead of rendering nested SKILL.md + support docs/scripts.
+                    if path_parts == ("skills",):
+                        skill_block = val.get("SKILL")
+                        if skill_block is not None and not isinstance(skill_block, dict):
+                            files.append(name)
+                            skill_summary_blocks[name] = skill_block
+                            continue
+
                     dirs.append(name)
                     if LEAF_KEY in val:
                         files.append(name)
@@ -314,8 +327,22 @@ class Memory(BaseModel, validate_assignment=True):
                 if is_dir:
                     s.write(f"{prefix}{connector}{name}/\n")
                     extension = "    " if is_last else "│   "
-                    _render_tree(node[name], prefix + extension, in_system=in_system or name == "system")
+                    _render_tree(
+                        node[name],
+                        prefix + extension,
+                        in_system=in_system or name == "system",
+                        path_parts=(*path_parts, name),
+                    )
                 else:
+                    # Render condensed skills top-level summaries.
+                    if path_parts == ("skills",) and name in skill_summary_blocks:
+                        block = skill_summary_blocks[name]
+                        desc = getattr(block, "description", None)
+                        desc_line = (desc or "").strip().split("\n")[0].strip()
+                        desc_suffix = f" ({desc_line})" if desc_line else ""
+                        s.write(f"{prefix}{connector}{name}/{desc_suffix}\n")
+                        continue
+
                     # For files outside system/, append the block description
                     desc_suffix = ""
                     if not in_system:
