@@ -880,6 +880,8 @@ async def test_server_startup_handles_api_errors_gracefully(default_user, defaul
             for item in self._items:
                 yield item
 
+    # NOTE: The real SDK's models.list() is a regular (non-async) method that
+    # returns an AsyncPaginator (which is async-iterable).
     class MockAnthropicModels:
         def list(self):
             return MockAnthropicAsyncPage(mock_anthropic_data)
