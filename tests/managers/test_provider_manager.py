@@ -579,8 +579,11 @@ async def test_server_startup_syncs_base_providers(default_user, default_organiz
                 yield item
 
     # Mock the Anthropic AsyncAnthropic client
+    # NOTE: list() must be a regular (non-async) method that returns an async iterable,
+    # because the real Anthropic SDK's models.list() returns an AsyncPage (which has __aiter__)
+    # directly, and the code uses `async for model in client.models.list()`.
     class MockAnthropicModels:
-        async def list(self):
+        def list(self):
             return MockAnthropicAsyncPage(mock_anthropic_models["data"])
 
     class MockAsyncAnthropic:
@@ -878,7 +881,7 @@ async def test_server_startup_handles_api_errors_gracefully(default_user, defaul
                 yield item
 
     class MockAnthropicModels:
-        async def list(self):
+        def list(self):
             return MockAnthropicAsyncPage(mock_anthropic_data)
 
     class MockAsyncAnthropic:

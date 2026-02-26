@@ -114,7 +114,7 @@ class SummarizerSettings(BaseSettings):
 class ModelSettings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
-    global_max_context_window_limit: int = 32000
+    global_max_context_window_limit: int = 128000
 
     inner_thoughts_kwarg: str | None = Field(default=INNER_THOUGHTS_KWARG, description="Key used for passing in inner thoughts.")
 

@@ -74,7 +74,7 @@ DEFAULT_MAX_STEPS = 50
 
 # context window size
 MIN_CONTEXT_WINDOW = 4096
-DEFAULT_CONTEXT_WINDOW = 32000
+DEFAULT_CONTEXT_WINDOW = 128000
 
 # Summarization trigger threshold (multiplier of context_window limit)
 # Summarization triggers when step usage > context_window * SUMMARIZATION_TRIGGER_MULTIPLIER
