@@ -675,6 +675,12 @@ class SyncServer(object):
                 # Get the current agent's llm_config if not already set
                 agent = await self.agent_manager.get_agent_by_id_async(agent_id=agent_id, actor=actor)
                 request.llm_config = agent.llm_config.model_copy()
+            else:
+                # TODO: Refactor update_agent to accept partial llm_config so we
+                # don't need to fetch the full agent just to preserve max_tokens.
+                if request.max_tokens is None and "max_output_tokens" not in request.model_settings.model_fields_set:
+                    agent = await self.agent_manager.get_agent_by_id_async(agent_id=agent_id, actor=actor)
+                    request.llm_config.max_tokens = agent.llm_config.max_tokens
             update_llm_config_params = request.model_settings._to_legacy_config_params()
             # Don't clobber max_tokens with the Pydantic default when the caller
             # didn't explicitly provide max_output_tokens in the request.
