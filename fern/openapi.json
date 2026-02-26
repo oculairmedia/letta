@@ -26665,9 +26665,6 @@
                     },
                     "message": {
                       "type": "string"
-                    },
-                    "runId": {
-                      "type": "string"
                     }
                   },
                   "required": ["success", "message"]
