@@ -253,3 +253,59 @@ def test_compile_git_memory_filesystem_handles_leaf_directory_collisions():
     assert "system/" in out
     assert "system.md" in out
     assert "human.md" in out
+
+
+def test_compile_git_memory_filesystem_renders_descriptions_for_non_system_files():
+    """Files outside system/ should render their description in the filesystem tree.
+
+    e.g. `reference/api.md (Contains API specifications)`
+    System files should NOT render descriptions in the tree.
+    """
+
+    m = Memory(
+        agent_type=AgentType.letta_v1_agent,
+        git_enabled=True,
+        blocks=[
+            Block(label="system/human", value="human data", limit=100, description="The human block"),
+            Block(label="system/persona", value="persona data", limit=100, description="The persona block"),
+            Block(label="reference/api", value="api specs", limit=100, description="Contains API specifications"),
+            Block(label="notes", value="my notes", limit=100, description="Personal notes and reminders"),
+        ],
+    )
+
+    out = m.compile()
+
+    # Filesystem tree should exist
+    assert "<memory_filesystem>" in out
+
+    # Non-system files should have descriptions rendered
+    assert "api.md (Contains API specifications)" in out
+    assert "notes.md (Personal notes and reminders)" in out
+
+    # System files should NOT have descriptions in the tree
+    assert "human.md (The human block)" not in out
+    assert "persona.md (The persona block)" not in out
+    # But they should still be in the tree (without description)
+    assert "human.md" in out
+    assert "persona.md" in out
+
+
+def test_compile_git_memory_filesystem_no_description_when_empty():
+    """Files outside system/ with no description should render without parentheses."""
+
+    m = Memory(
+        agent_type=AgentType.letta_v1_agent,
+        git_enabled=True,
+        blocks=[
+            Block(label="system/human", value="human data", limit=100),
+            Block(label="notes", value="my notes", limit=100),
+            Block(label="reference/api", value="api specs", limit=100, description="API docs"),
+        ],
+    )
+
+    out = m.compile()
+
+    # notes.md has no description, so no parentheses
+    assert "notes.md\n" in out or "notes.md\n" in out
+    # reference/api.md has a description
+    assert "api.md (API docs)" in out

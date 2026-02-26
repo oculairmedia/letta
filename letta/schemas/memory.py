@@ -289,7 +289,7 @@ class Memory(BaseModel, validate_assignment=True):
 
         s.write("\n\n<memory_filesystem>\n")
 
-        def _render_tree(node: dict, prefix: str = ""):
+        def _render_tree(node: dict, prefix: str = "", in_system: bool = False):
             # Sort: directories first, then files. If a node is both a directory and a
             # leaf (LEAF_KEY present), show both <name>/ and <name>.md.
             dirs = []
@@ -314,9 +314,19 @@ class Memory(BaseModel, validate_assignment=True):
                 if is_dir:
                     s.write(f"{prefix}{connector}{name}/\n")
                     extension = "    " if is_last else "│   "
-                    _render_tree(node[name], prefix + extension)
+                    _render_tree(node[name], prefix + extension, in_system=in_system or name == "system")
                 else:
-                    s.write(f"{prefix}{connector}{name}.md\n")
+                    # For files outside system/, append the block description
+                    desc_suffix = ""
+                    if not in_system:
+                        val = node[name]
+                        block = val[LEAF_KEY] if isinstance(val, dict) else val
+                        desc = getattr(block, "description", None)
+                        if desc:
+                            desc_line = desc.strip().split("\n")[0].strip()
+                            if desc_line:
+                                desc_suffix = f" ({desc_line})"
+                    s.write(f"{prefix}{connector}{name}.md{desc_suffix}\n")
 
         _render_tree(tree)
         s.write("</memory_filesystem>")
