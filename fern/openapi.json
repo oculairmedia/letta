@@ -26263,8 +26263,26 @@
                   "connectionName": {
                     "type": "string"
                   },
-                  "agentId": {
-                    "type": "string"
+                  "metadata": {
+                    "type": "object",
+                    "properties": {
+                      "os": {
+                        "type": "string"
+                      },
+                      "lettaCodeVersion": {
+                        "type": "string"
+                      },
+                      "nodeVersion": {
+                        "type": "string"
+                      },
+                      "workingDirectory": {
+                        "type": "string"
+                      },
+                      "gitBranch": {
+                        "type": "string"
+                      }
+                    },
+                    "additionalProperties": true
                   }
                 },
                 "required": ["deviceId", "connectionName"]
@@ -26342,7 +26360,7 @@
             }
           },
           {
-            "name": "agentId",
+            "name": "onlineOnly",
             "in": "query",
             "schema": {
               "type": "string"
@@ -26363,8 +26381,12 @@
                       "items": {
                         "type": "object",
                         "properties": {
-                          "connectionId": {
+                          "id": {
                             "type": "string"
+                          },
+                          "connectionId": {
+                            "type": "string",
+                            "nullable": true
                           },
                           "deviceId": {
                             "type": "string"
@@ -26381,16 +26403,22 @@
                           "apiKeyOwner": {
                             "type": "string"
                           },
-                          "agentId": {
-                            "type": "string"
-                          },
                           "podId": {
-                            "type": "string"
+                            "type": "string",
+                            "nullable": true
                           },
                           "connectedAt": {
-                            "type": "number"
+                            "type": "number",
+                            "nullable": true
                           },
                           "lastHeartbeat": {
+                            "type": "number",
+                            "nullable": true
+                          },
+                          "lastSeenAt": {
+                            "type": "number"
+                          },
+                          "firstSeenAt": {
                             "type": "number"
                           },
                           "currentMode": {
@@ -26401,16 +26429,40 @@
                               "plan",
                               "bypassPermissions"
                             ]
+                          },
+                          "metadata": {
+                            "type": "object",
+                            "properties": {
+                              "os": {
+                                "type": "string"
+                              },
+                              "lettaCodeVersion": {
+                                "type": "string"
+                              },
+                              "nodeVersion": {
+                                "type": "string"
+                              },
+                              "workingDirectory": {
+                                "type": "string"
+                              },
+                              "gitBranch": {
+                                "type": "string"
+                              }
+                            },
+                            "additionalProperties": true
                           }
                         },
                         "required": [
+                          "id",
                           "connectionId",
                           "deviceId",
                           "connectionName",
                           "organizationId",
                           "podId",
                           "connectedAt",
-                          "lastHeartbeat"
+                          "lastHeartbeat",
+                          "lastSeenAt",
+                          "firstSeenAt"
                         ]
                       }
                     },
@@ -26718,6 +26770,95 @@
                     }
                   },
                   "required": ["success", "message"]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "404",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "errorCode": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["errorCode", "message"]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/environments/{id}": {
+      "delete": {
+        "description": "Removes environment from list of environments",
+        "summary": "Delete Environment",
+        "tags": ["environments"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "operationId": "environments.deleteEnvironment",
+        "requestBody": {
+          "description": "Body",
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {},
+                "nullable": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "200",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["success", "message"]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "403",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "errorCode": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["errorCode", "message"]
                 }
               }
             }
