@@ -1,5 +1,6 @@
 from datetime import timedelta
 from typing import Annotated, List, Literal, Optional
+from uuid import uuid4
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
@@ -186,6 +187,105 @@ async def list_conversation_messages(
     )
 
 
+async def _send_agent_direct_message(
+    agent_id: str,
+    request: ConversationMessageRequest,
+    server: SyncServer,
+    actor,
+) -> StreamingResponse | LettaResponse:
+    """
+    Handle agent-direct messaging with locking but without conversation features.
+
+    This is used when the conversation_id in the URL is actually an agent ID,
+    providing a unified endpoint while maintaining agent-level locking.
+    """
+    redis_client = await get_redis_client()
+
+    # Streaming mode (default)
+    if request.streaming:
+        streaming_request = LettaStreamingRequest(
+            messages=request.messages,
+            streaming=True,
+            stream_tokens=request.stream_tokens,
+            include_pings=request.include_pings,
+            background=request.background,
+            max_steps=request.max_steps,
+            use_assistant_message=request.use_assistant_message,
+            assistant_message_tool_name=request.assistant_message_tool_name,
+            assistant_message_tool_kwarg=request.assistant_message_tool_kwarg,
+            include_return_message_types=request.include_return_message_types,
+            override_model=request.override_model,
+            client_tools=request.client_tools,
+        )
+        streaming_service = StreamingService(server)
+        run, result = await streaming_service.create_agent_stream(
+            agent_id=agent_id,
+            actor=actor,
+            request=streaming_request,
+            run_type="send_message",
+            conversation_id=None,
+            should_lock=True,
+        )
+        return result
+
+    # Non-streaming mode with locking
+    agent = await server.agent_manager.get_agent_by_id_async(
+        agent_id,
+        actor,
+        include_relationships=["memory", "multi_agent_group", "sources", "tool_exec_environment_variables", "tools", "tags"],
+    )
+
+    # Handle model override if specified in the request
+    if request.override_model:
+        override_llm_config = await server.get_llm_config_from_handle_async(
+            actor=actor,
+            handle=request.override_model,
+        )
+        agent = agent.model_copy(update={"llm_config": override_llm_config})
+
+    # Acquire lock using agent_id as lock key
+    if not isinstance(redis_client, NoopAsyncRedisClient):
+        await redis_client.acquire_conversation_lock(
+            conversation_id=agent_id,
+            token=str(uuid4()),
+        )
+
+    try:
+        # Create a run for execution tracking
+        run = None
+        if settings.track_agent_run:
+            runs_manager = RunManager()
+            run = await runs_manager.create_run(
+                pydantic_run=PydanticRun(
+                    agent_id=agent_id,
+                    background=False,
+                    metadata={
+                        "run_type": "send_message",
+                    },
+                    request_config=LettaRequestConfig.from_letta_request(request),
+                ),
+                actor=actor,
+            )
+
+        # Set run_id in Redis for cancellation support
+        await redis_client.set(f"{REDIS_RUN_ID_PREFIX}:{agent_id}", run.id if run else None)
+
+        agent_loop = AgentLoop.load(agent_state=agent, actor=actor)
+        return await agent_loop.step(
+            request.messages,
+            max_steps=request.max_steps,
+            run_id=run.id if run else None,
+            use_assistant_message=request.use_assistant_message,
+            include_return_message_types=request.include_return_message_types,
+            client_tools=request.client_tools,
+            conversation_id=None,
+            include_compaction_messages=request.include_compaction_messages,
+        )
+    finally:
+        # Release lock
+        await redis_client.release_conversation_lock(agent_id)
+
+
 @router.post(
     "/{conversation_id}/messages",
     response_model=LettaResponse,
@@ -212,12 +312,29 @@ async def send_conversation_message(
     This endpoint sends a message to an existing conversation.
     By default (streaming=true), returns a streaming response (Server-Sent Events).
     Set streaming=false to get a complete JSON response.
+
+    If conversation_id is an agent ID (starts with "agent-"), routes to agent-direct
+    mode with locking but without conversation-specific features.
     """
     actor = await server.user_manager.get_actor_or_default_async(actor_id=headers.actor_id)
 
     if not request.messages or len(request.messages) == 0:
         raise HTTPException(status_code=422, detail="Messages must not be empty")
 
+    # Detect agent-direct mode: conversation_id is actually an agent ID
+    is_agent_direct = conversation_id.startswith("agent-")
+
+    if is_agent_direct:
+        # Agent-direct mode: use agent ID, enable locking, skip conversation features
+        agent_id = conversation_id
+        return await _send_agent_direct_message(
+            agent_id=agent_id,
+            request=request,
+            server=server,
+            actor=actor,
+        )
+
+    # Normal conversation mode
     conversation = await conversation_manager.get_conversation_by_id(
         conversation_id=conversation_id,
         actor=actor,

@@ -568,6 +568,113 @@ class TestConversationsSDK:
         # Should not contain the cursor message
         assert first_message_id not in [m.id for m in messages_after]
 
+    def test_agent_direct_messaging_via_conversations_endpoint(self, client: Letta, agent):
+        """Test sending messages using agent ID as conversation_id (agent-direct mode).
+
+        This allows clients to use a unified endpoint pattern without managing conversation IDs.
+        """
+        # Send a message using the agent ID directly as conversation_id
+        # This should route to agent-direct mode with locking
+        messages = list(
+            client.conversations.messages.create(
+                conversation_id=agent.id,  # Using agent ID instead of conversation ID
+                messages=[{"role": "user", "content": "Hello via agent-direct mode!"}],
+            )
+        )
+
+        # Verify we got a response
+        assert len(messages) > 0, "Should receive response messages"
+
+        # Verify we got an assistant message in the response
+        assistant_messages = [m for m in messages if hasattr(m, "message_type") and m.message_type == "assistant_message"]
+        assert len(assistant_messages) > 0, "Should receive at least one assistant message"
+
+    def test_agent_direct_messaging_with_locking(self, client: Letta, agent):
+        """Test that agent-direct mode properly acquires and releases locks.
+
+        Sequential requests should both succeed if locks are properly released.
+        """
+        from letta.settings import settings
+
+        # Skip if Redis is not configured
+        if settings.redis_host is None or settings.redis_port is None:
+            pytest.skip("Redis not configured - skipping agent-direct lock test")
+
+        # Send first message via agent-direct mode
+        messages1 = list(
+            client.conversations.messages.create(
+                conversation_id=agent.id,
+                messages=[{"role": "user", "content": "First message"}],
+            )
+        )
+        assert len(messages1) > 0, "First message should succeed"
+
+        # Send second message - should succeed if lock was released
+        messages2 = list(
+            client.conversations.messages.create(
+                conversation_id=agent.id,
+                messages=[{"role": "user", "content": "Second message"}],
+            )
+        )
+        assert len(messages2) > 0, "Second message should succeed after lock released"
+
+    def test_agent_direct_concurrent_requests_blocked(self, client: Letta, agent):
+        """Test that concurrent requests to agent-direct mode are properly serialized.
+
+        One request should succeed and one should get a 409 CONVERSATION_BUSY error.
+        """
+        import concurrent.futures
+
+        from letta_client import ConflictError
+
+        from letta.settings import settings
+
+        # Skip if Redis is not configured
+        if settings.redis_host is None or settings.redis_port is None:
+            pytest.skip("Redis not configured - skipping agent-direct lock test")
+
+        results = {"success": 0, "conflict": 0, "other_error": 0}
+
+        def send_message(msg: str):
+            try:
+                messages = list(
+                    client.conversations.messages.create(
+                        conversation_id=agent.id,  # Agent-direct mode
+                        messages=[{"role": "user", "content": msg}],
+                    )
+                )
+                return ("success", messages)
+            except ConflictError:
+                return ("conflict", None)
+            except Exception as e:
+                return ("other_error", str(e))
+
+        # Fire off two messages concurrently
+        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+            future1 = executor.submit(send_message, "Concurrent message 1")
+            future2 = executor.submit(send_message, "Concurrent message 2")
+
+            result1 = future1.result()
+            result2 = future2.result()
+
+        # Count results
+        for result_type, _ in [result1, result2]:
+            results[result_type] += 1
+
+        # One should succeed and one should get conflict
+        assert results["success"] == 1, f"Expected 1 success, got {results['success']}"
+        assert results["conflict"] == 1, f"Expected 1 conflict, got {results['conflict']}"
+        assert results["other_error"] == 0, f"Unexpected errors: {results['other_error']}"
+
+        # Now send another message - should succeed since lock is released
+        messages = list(
+            client.conversations.messages.create(
+                conversation_id=agent.id,
+                messages=[{"role": "user", "content": "Message after concurrent requests"}],
+            )
+        )
+        assert len(messages) > 0, "Should be able to send message after concurrent requests complete"
+
 
 class TestConversationDelete:
     """Tests for the conversation delete endpoint."""
@@ -902,9 +1009,7 @@ class TestConversationSystemMessageRecompilation:
                 order="asc",
             )
             old_system_content = conv1_messages_after_update[0].content
-            assert unique_marker not in old_system_content, (
-                "Old conversation system message should NOT contain the updated memory value"
-            )
+            assert unique_marker not in old_system_content, "Old conversation system message should NOT contain the updated memory value"
 
             # Step 4: Create a new conversation
             conv2 = client.conversations.create(agent_id=agent.id)

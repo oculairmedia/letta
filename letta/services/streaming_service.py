@@ -77,6 +77,7 @@ class StreamingService:
         request: LettaStreamingRequest,
         run_type: str = "streaming",
         conversation_id: Optional[str] = None,
+        should_lock: bool = False,
     ) -> tuple[Optional[PydanticRun], Union[StreamingResponse, LettaResponse]]:
         """
         Create a streaming response for an agent.
@@ -87,6 +88,7 @@ class StreamingService:
             request: The LettaStreamingRequest containing all request parameters
             run_type: Type of run for tracking
             conversation_id: Optional conversation ID for conversation-scoped messaging
+            should_lock: If True and conversation_id is None, use agent_id as lock key
 
         Returns:
             Tuple of (run object or None, streaming response)
@@ -131,12 +133,15 @@ class StreamingService:
 
         model_compatible_token_streaming = self._is_token_streaming_compatible(agent)
 
-        # Attempt to acquire conversation lock if conversation_id is provided
-        # This prevents concurrent message processing for the same conversation
+        # Determine lock key: use conversation_id if provided, else agent_id if should_lock
+        lock_key = conversation_id if conversation_id else (agent_id if should_lock else None)
+
+        # Attempt to acquire lock if lock_key is set
+        # This prevents concurrent message processing for the same conversation/agent
         # Skip locking if Redis is not available (graceful degradation)
-        if conversation_id and not isinstance(redis_client, NoopAsyncRedisClient):
+        if lock_key and not isinstance(redis_client, NoopAsyncRedisClient):
             await redis_client.acquire_conversation_lock(
-                conversation_id=conversation_id,
+                conversation_id=lock_key,
                 token=str(uuid4()),
             )
 
@@ -164,6 +169,7 @@ class StreamingService:
                 include_return_message_types=request.include_return_message_types,
                 actor=actor,
                 conversation_id=conversation_id,
+                lock_key=lock_key,  # For lock release (may differ from conversation_id)
                 client_tools=request.client_tools,
                 include_compaction_messages=request.include_compaction_messages,
             )
@@ -196,7 +202,7 @@ class StreamingService:
                         run_id=run.id,
                         run_manager=self.server.run_manager,
                         actor=actor,
-                        conversation_id=conversation_id,
+                        conversation_id=lock_key,  # Use lock_key for lock release
                     ),
                     label=f"background_stream_processor_{run.id}",
                 )
@@ -252,7 +258,7 @@ class StreamingService:
             if settings.track_agent_run and run and run_status:
                 await self.server.run_manager.update_run_by_id_async(
                     run_id=run.id,
-                    conversation_id=conversation_id,
+                    conversation_id=lock_key,  # Use lock_key for lock release
                     update=RunUpdate(status=run_status, metadata=run_update_metadata),
                     actor=actor,
                 )
@@ -327,6 +333,7 @@ class StreamingService:
         include_return_message_types: Optional[list[MessageType]],
         actor: User,
         conversation_id: Optional[str] = None,
+        lock_key: Optional[str] = None,
         client_tools: Optional[list[ClientToolSchema]] = None,
         include_compaction_messages: bool = False,
     ) -> AsyncIterator:
@@ -507,7 +514,7 @@ class StreamingService:
                     stop_reason_value = stop_reason.stop_reason if stop_reason else StopReasonType.error.value
                     await self.runs_manager.update_run_by_id_async(
                         run_id=run_id,
-                        conversation_id=conversation_id,
+                        conversation_id=lock_key,  # Use lock_key for lock release
                         update=RunUpdate(status=run_status, stop_reason=stop_reason_value, metadata=error_data),
                         actor=actor,
                     )
