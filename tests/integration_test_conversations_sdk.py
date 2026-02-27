@@ -675,6 +675,56 @@ class TestConversationsSDK:
         )
         assert len(messages) > 0, "Should be able to send message after concurrent requests complete"
 
+    def test_agent_direct_list_messages(self, client: Letta, agent):
+        """Test listing messages using agent ID as conversation_id."""
+        # First send a message via agent-direct mode
+        list(
+            client.conversations.messages.create(
+                conversation_id=agent.id,
+                messages=[{"role": "user", "content": "Test message for listing"}],
+            )
+        )
+
+        # List messages using agent ID
+        messages_page = client.conversations.messages.list(conversation_id=agent.id)
+        messages = list(messages_page)
+
+        # Should have messages (at least system + user + assistant)
+        assert len(messages) >= 3, f"Expected at least 3 messages, got {len(messages)}"
+
+        # Verify we can find our test message
+        user_messages = [m for m in messages if hasattr(m, "message_type") and m.message_type == "user_message"]
+        assert any("Test message for listing" in str(m.content) for m in user_messages), "Should find our test message"
+
+    def test_agent_direct_cancel(self, client: Letta, agent):
+        """Test canceling runs using agent ID as conversation_id."""
+        from letta.settings import settings
+
+        # Skip if run tracking is disabled
+        if not settings.track_agent_run:
+            pytest.skip("Run tracking disabled - skipping cancel test")
+
+        # Start a background request that we can cancel
+        try:
+            # Send a message in background mode
+            stream = client.conversations.messages.create(
+                conversation_id=agent.id,
+                messages=[{"role": "user", "content": "Background message to cancel"}],
+                background=True,
+            )
+            # Consume a bit of the stream to ensure it started
+            next(iter(stream), None)
+
+            # Cancel using agent ID
+            result = client.conversations.cancel(conversation_id=agent.id)
+
+            # Should return results (may be empty if run already completed)
+            assert isinstance(result, dict), "Cancel should return a dict of results"
+        except Exception as e:
+            # If no active runs, that's okay - the run may have completed quickly
+            if "No active runs" not in str(e):
+                raise
+
 
 class TestConversationDelete:
     """Tests for the conversation delete endpoint."""

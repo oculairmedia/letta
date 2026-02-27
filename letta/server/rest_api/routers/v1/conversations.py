@@ -173,8 +173,27 @@ async def list_conversation_messages(
 
     Returns LettaMessage objects (UserMessage, AssistantMessage, etc.) for all
     messages in the conversation, with support for cursor-based pagination.
+
+    If conversation_id is an agent ID (starts with "agent-"), returns messages
+    from the agent's default conversation (no conversation isolation).
     """
     actor = await server.user_manager.get_actor_or_default_async(actor_id=headers.actor_id)
+
+    # Agent-direct mode: list agent's default conversation messages
+    if conversation_id.startswith("agent-"):
+        return await server.get_agent_recall_async(
+            agent_id=conversation_id,
+            after=after,
+            before=before,
+            limit=limit,
+            group_id=group_id,
+            conversation_id=None,  # Default conversation (no isolation)
+            reverse=(order == "desc"),
+            return_message_object=False,
+            include_err=include_err,
+            actor=actor,
+        )
+
     return await conversation_manager.list_conversation_messages(
         conversation_id=conversation_id,
         actor=actor,
@@ -468,18 +487,32 @@ async def retrieve_conversation_stream(
 
     This endpoint allows you to reconnect to an active background stream
     for a conversation, enabling recovery from network interruptions.
+
+    If conversation_id is an agent ID (starts with "agent-"), retrieves the
+    stream for the agent's most recent active run.
     """
     actor = await server.user_manager.get_actor_or_default_async(actor_id=headers.actor_id)
     runs_manager = RunManager()
 
-    # Find the most recent active run for this conversation
-    active_runs = await runs_manager.list_runs(
-        actor=actor,
-        conversation_id=conversation_id,
-        statuses=[RunStatus.created, RunStatus.running],
-        limit=1,
-        ascending=False,
-    )
+    # Find the most recent active run
+    if conversation_id.startswith("agent-"):
+        # Agent-direct mode: find runs by agent_id
+        active_runs = await runs_manager.list_runs(
+            actor=actor,
+            agent_id=conversation_id,
+            statuses=[RunStatus.created, RunStatus.running],
+            limit=1,
+            ascending=False,
+        )
+    else:
+        # Normal mode: find runs by conversation_id
+        active_runs = await runs_manager.list_runs(
+            actor=actor,
+            conversation_id=conversation_id,
+            statuses=[RunStatus.created, RunStatus.running],
+            limit=1,
+            ascending=False,
+        )
 
     if not active_runs:
         raise LettaInvalidArgumentError("No active runs found for this conversation.")
@@ -542,26 +575,43 @@ async def cancel_conversation(
     Cancel runs associated with a conversation.
 
     Note: To cancel active runs, Redis is required.
+
+    If conversation_id is an agent ID (starts with "agent-"), cancels runs
+    for the agent's default conversation.
     """
     actor = await server.user_manager.get_actor_or_default_async(actor_id=headers.actor_id)
 
     if not settings.track_agent_run:
         raise HTTPException(status_code=400, detail="Agent run tracking is disabled")
 
-    # Verify conversation exists and get agent_id
-    conversation = await conversation_manager.get_conversation_by_id(
-        conversation_id=conversation_id,
-        actor=actor,
-    )
+    # Agent-direct mode: use agent_id directly, skip conversation lookup
+    if conversation_id.startswith("agent-"):
+        agent_id = conversation_id
+        # Find active runs for this agent (default conversation has conversation_id=None)
+        runs = await server.run_manager.list_runs(
+            actor=actor,
+            agent_id=agent_id,
+            statuses=[RunStatus.created, RunStatus.running],
+            ascending=False,
+            limit=100,
+        )
+    else:
+        # Verify conversation exists and get agent_id
+        conversation = await conversation_manager.get_conversation_by_id(
+            conversation_id=conversation_id,
+            actor=actor,
+        )
+        agent_id = conversation.agent_id
 
-    # Find active runs for this conversation
-    runs = await server.run_manager.list_runs(
-        actor=actor,
-        statuses=[RunStatus.created, RunStatus.running],
-        ascending=False,
-        conversation_id=conversation_id,
-        limit=100,
-    )
+        # Find active runs for this conversation
+        runs = await server.run_manager.list_runs(
+            actor=actor,
+            statuses=[RunStatus.created, RunStatus.running],
+            ascending=False,
+            conversation_id=conversation_id,
+            limit=100,
+        )
+
     run_ids = [run.id for run in runs]
 
     if not run_ids:
@@ -578,7 +628,7 @@ async def cancel_conversation(
                 except Exception as e:
                     logger.error(f"Failed to cancel Lettuce run {run_id}: {e}")
 
-            await server.run_manager.cancel_run(actor=actor, agent_id=conversation.agent_id, run_id=run_id)
+            await server.run_manager.cancel_run(actor=actor, agent_id=agent_id, run_id=run_id)
         except Exception as e:
             results[run_id] = "failed"
             logger.error(f"Failed to cancel run {run_id}: {str(e)}")
@@ -614,32 +664,42 @@ async def compact_conversation(
 
     This endpoint summarizes the in-context messages for a specific conversation,
     reducing the message count while preserving important context.
+
+    If conversation_id is an agent ID (starts with "agent-"), compacts the
+    agent's default conversation messages.
     """
     actor = await server.user_manager.get_actor_or_default_async(actor_id=headers.actor_id)
 
-    # Get the conversation to find the agent_id
-    conversation = await conversation_manager.get_conversation_by_id(
-        conversation_id=conversation_id,
-        actor=actor,
-    )
+    # Agent-direct mode: compact agent's default conversation
+    if conversation_id.startswith("agent-"):
+        agent_id = conversation_id
+        agent = await server.agent_manager.get_agent_by_id_async(agent_id, actor, include_relationships=["multi_agent_group"])
+        in_context_messages = await server.message_manager.get_messages_by_ids_async(message_ids=agent.message_ids, actor=actor)
+        agent_loop = LettaAgentV3(agent_state=agent, actor=actor)
+    else:
+        # Get the conversation to find the agent_id
+        conversation = await conversation_manager.get_conversation_by_id(
+            conversation_id=conversation_id,
+            actor=actor,
+        )
 
-    # Get the agent state
-    agent = await server.agent_manager.get_agent_by_id_async(conversation.agent_id, actor, include_relationships=["multi_agent_group"])
+        # Get the agent state
+        agent = await server.agent_manager.get_agent_by_id_async(conversation.agent_id, actor, include_relationships=["multi_agent_group"])
 
-    # Get in-context messages for this conversation
-    in_context_messages = await conversation_manager.get_messages_for_conversation(
-        conversation_id=conversation_id,
-        actor=actor,
-    )
+        # Get in-context messages for this conversation
+        in_context_messages = await conversation_manager.get_messages_for_conversation(
+            conversation_id=conversation_id,
+            actor=actor,
+        )
+
+        # Create agent loop with conversation context
+        agent_loop = LettaAgentV3(agent_state=agent, actor=actor, conversation_id=conversation_id)
 
     if not in_context_messages:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="No in-context messages found for this conversation.",
         )
-
-    # Create agent loop with conversation context
-    agent_loop = LettaAgentV3(agent_state=agent, actor=actor, conversation_id=conversation_id)
 
     compaction_settings = request.compaction_settings if request else None
     num_messages_before = len(in_context_messages)

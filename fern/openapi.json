@@ -9003,7 +9003,7 @@
       "get": {
         "tags": ["conversations"],
         "summary": "List Conversation Messages",
-        "description": "List all messages in a conversation.\n\nReturns LettaMessage objects (UserMessage, AssistantMessage, etc.) for all\nmessages in the conversation, with support for cursor-based pagination.",
+        "description": "List all messages in a conversation.\n\nReturns LettaMessage objects (UserMessage, AssistantMessage, etc.) for all\nmessages in the conversation, with support for cursor-based pagination.\n\nIf conversation_id is an agent ID (starts with \"agent-\"), returns messages\nfrom the agent's default conversation (no conversation isolation).",
         "operationId": "list_conversation_messages",
         "parameters": [
           {
@@ -9238,7 +9238,7 @@
       "post": {
         "tags": ["conversations"],
         "summary": "Retrieve Conversation Stream",
-        "description": "Resume the stream for the most recent active run in a conversation.\n\nThis endpoint allows you to reconnect to an active background stream\nfor a conversation, enabling recovery from network interruptions.",
+        "description": "Resume the stream for the most recent active run in a conversation.\n\nThis endpoint allows you to reconnect to an active background stream\nfor a conversation, enabling recovery from network interruptions.\n\nIf conversation_id is an agent ID (starts with \"agent-\"), retrieves the\nstream for the agent's most recent active run.",
         "operationId": "retrieve_conversation_stream",
         "parameters": [
           {
@@ -9342,7 +9342,7 @@
       "post": {
         "tags": ["conversations"],
         "summary": "Cancel Conversation",
-        "description": "Cancel runs associated with a conversation.\n\nNote: To cancel active runs, Redis is required.",
+        "description": "Cancel runs associated with a conversation.\n\nNote: To cancel active runs, Redis is required.\n\nIf conversation_id is an agent ID (starts with \"agent-\"), cancels runs\nfor the agent's default conversation.",
         "operationId": "cancel_conversation",
         "parameters": [
           {
@@ -9395,7 +9395,7 @@
       "post": {
         "tags": ["conversations"],
         "summary": "Compact Conversation",
-        "description": "Compact (summarize) a conversation's message history.\n\nThis endpoint summarizes the in-context messages for a specific conversation,\nreducing the message count while preserving important context.",
+        "description": "Compact (summarize) a conversation's message history.\n\nThis endpoint summarizes the in-context messages for a specific conversation,\nreducing the message count while preserving important context.\n\nIf conversation_id is an agent ID (starts with \"agent-\"), compacts the\nagent's default conversation messages.",
         "operationId": "compact_conversation",
         "parameters": [
           {
