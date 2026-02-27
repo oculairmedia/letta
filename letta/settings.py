@@ -204,6 +204,7 @@ class ModelSettings(BaseSettings):
     gemini_base_url: str = "https://generativelanguage.googleapis.com/"
     gemini_force_minimum_thinking_budget: bool = False
     gemini_max_retries: int = 5
+    gemini_timeout_seconds: float = 600.0
 
     # google vertex
     google_cloud_project: Optional[str] = None
