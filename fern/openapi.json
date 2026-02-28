@@ -21737,6 +21737,9 @@
                       "type": "object",
                       "additionalProperties": {}
                     }
+                  },
+                  "debug_log_tail": {
+                    "type": "string"
                   }
                 },
                 "required": ["message"]
@@ -21983,6 +21986,9 @@
                                     "type": "object",
                                     "additionalProperties": {}
                                   }
+                                },
+                                "debug_log_tail": {
+                                  "type": "string"
                                 }
                               },
                               "required": [
