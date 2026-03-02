@@ -701,7 +701,23 @@ async def compact_conversation(
             detail="No in-context messages found for this conversation.",
         )
 
-    compaction_settings = request.compaction_settings if request else None
+    # Merge request compaction_settings with agent's settings (request overrides agent)
+    if agent.compaction_settings and request and request.compaction_settings:
+        # Start with agent's settings, override with new values from request
+        # Use model_fields_set to get the fields that were changed in the request (want to ignore the defaults that get set automatically)
+        compaction_settings = agent.compaction_settings.copy()  # do not mutate original agent compaction settings
+        changed_fields = request.compaction_settings.model_fields_set
+        for field in changed_fields:
+            setattr(compaction_settings, field, getattr(request.compaction_settings, field))
+
+        # If mode changed from agent's original settings and prompt not explicitly set in request, then use the default prompt for the new mode
+        # Ex: previously was sliding_window, now is all, so we need to use the default prompt for all mode
+        if "mode" in changed_fields and agent.compaction_settings.mode != request.compaction_settings.mode:
+            from letta.services.summarizer.summarizer_config import get_default_prompt_for_mode
+
+            compaction_settings.prompt = get_default_prompt_for_mode(compaction_settings.mode)
+    else:
+        compaction_settings = (request and request.compaction_settings) or agent.compaction_settings
     num_messages_before = len(in_context_messages)
 
     # Run compaction
@@ -714,13 +730,11 @@ async def compact_conversation(
 
     # Validate compaction reduced messages
     if num_messages_before <= num_messages_after:
-        logger.warning(
-            f"Summarization failed to reduce the number of messages. {num_messages_before} messages -> {num_messages_after} (only expected if drop_tool_returns is True)."
+        logger.warning(f"Summarization failed to reduce the number of messages. {num_messages_before} messages -> {num_messages_after}.")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Summarization failed to reduce the number of messages. You may not have enough messages to compact or need to use a different CompactionSettings (e.g. using `all` mode).",
         )
-        # raise HTTPException(
-        #     status_code=status.HTTP_400_BAD_REQUEST,
-        #     detail="Summarization failed to reduce the number of messages. You may need to use a different CompactionSettings (e.g. using `all` mode).",
-        # )
 
     # Checkpoint the messages (this will update the conversation_messages table)
     await agent_loop._checkpoint_messages(run_id=None, step_id=None, new_messages=[summary_message], in_context_messages=messages)
