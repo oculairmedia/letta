@@ -791,14 +791,18 @@ class AgentManager:
             # Upsert compaction_settings: merge incoming partial update with existing settings
             if agent_update.compaction_settings is not None:
                 # If mode changed, update the prompt to the default for the new mode
-                if agent.compaction_settings is not None and agent_update.compaction_settings.mode != agent.compaction_settings.mode:
+                changed_fields = agent_update.compaction_settings.model_fields_set
+                if (
+                    agent.compaction_settings is not None
+                    and "mode" in changed_fields
+                    and agent_update.compaction_settings.mode != agent.compaction_settings.mode
+                ):
                     from letta.services.summarizer.summarizer_config import get_default_prompt_for_mode
 
                     agent_update.compaction_settings.prompt = get_default_prompt_for_mode(agent_update.compaction_settings.mode)
 
                 # Fill in unchanged fields from existing settings
                 if agent.compaction_settings is not None:
-                    changed_fields = agent_update.compaction_settings.model_fields_set
                     for field in agent.compaction_settings.model_fields:
                         if field not in changed_fields:
                             setattr(agent_update.compaction_settings, field, getattr(agent.compaction_settings, field))

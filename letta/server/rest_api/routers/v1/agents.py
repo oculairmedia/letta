@@ -2419,7 +2419,11 @@ async def summarize_messages(
 
         # If mode changed from agent's original settings and prompt not explicitly set in request, then use the default prompt for the new mode
         # Ex: previously was sliding_window, now is all, so we need to use the default prompt for all mode
-        if "mode" in changed_fields and agent.compaction_settings.mode != request.compaction_settings.mode:
+        if (
+            "mode" in changed_fields
+            and "prompt" not in changed_fields
+            and agent.compaction_settings.mode != request.compaction_settings.mode
+        ):
             from letta.services.summarizer.summarizer_config import get_default_prompt_for_mode
 
             compaction_settings.prompt = get_default_prompt_for_mode(compaction_settings.mode)
