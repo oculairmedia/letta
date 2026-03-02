@@ -26346,6 +26346,139 @@
         }
       }
     },
+    "/v1/environments/{deviceId}": {
+      "get": {
+        "description": "Get a specific environment connection by deviceId",
+        "summary": "Get Environment Connection",
+        "tags": ["environments"],
+        "parameters": [
+          {
+            "name": "deviceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "operationId": "environments.getConnection",
+        "responses": {
+          "200": {
+            "description": "200",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "connectionId": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "deviceId": {
+                      "type": "string"
+                    },
+                    "connectionName": {
+                      "type": "string"
+                    },
+                    "organizationId": {
+                      "type": "string"
+                    },
+                    "userId": {
+                      "type": "string"
+                    },
+                    "apiKeyOwner": {
+                      "type": "string"
+                    },
+                    "podId": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "connectedAt": {
+                      "type": "number",
+                      "nullable": true
+                    },
+                    "lastHeartbeat": {
+                      "type": "number",
+                      "nullable": true
+                    },
+                    "lastSeenAt": {
+                      "type": "number"
+                    },
+                    "firstSeenAt": {
+                      "type": "number"
+                    },
+                    "currentMode": {
+                      "type": "string",
+                      "enum": [
+                        "default",
+                        "acceptEdits",
+                        "plan",
+                        "bypassPermissions"
+                      ]
+                    },
+                    "metadata": {
+                      "type": "object",
+                      "properties": {
+                        "os": {
+                          "type": "string"
+                        },
+                        "lettaCodeVersion": {
+                          "type": "string"
+                        },
+                        "nodeVersion": {
+                          "type": "string"
+                        },
+                        "workingDirectory": {
+                          "type": "string"
+                        },
+                        "gitBranch": {
+                          "type": "string"
+                        }
+                      },
+                      "additionalProperties": true
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "connectionId",
+                    "deviceId",
+                    "connectionName",
+                    "organizationId",
+                    "podId",
+                    "connectedAt",
+                    "lastHeartbeat",
+                    "lastSeenAt",
+                    "firstSeenAt"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "404",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "errorCode": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["errorCode", "message"]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/environments": {
       "get": {
         "description": "List all active environment connections for the organization",
