@@ -4274,7 +4274,7 @@
             "in": "query",
             "required": false,
             "schema": {
-              "enum": ["created_at", "last_run_completion"],
+              "enum": ["created_at", "updated_at", "last_run_completion"],
               "type": "string",
               "description": "Field to sort by",
               "default": "created_at",

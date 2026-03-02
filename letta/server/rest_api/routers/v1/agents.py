@@ -156,7 +156,7 @@ async def list_agents(
     order: Literal["asc", "desc"] = Query(
         "desc", description="Sort order for agents by creation time. 'asc' for oldest first, 'desc' for newest first"
     ),
-    order_by: Literal["created_at", "last_run_completion"] = Query("created_at", description="Field to sort by"),
+    order_by: Literal["created_at", "updated_at", "last_run_completion"] = Query("created_at", description="Field to sort by"),
     ascending: bool = Query(
         False,
         description="Whether to sort agents oldest to newest (True) or newest to oldest (False, default)",
