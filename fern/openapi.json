@@ -26682,11 +26682,14 @@
                                 }
                               ]
                             },
+                            "client_message_id": {
+                              "type": "string"
+                            },
                             "otid": {
                               "type": "string"
                             }
                           },
-                          "required": ["role", "content"]
+                          "required": ["role", "content", "client_message_id"]
                         },
                         {
                           "type": "object",
@@ -26815,6 +26818,25 @@
                     }
                   },
                   "required": ["success", "message"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "400",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "errorCode": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["errorCode", "message"]
                 }
               }
             }
