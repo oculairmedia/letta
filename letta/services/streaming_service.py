@@ -34,6 +34,7 @@ from letta.schemas.letta_request import ClientToolSchema, LettaStreamingRequest
 from letta.schemas.letta_response import LettaResponse
 from letta.schemas.letta_stop_reason import LettaStopReason, StopReasonType
 from letta.schemas.message import MessageCreate
+from letta.schemas.provider_trace import BillingContext
 from letta.schemas.run import Run as PydanticRun, RunUpdate
 from letta.schemas.usage import LettaUsageStatistics
 from letta.schemas.user import User
@@ -78,6 +79,7 @@ class StreamingService:
         run_type: str = "streaming",
         conversation_id: Optional[str] = None,
         should_lock: bool = False,
+        billing_context: "BillingContext | None" = None,
     ) -> tuple[Optional[PydanticRun], Union[StreamingResponse, LettaResponse]]:
         """
         Create a streaming response for an agent.
@@ -176,6 +178,7 @@ class StreamingService:
                 lock_key=lock_key,  # For lock release (may differ from conversation_id)
                 client_tools=request.client_tools,
                 include_compaction_messages=request.include_compaction_messages,
+                billing_context=billing_context,
             )
 
             # handle background streaming if requested
@@ -340,6 +343,7 @@ class StreamingService:
         lock_key: Optional[str] = None,
         client_tools: Optional[list[ClientToolSchema]] = None,
         include_compaction_messages: bool = False,
+        billing_context: BillingContext | None = None,
     ) -> AsyncIterator:
         """
         Create a stream with unified error handling.
@@ -368,6 +372,7 @@ class StreamingService:
                     conversation_id=conversation_id,
                     client_tools=client_tools,
                     include_compaction_messages=include_compaction_messages,
+                    billing_context=billing_context,
                 )
 
                 async for chunk in stream:

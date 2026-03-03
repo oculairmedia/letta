@@ -19,6 +19,7 @@ from letta.schemas.job import LettaRequestConfig
 from letta.schemas.letta_message import LettaMessageUnion
 from letta.schemas.letta_request import ConversationMessageRequest, LettaStreamingRequest, RetrieveStreamRequest
 from letta.schemas.letta_response import LettaResponse
+from letta.schemas.provider_trace import BillingContext
 from letta.schemas.run import Run as PydanticRun
 from letta.server.rest_api.dependencies import HeaderParams, get_headers, get_letta_server
 from letta.server.rest_api.redis_stream_manager import redis_sse_stream_generator
@@ -211,6 +212,7 @@ async def _send_agent_direct_message(
     request: ConversationMessageRequest,
     server: SyncServer,
     actor,
+    billing_context: "BillingContext | None" = None,
 ) -> StreamingResponse | LettaResponse:
     """
     Handle agent-direct messaging with locking but without conversation features.
@@ -244,6 +246,7 @@ async def _send_agent_direct_message(
             run_type="send_message",
             conversation_id=None,
             should_lock=True,
+            billing_context=billing_context,
         )
         return result
 
@@ -299,6 +302,7 @@ async def _send_agent_direct_message(
             client_tools=request.client_tools,
             conversation_id=None,
             include_compaction_messages=request.include_compaction_messages,
+            billing_context=billing_context,
         )
     finally:
         # Release lock
@@ -351,6 +355,7 @@ async def send_conversation_message(
             request=request,
             server=server,
             actor=actor,
+            billing_context=headers.billing_context,
         )
 
     # Normal conversation mode
@@ -383,6 +388,7 @@ async def send_conversation_message(
             request=streaming_request,
             run_type="send_conversation_message",
             conversation_id=conversation_id,
+            billing_context=headers.billing_context,
         )
         return result
 
@@ -445,6 +451,7 @@ async def send_conversation_message(
         client_tools=request.client_tools,
         conversation_id=conversation_id,
         include_compaction_messages=request.include_compaction_messages,
+        billing_context=headers.billing_context,
     )
 
 

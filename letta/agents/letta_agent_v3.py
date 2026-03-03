@@ -45,6 +45,7 @@ from letta.schemas.letta_response import LettaResponse, TurnTokenData
 from letta.schemas.letta_stop_reason import LettaStopReason, StopReasonType
 from letta.schemas.message import Message, MessageCreate, ToolReturn
 from letta.schemas.openai.chat_completion_response import ChoiceLogprobs, ToolCall, ToolCallDenial, UsageStatistics
+from letta.schemas.provider_trace import BillingContext
 from letta.schemas.step import StepProgression
 from letta.schemas.step_metrics import StepMetrics
 from letta.schemas.tool_execution_result import ToolExecutionResult
@@ -149,6 +150,7 @@ class LettaAgentV3(LettaAgentV2):
         conversation_id: str | None = None,
         client_tools: list[ClientToolSchema] | None = None,
         include_compaction_messages: bool = False,
+        billing_context: "BillingContext | None" = None,
     ) -> LettaResponse:
         """
         Execute the agent loop in blocking mode, returning all messages at once.
@@ -232,6 +234,7 @@ class LettaAgentV3(LettaAgentV2):
                 run_id=run_id,
                 org_id=self.actor.organization_id,
                 user_id=self.actor.id,
+                billing_context=billing_context,
             )
 
         credit_task = None
@@ -362,6 +365,7 @@ class LettaAgentV3(LettaAgentV2):
         conversation_id: str | None = None,
         client_tools: list[ClientToolSchema] | None = None,
         include_compaction_messages: bool = False,
+        billing_context: BillingContext | None = None,
     ) -> AsyncGenerator[str, None]:
         """
         Execute the agent loop in streaming mode, yielding chunks as they become available.
@@ -419,6 +423,7 @@ class LettaAgentV3(LettaAgentV2):
                 run_id=run_id,
                 org_id=self.actor.organization_id,
                 user_id=self.actor.id,
+                billing_context=billing_context,
             )
         elif use_sglang_native:
             # Use SGLang native adapter for multi-turn RL training
@@ -431,6 +436,7 @@ class LettaAgentV3(LettaAgentV2):
                 run_id=run_id,
                 org_id=self.actor.organization_id,
                 user_id=self.actor.id,
+                billing_context=billing_context,
             )
             # Reset turns tracking for this step
             self.turns = []
@@ -444,6 +450,7 @@ class LettaAgentV3(LettaAgentV2):
                 run_id=run_id,
                 org_id=self.actor.organization_id,
                 user_id=self.actor.id,
+                billing_context=billing_context,
             )
 
         try:

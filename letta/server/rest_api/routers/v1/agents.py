@@ -49,6 +49,7 @@ from letta.schemas.memory import (
 )
 from letta.schemas.message import Message, MessageCreate, MessageCreateType, MessageSearchRequest, MessageSearchResult
 from letta.schemas.passage import Passage
+from letta.schemas.provider_trace import BillingContext
 from letta.schemas.run import Run as PydanticRun, RunUpdate
 from letta.schemas.source import Source
 from letta.schemas.tool import Tool
@@ -1697,6 +1698,7 @@ async def send_message(
             actor=actor,
             request=request,
             run_type="send_message",
+            billing_context=headers.billing_context,
         )
         return result
 
@@ -1767,6 +1769,7 @@ async def send_message(
             include_return_message_types=request.include_return_message_types,
             client_tools=request.client_tools,
             include_compaction_messages=request.include_compaction_messages,
+            billing_context=headers.billing_context,
         )
         run_status = result.stop_reason.stop_reason.run_status
         return result
@@ -1845,6 +1848,7 @@ async def send_message_streaming(
         actor=actor,
         request=request,
         run_type="send_message_streaming",
+        billing_context=headers.billing_context,
     )
 
     return result
@@ -2043,6 +2047,7 @@ async def _process_message_background(
     include_return_message_types: list[MessageType] | None = None,
     override_model: str | None = None,
     include_compaction_messages: bool = False,
+    billing_context: "BillingContext | None" = None,
 ) -> None:
     """Background task to process the message and update run status."""
     request_start_timestamp_ns = get_utc_timestamp_ns()
@@ -2074,6 +2079,7 @@ async def _process_message_background(
             request_start_timestamp_ns=request_start_timestamp_ns,
             include_return_message_types=include_return_message_types,
             include_compaction_messages=include_compaction_messages,
+            billing_context=billing_context,
         )
         runs_manager = RunManager()
         from letta.schemas.enums import RunStatus
@@ -2242,6 +2248,7 @@ async def send_message_async(
             include_return_message_types=request.include_return_message_types,
             override_model=request.override_model,
             include_compaction_messages=request.include_compaction_messages,
+            billing_context=headers.billing_context,
         ),
         label=f"process_message_background_{run.id}",
     )

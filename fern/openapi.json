@@ -29385,6 +29385,49 @@
         "title": "BedrockModelSettings",
         "description": "AWS Bedrock model configuration."
       },
+      "BillingContext": {
+        "properties": {
+          "plan_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Plan Type",
+            "description": "Subscription tier"
+          },
+          "cost_source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cost Source",
+            "description": "Cost source: 'quota' or 'credits'"
+          },
+          "customer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Customer Id",
+            "description": "Customer ID for billing records"
+          }
+        },
+        "type": "object",
+        "title": "BillingContext",
+        "description": "Billing context for LLM request cost tracking."
+      },
       "Block": {
         "properties": {
           "value": {
@@ -42964,6 +43007,17 @@
             ],
             "title": "Llm Config",
             "description": "LLM configuration used for this call (non-summarization calls only)"
+          },
+          "billing_context": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BillingContext"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Billing context from request headers"
           }
         },
         "additionalProperties": false,
