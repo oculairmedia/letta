@@ -389,13 +389,16 @@ class OpenAIClient(LLMClientBase):
             input=openai_messages_list,
             tools=responses_tools,
             tool_choice=tool_choice,
-            max_output_tokens=llm_config.max_tokens,
             temperature=llm_config.temperature if supports_temperature_param(model) else None,
             parallel_tool_calls=llm_config.parallel_tool_calls if tools and supports_parallel_tool_calling(model) else False,
         )
 
         # Handle text configuration (verbosity and response format)
         text_config_kwargs = {}
+
+        # Only set max_output_tokens if explicitly configured
+        if llm_config.max_tokens is not None:
+            data.max_output_tokens = llm_config.max_tokens
 
         # Add verbosity control for GPT-5 models
         if supports_verbosity_control(model) and llm_config.verbosity:
@@ -451,7 +454,6 @@ class OpenAIClient(LLMClientBase):
         )
 
         request_data = data.model_dump(exclude_unset=True)
-        # print("responses request data", request_data)
         return request_data
 
     @trace_method

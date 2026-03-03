@@ -30,6 +30,21 @@ from letta.utils import enforce_types
 class ConversationManager:
     """Manager class to handle business logic related to Conversations."""
 
+    @staticmethod
+    def _serialize_model_settings(model_settings) -> Optional[dict]:
+        """Serialize model settings for DB storage, stripping max_output_tokens if not explicitly set.
+
+        Uses model_dump() to preserve all fields (including the provider_type discriminator),
+        but removes max_output_tokens when it wasn't explicitly provided by the caller so we
+        don't persist the Pydantic default (4096) and later overwrite the agent's own value.
+        """
+        if model_settings is None:
+            return None
+        data = model_settings.model_dump()
+        if "max_output_tokens" not in model_settings.model_fields_set:
+            data.pop("max_output_tokens", None)
+        return data
+
     @enforce_types
     @trace_method
     async def create_conversation(
@@ -57,7 +72,7 @@ class ConversationManager:
                 summary=conversation_create.summary,
                 organization_id=actor.organization_id,
                 model=conversation_create.model,
-                model_settings=conversation_create.model_settings.model_dump() if conversation_create.model_settings else None,
+                model_settings=self._serialize_model_settings(conversation_create.model_settings),
             )
             await conversation.create_async(session, actor=actor)
 
@@ -228,22 +243,15 @@ class ConversationManager:
             if sort_by == "last_run_completion":
                 # Subquery to get the latest completed_at for each conversation
                 latest_run_subquery = (
-                    select(
-                        RunModel.conversation_id,
-                        func.max(RunModel.completed_at).label("last_run_completion")
-                    )
+                    select(RunModel.conversation_id, func.max(RunModel.completed_at).label("last_run_completion"))
                     .where(RunModel.conversation_id.isnot(None))
                     .group_by(RunModel.conversation_id)
                     .subquery()
                 )
 
                 # Join conversations with the subquery
-                stmt = (
-                    select(ConversationModel)
-                    .outerjoin(
-                        latest_run_subquery,
-                        ConversationModel.id == latest_run_subquery.c.conversation_id
-                    )
+                stmt = select(ConversationModel).outerjoin(
+                    latest_run_subquery, ConversationModel.id == latest_run_subquery.c.conversation_id
                 )
                 sort_column = latest_run_subquery.c.last_run_completion
                 sort_nulls_last = True
@@ -265,10 +273,12 @@ class ConversationManager:
 
             # Add summary search filter if provided
             if summary_search:
-                conditions.extend([
-                    ConversationModel.summary.isnot(None),
-                    ConversationModel.summary.contains(summary_search),
-                ])
+                conditions.extend(
+                    [
+                        ConversationModel.summary.isnot(None),
+                        ConversationModel.summary.contains(summary_search),
+                    ]
+                )
 
             stmt = stmt.where(and_(*conditions))
 
@@ -277,10 +287,7 @@ class ConversationManager:
                 # Get the sort value for the cursor conversation
                 if sort_by == "last_run_completion":
                     cursor_query = (
-                        select(
-                            ConversationModel.id,
-                            func.max(RunModel.completed_at).label("last_run_completion")
-                        )
+                        select(ConversationModel.id, func.max(RunModel.completed_at).label("last_run_completion"))
                         .outerjoin(RunModel, ConversationModel.id == RunModel.conversation_id)
                         .where(ConversationModel.id == after)
                         .group_by(ConversationModel.id)
@@ -293,16 +300,11 @@ class ConversationManager:
                             # Cursor is at NULL - if ascending, get non-NULLs or NULLs with greater ID
                             if ascending:
                                 stmt = stmt.where(
-                                    or_(
-                                        and_(sort_column.is_(None), ConversationModel.id > after_id),
-                                        sort_column.isnot(None)
-                                    )
+                                    or_(and_(sort_column.is_(None), ConversationModel.id > after_id), sort_column.isnot(None))
                                 )
                             else:
                                 # If descending, get NULLs with smaller ID
-                                stmt = stmt.where(
-                                    and_(sort_column.is_(None), ConversationModel.id < after_id)
-                                )
+                                stmt = stmt.where(and_(sort_column.is_(None), ConversationModel.id < after_id))
                         else:
                             # Cursor is at non-NULL
                             if ascending:
@@ -312,8 +314,8 @@ class ConversationManager:
                                         sort_column.isnot(None),
                                         or_(
                                             sort_column > after_sort_value,
-                                            and_(sort_column == after_sort_value, ConversationModel.id > after_id)
-                                        )
+                                            and_(sort_column == after_sort_value, ConversationModel.id > after_id),
+                                        ),
                                     )
                                 )
                             else:
@@ -322,7 +324,7 @@ class ConversationManager:
                                     or_(
                                         sort_column.is_(None),
                                         sort_column < after_sort_value,
-                                        and_(sort_column == after_sort_value, ConversationModel.id < after_id)
+                                        and_(sort_column == after_sort_value, ConversationModel.id < after_id),
                                     )
                                 )
                 else:
@@ -372,7 +374,11 @@ class ConversationManager:
             for key, value in update_data.items():
                 # model_settings needs to be serialized to dict for the JSON column
                 if key == "model_settings" and value is not None:
-                    setattr(conversation, key, conversation_update.model_settings.model_dump() if conversation_update.model_settings else value)
+                    setattr(
+                        conversation,
+                        key,
+                        self._serialize_model_settings(conversation_update.model_settings) if conversation_update.model_settings else value,
+                    )
                 else:
                     setattr(conversation, key, value)
 

@@ -119,6 +119,10 @@ class StreamingService:
                 )
                 if conversation.model_settings is not None:
                     update_params = conversation.model_settings._to_legacy_config_params()
+                    # Don't clobber max_tokens with the Pydantic default when the caller
+                    # didn't explicitly provide max_output_tokens.
+                    if "max_output_tokens" not in conversation.model_settings.model_fields_set:
+                        update_params.pop("max_tokens", None)
                     conversation_llm_config = conversation_llm_config.model_copy(update=update_params)
                 agent = agent.model_copy(update={"llm_config": conversation_llm_config})
 
