@@ -580,6 +580,12 @@ async def cancel_conversation(
     for the agent's default conversation.
     """
     actor = await server.user_manager.get_actor_or_default_async(actor_id=headers.actor_id)
+    logger.info(
+        "[Interrupt] Cancel request received for conversation=%s by actor=%s (org=%s)",
+        conversation_id,
+        actor.id,
+        actor.organization_id,
+    )
 
     if not settings.track_agent_run:
         raise HTTPException(status_code=400, detail="Agent run tracking is disabled")
