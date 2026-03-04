@@ -28104,14 +28104,14 @@
             "anyOf": [
               {
                 "type": "string",
-                "enum": ["low", "medium", "high"]
+                "enum": ["low", "medium", "high", "max"]
               },
               {
                 "type": "null"
               }
             ],
             "title": "Effort",
-            "description": "Effort level for Opus 4.5 model (controls token conservation). Not setting this gives similar performance to 'high'."
+            "description": "Effort level for supported Anthropic models (controls token spending). 'max' is only available on Opus 4.6. Not setting this gives similar performance to 'high'."
           },
           "strict": {
             "type": "boolean",
