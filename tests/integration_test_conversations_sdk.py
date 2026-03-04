@@ -725,6 +725,132 @@ class TestConversationsSDK:
             if "No active runs" not in str(e):
                 raise
 
+    def test_backwards_compatibility_old_pattern(self, client: Letta, agent, server_url: str):
+        """Test that the old pattern (agent_id as conversation_id) still works for backwards compatibility."""
+        # OLD PATTERN: conversation_id=agent.id (should still work)
+        # Use raw HTTP requests since SDK might not be up to date
+
+        # Test 1: Send message using old pattern
+        response = requests.post(
+            f"{server_url}/v1/conversations/{agent.id}/messages",
+            json={
+                "messages": [{"role": "user", "content": "Testing old pattern still works"}],
+                "streaming": False,
+            },
+        )
+        assert response.status_code == 200, f"Old pattern should work for sending messages: {response.text}"
+        data = response.json()
+        assert "messages" in data, "Response should contain messages"
+        assert len(data["messages"]) > 0, "Should receive response messages"
+
+        # Test 2: List messages using old pattern
+        response = requests.get(f"{server_url}/v1/conversations/{agent.id}/messages")
+        assert response.status_code == 200, f"Old pattern should work for listing messages: {response.text}"
+        data = response.json()
+        # Response is a list of messages directly
+        assert isinstance(data, list), "Response should be a list of messages"
+        assert len(data) >= 3, "Should have at least system + user + assistant messages"
+
+        # Verify our message is there
+        user_messages = [m for m in data if m.get("message_type") == "user_message"]
+        assert any("Testing old pattern still works" in str(m.get("content", "")) for m in user_messages), "Should find our test message"
+
+    def test_new_pattern_send_message(self, client: Letta, agent, server_url: str):
+        """Test sending messages using the new pattern: conversation_id='default' + agent_id in body."""
+        # NEW PATTERN: conversation_id='default' + agent_id in request body
+        response = requests.post(
+            f"{server_url}/v1/conversations/default/messages",
+            json={
+                "agent_id": agent.id,
+                "messages": [{"role": "user", "content": "Testing new pattern send message"}],
+                "streaming": False,
+            },
+        )
+        assert response.status_code == 200, f"New pattern should work for sending messages: {response.text}"
+        data = response.json()
+        assert "messages" in data, "Response should contain messages"
+        assert len(data["messages"]) > 0, "Should receive response messages"
+
+        # Verify we got an assistant message
+        assistant_messages = [m for m in data["messages"] if m.get("message_type") == "assistant_message"]
+        assert len(assistant_messages) > 0, "Should receive at least one assistant message"
+
+    def test_new_pattern_list_messages(self, client: Letta, agent, server_url: str):
+        """Test listing messages using the new pattern: conversation_id='default' + agent_id query param."""
+        # First send a message to populate the conversation
+        requests.post(
+            f"{server_url}/v1/conversations/{agent.id}/messages",
+            json={
+                "messages": [{"role": "user", "content": "Setup message for list test"}],
+                "streaming": False,
+            },
+        )
+
+        # NEW PATTERN: conversation_id='default' + agent_id as query param
+        response = requests.get(
+            f"{server_url}/v1/conversations/default/messages",
+            params={"agent_id": agent.id},
+        )
+        assert response.status_code == 200, f"New pattern should work for listing messages: {response.text}"
+        data = response.json()
+        # Response is a list of messages directly
+        assert isinstance(data, list), "Response should be a list of messages"
+        assert len(data) >= 3, "Should have at least system + user + assistant messages"
+
+    def test_new_pattern_cancel(self, client: Letta, agent, server_url: str):
+        """Test canceling runs using the new pattern: conversation_id='default' + agent_id query param."""
+        from letta.settings import settings
+
+        if not settings.track_agent_run:
+            pytest.skip("Run tracking disabled - skipping cancel test")
+
+        # NEW PATTERN: conversation_id='default' + agent_id as query param
+        response = requests.post(
+            f"{server_url}/v1/conversations/default/cancel",
+            params={"agent_id": agent.id},
+        )
+        # Returns 200 with results if runs exist, or 409 if no active runs
+        assert response.status_code in [200, 409], f"New pattern should work for cancel: {response.text}"
+        if response.status_code == 200:
+            data = response.json()
+            assert isinstance(data, dict), "Cancel should return a dict"
+
+    def test_new_pattern_compact(self, client: Letta, agent, server_url: str):
+        """Test compacting conversation using the new pattern: conversation_id='default' + agent_id in body."""
+        # Send many messages to have enough for compaction
+        for i in range(10):
+            requests.post(
+                f"{server_url}/v1/conversations/{agent.id}/messages",
+                json={
+                    "messages": [{"role": "user", "content": f"Message {i} for compaction test"}],
+                    "streaming": False,
+                },
+            )
+
+        # NEW PATTERN: conversation_id='default' + agent_id in request body
+        response = requests.post(
+            f"{server_url}/v1/conversations/default/compact",
+            json={"agent_id": agent.id},
+        )
+        # May return 200 (success) or 400 (not enough messages to compact)
+        assert response.status_code in [200, 400], f"New pattern should accept agent_id parameter: {response.text}"
+        if response.status_code == 200:
+            data = response.json()
+            assert "summary" in data, "Response should contain summary"
+            assert "num_messages_before" in data, "Response should contain num_messages_before"
+            assert "num_messages_after" in data, "Response should contain num_messages_after"
+
+    def test_new_pattern_stream_retrieve(self, client: Letta, agent, server_url: str):
+        """Test retrieving stream using the new pattern: conversation_id='default' + agent_id in body."""
+        # NEW PATTERN: conversation_id='default' + agent_id in request body
+        # Note: This will likely return 400 if no active run exists, which is expected
+        response = requests.post(
+            f"{server_url}/v1/conversations/default/stream",
+            json={"agent_id": agent.id},
+        )
+        # Either 200 (if run exists) or 400 (no active run) are both acceptable
+        assert response.status_code in [200, 400], f"Stream retrieve should accept new pattern: {response.text}"
+
 
 class TestConversationDelete:
     """Tests for the conversation delete endpoint."""

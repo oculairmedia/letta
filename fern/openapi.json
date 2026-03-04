@@ -8629,7 +8629,7 @@
               "schema": {
                 "anyOf": [
                   {
-                    "$ref": "#/components/schemas/CompactionRequest"
+                    "$ref": "#/components/schemas/letta__server__rest_api__routers__v1__agents__CompactionRequest"
                   },
                   {
                     "type": "null"
@@ -8855,18 +8855,14 @@
             "required": true,
             "schema": {
               "type": "string",
-              "minLength": 1,
-              "maxLength": 42,
-              "pattern": "^(default|conv-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}|agent-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$",
-              "description": "The conversation identifier. Can be a conversation ID ('conv-<uuid4>'), an agent ID ('agent-<uuid4>') for agent-direct messaging, or 'default'.",
-              "examples": [
-                "default",
-                "conv-123e4567-e89b-42d3-8456-426614174000",
-                "agent-123e4567-e89b-42d3-8456-426614174000"
-              ],
+              "minLength": 41,
+              "maxLength": 41,
+              "pattern": "^conv-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+              "description": "The ID of the conv in the format 'conv-<uuid4>'",
+              "examples": ["conv-123e4567-e89b-42d3-8456-426614174000"],
               "title": "Conversation Id"
             },
-            "description": "The conversation identifier. Can be a conversation ID ('conv-<uuid4>'), an agent ID ('agent-<uuid4>') for agent-direct messaging, or 'default'."
+            "description": "The ID of the conv in the format 'conv-<uuid4>'"
           }
         ],
         "responses": {
@@ -8904,18 +8900,14 @@
             "required": true,
             "schema": {
               "type": "string",
-              "minLength": 1,
-              "maxLength": 42,
-              "pattern": "^(default|conv-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}|agent-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$",
-              "description": "The conversation identifier. Can be a conversation ID ('conv-<uuid4>'), an agent ID ('agent-<uuid4>') for agent-direct messaging, or 'default'.",
-              "examples": [
-                "default",
-                "conv-123e4567-e89b-42d3-8456-426614174000",
-                "agent-123e4567-e89b-42d3-8456-426614174000"
-              ],
+              "minLength": 41,
+              "maxLength": 41,
+              "pattern": "^conv-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+              "description": "The ID of the conv in the format 'conv-<uuid4>'",
+              "examples": ["conv-123e4567-e89b-42d3-8456-426614174000"],
               "title": "Conversation Id"
             },
-            "description": "The conversation identifier. Can be a conversation ID ('conv-<uuid4>'), an agent ID ('agent-<uuid4>') for agent-direct messaging, or 'default'."
+            "description": "The ID of the conv in the format 'conv-<uuid4>'"
           }
         ],
         "requestBody": {
@@ -8963,18 +8955,14 @@
             "required": true,
             "schema": {
               "type": "string",
-              "minLength": 1,
-              "maxLength": 42,
-              "pattern": "^(default|conv-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}|agent-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$",
-              "description": "The conversation identifier. Can be a conversation ID ('conv-<uuid4>'), an agent ID ('agent-<uuid4>') for agent-direct messaging, or 'default'.",
-              "examples": [
-                "default",
-                "conv-123e4567-e89b-42d3-8456-426614174000",
-                "agent-123e4567-e89b-42d3-8456-426614174000"
-              ],
+              "minLength": 41,
+              "maxLength": 41,
+              "pattern": "^conv-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+              "description": "The ID of the conv in the format 'conv-<uuid4>'",
+              "examples": ["conv-123e4567-e89b-42d3-8456-426614174000"],
               "title": "Conversation Id"
             },
-            "description": "The conversation identifier. Can be a conversation ID ('conv-<uuid4>'), an agent ID ('agent-<uuid4>') for agent-direct messaging, or 'default'."
+            "description": "The ID of the conv in the format 'conv-<uuid4>'"
           }
         ],
         "responses": {
@@ -9003,7 +8991,7 @@
       "get": {
         "tags": ["conversations"],
         "summary": "List Conversation Messages",
-        "description": "List all messages in a conversation.\n\nReturns LettaMessage objects (UserMessage, AssistantMessage, etc.) for all\nmessages in the conversation, with support for cursor-based pagination.\n\nIf conversation_id is an agent ID (starts with \"agent-\"), returns messages\nfrom the agent's default conversation (no conversation isolation).",
+        "description": "List all messages in a conversation.\n\nReturns LettaMessage objects (UserMessage, AssistantMessage, etc.) for all\nmessages in the conversation, with support for cursor-based pagination.\n\n**Agent-direct mode**: Pass conversation_id=\"default\" with agent_id parameter\nto list messages from the agent's default conversation.\n\n**Deprecated**: Passing an agent ID as conversation_id still works but will be removed.",
         "operationId": "list_conversation_messages",
         "parameters": [
           {
@@ -9015,7 +9003,7 @@
               "minLength": 1,
               "maxLength": 42,
               "pattern": "^(default|conv-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}|agent-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$",
-              "description": "The conversation identifier. Can be a conversation ID ('conv-<uuid4>'), an agent ID ('agent-<uuid4>') for agent-direct messaging, or 'default'.",
+              "description": "The conversation identifier. Can be a conversation ID ('conv-<uuid4>'), 'default' for agent-direct mode (with agent_id parameter), or an agent ID ('agent-<uuid4>') for backwards compatibility (deprecated).",
               "examples": [
                 "default",
                 "conv-123e4567-e89b-42d3-8456-426614174000",
@@ -9023,7 +9011,25 @@
               ],
               "title": "Conversation Id"
             },
-            "description": "The conversation identifier. Can be a conversation ID ('conv-<uuid4>'), an agent ID ('agent-<uuid4>') for agent-direct messaging, or 'default'."
+            "description": "The conversation identifier. Can be a conversation ID ('conv-<uuid4>'), 'default' for agent-direct mode (with agent_id parameter), or an agent ID ('agent-<uuid4>') for backwards compatibility (deprecated)."
+          },
+          {
+            "name": "agent_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Agent ID for agent-direct mode with 'default' conversation",
+              "title": "Agent Id"
+            },
+            "description": "Agent ID for agent-direct mode with 'default' conversation"
           },
           {
             "name": "before",
@@ -9173,7 +9179,7 @@
       "post": {
         "tags": ["conversations"],
         "summary": "Send Conversation Message",
-        "description": "Send a message to a conversation and get a response.\n\nThis endpoint sends a message to an existing conversation.\nBy default (streaming=true), returns a streaming response (Server-Sent Events).\nSet streaming=false to get a complete JSON response.\n\nIf conversation_id is an agent ID (starts with \"agent-\"), routes to agent-direct\nmode with locking but without conversation-specific features.",
+        "description": "Send a message to a conversation and get a response.\n\nThis endpoint sends a message to an existing conversation.\nBy default (streaming=true), returns a streaming response (Server-Sent Events).\nSet streaming=false to get a complete JSON response.\n\n**Agent-direct mode**: Pass conversation_id=\"default\" with agent_id in request body\nto send messages to the agent's default conversation with locking.\n\n**Deprecated**: Passing an agent ID as conversation_id still works but will be removed.",
         "operationId": "send_conversation_message",
         "parameters": [
           {
@@ -9185,7 +9191,7 @@
               "minLength": 1,
               "maxLength": 42,
               "pattern": "^(default|conv-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}|agent-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$",
-              "description": "The conversation identifier. Can be a conversation ID ('conv-<uuid4>'), an agent ID ('agent-<uuid4>') for agent-direct messaging, or 'default'.",
+              "description": "The conversation identifier. Can be a conversation ID ('conv-<uuid4>'), 'default' for agent-direct mode (with agent_id parameter), or an agent ID ('agent-<uuid4>') for backwards compatibility (deprecated).",
               "examples": [
                 "default",
                 "conv-123e4567-e89b-42d3-8456-426614174000",
@@ -9193,7 +9199,7 @@
               ],
               "title": "Conversation Id"
             },
-            "description": "The conversation identifier. Can be a conversation ID ('conv-<uuid4>'), an agent ID ('agent-<uuid4>') for agent-direct messaging, or 'default'."
+            "description": "The conversation identifier. Can be a conversation ID ('conv-<uuid4>'), 'default' for agent-direct mode (with agent_id parameter), or an agent ID ('agent-<uuid4>') for backwards compatibility (deprecated)."
           }
         ],
         "requestBody": {
@@ -9238,7 +9244,7 @@
       "post": {
         "tags": ["conversations"],
         "summary": "Retrieve Conversation Stream",
-        "description": "Resume the stream for the most recent active run in a conversation.\n\nThis endpoint allows you to reconnect to an active background stream\nfor a conversation, enabling recovery from network interruptions.\n\nIf conversation_id is an agent ID (starts with \"agent-\"), retrieves the\nstream for the agent's most recent active run.",
+        "description": "Resume the stream for the most recent active run in a conversation.\n\nThis endpoint allows you to reconnect to an active background stream\nfor a conversation, enabling recovery from network interruptions.\n\n**Agent-direct mode**: Pass conversation_id=\"default\" with agent_id in request body\nto retrieve the stream for the agent's most recent active run.\n\n**Deprecated**: Passing an agent ID as conversation_id still works but will be removed.",
         "operationId": "retrieve_conversation_stream",
         "parameters": [
           {
@@ -9250,7 +9256,7 @@
               "minLength": 1,
               "maxLength": 42,
               "pattern": "^(default|conv-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}|agent-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$",
-              "description": "The conversation identifier. Can be a conversation ID ('conv-<uuid4>'), an agent ID ('agent-<uuid4>') for agent-direct messaging, or 'default'.",
+              "description": "The conversation identifier. Can be a conversation ID ('conv-<uuid4>'), 'default' for agent-direct mode (with agent_id parameter), or an agent ID ('agent-<uuid4>') for backwards compatibility (deprecated).",
               "examples": [
                 "default",
                 "conv-123e4567-e89b-42d3-8456-426614174000",
@@ -9258,7 +9264,7 @@
               ],
               "title": "Conversation Id"
             },
-            "description": "The conversation identifier. Can be a conversation ID ('conv-<uuid4>'), an agent ID ('agent-<uuid4>') for agent-direct messaging, or 'default'."
+            "description": "The conversation identifier. Can be a conversation ID ('conv-<uuid4>'), 'default' for agent-direct mode (with agent_id parameter), or an agent ID ('agent-<uuid4>') for backwards compatibility (deprecated)."
           }
         ],
         "requestBody": {
@@ -9342,7 +9348,7 @@
       "post": {
         "tags": ["conversations"],
         "summary": "Cancel Conversation",
-        "description": "Cancel runs associated with a conversation.\n\nNote: To cancel active runs, Redis is required.\n\nIf conversation_id is an agent ID (starts with \"agent-\"), cancels runs\nfor the agent's default conversation.",
+        "description": "Cancel runs associated with a conversation.\n\nNote: To cancel active runs, Redis is required.\n\n**Agent-direct mode**: Pass conversation_id=\"default\" with agent_id query parameter\nto cancel runs for the agent's default conversation.\n\n**Deprecated**: Passing an agent ID as conversation_id still works but will be removed.",
         "operationId": "cancel_conversation",
         "parameters": [
           {
@@ -9354,7 +9360,7 @@
               "minLength": 1,
               "maxLength": 42,
               "pattern": "^(default|conv-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}|agent-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$",
-              "description": "The conversation identifier. Can be a conversation ID ('conv-<uuid4>'), an agent ID ('agent-<uuid4>') for agent-direct messaging, or 'default'.",
+              "description": "The conversation identifier. Can be a conversation ID ('conv-<uuid4>'), 'default' for agent-direct mode (with agent_id parameter), or an agent ID ('agent-<uuid4>') for backwards compatibility (deprecated).",
               "examples": [
                 "default",
                 "conv-123e4567-e89b-42d3-8456-426614174000",
@@ -9362,7 +9368,25 @@
               ],
               "title": "Conversation Id"
             },
-            "description": "The conversation identifier. Can be a conversation ID ('conv-<uuid4>'), an agent ID ('agent-<uuid4>') for agent-direct messaging, or 'default'."
+            "description": "The conversation identifier. Can be a conversation ID ('conv-<uuid4>'), 'default' for agent-direct mode (with agent_id parameter), or an agent ID ('agent-<uuid4>') for backwards compatibility (deprecated)."
+          },
+          {
+            "name": "agent_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Agent ID for agent-direct mode with 'default' conversation",
+              "title": "Agent Id"
+            },
+            "description": "Agent ID for agent-direct mode with 'default' conversation"
           }
         ],
         "responses": {
@@ -9395,7 +9419,7 @@
       "post": {
         "tags": ["conversations"],
         "summary": "Compact Conversation",
-        "description": "Compact (summarize) a conversation's message history.\n\nThis endpoint summarizes the in-context messages for a specific conversation,\nreducing the message count while preserving important context.\n\nIf conversation_id is an agent ID (starts with \"agent-\"), compacts the\nagent's default conversation messages.",
+        "description": "Compact (summarize) a conversation's message history.\n\nThis endpoint summarizes the in-context messages for a specific conversation,\nreducing the message count while preserving important context.\n\n**Agent-direct mode**: Pass conversation_id=\"default\" with agent_id in request body\nto compact the agent's default conversation messages.\n\n**Deprecated**: Passing an agent ID as conversation_id still works but will be removed.",
         "operationId": "compact_conversation",
         "parameters": [
           {
@@ -9407,7 +9431,7 @@
               "minLength": 1,
               "maxLength": 42,
               "pattern": "^(default|conv-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}|agent-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$",
-              "description": "The conversation identifier. Can be a conversation ID ('conv-<uuid4>'), an agent ID ('agent-<uuid4>') for agent-direct messaging, or 'default'.",
+              "description": "The conversation identifier. Can be a conversation ID ('conv-<uuid4>'), 'default' for agent-direct mode (with agent_id parameter), or an agent ID ('agent-<uuid4>') for backwards compatibility (deprecated).",
               "examples": [
                 "default",
                 "conv-123e4567-e89b-42d3-8456-426614174000",
@@ -9415,7 +9439,7 @@
               ],
               "title": "Conversation Id"
             },
-            "description": "The conversation identifier. Can be a conversation ID ('conv-<uuid4>'), an agent ID ('agent-<uuid4>') for agent-direct messaging, or 'default'."
+            "description": "The conversation identifier. Can be a conversation ID ('conv-<uuid4>'), 'default' for agent-direct mode (with agent_id parameter), or an agent ID ('agent-<uuid4>') for backwards compatibility (deprecated)."
           }
         ],
         "requestBody": {
@@ -9424,7 +9448,7 @@
               "schema": {
                 "anyOf": [
                   {
-                    "$ref": "#/components/schemas/CompactionRequest"
+                    "$ref": "#/components/schemas/letta__server__rest_api__routers__v1__conversations__CompactionRequest"
                   },
                   {
                     "type": "null"
@@ -31460,23 +31484,6 @@
         "required": ["code"],
         "title": "CodeInput"
       },
-      "CompactionRequest": {
-        "properties": {
-          "compaction_settings": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/CompactionSettings-Input"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "Optional compaction settings to use for this summarization request. If not provided, the agent's default settings will be used."
-          }
-        },
-        "type": "object",
-        "title": "CompactionRequest"
-      },
       "CompactionResponse": {
         "properties": {
           "summary": {
@@ -32610,6 +32617,18 @@
             "title": "Return Token Ids",
             "description": "If True, returns token IDs and logprobs for ALL LLM generations in the agent step, not just the last one. Uses SGLang native /generate endpoint. Returns 'turns' field with TurnTokenData for each assistant/tool turn. Required for proper multi-turn RL training with loss masking.",
             "default": false
+          },
+          "agent_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Agent Id",
+            "description": "Agent ID for agent-direct mode with 'default' conversation. Use with conversation_id='default' in the URL path."
           },
           "streaming": {
             "type": "boolean",
@@ -43448,6 +43467,18 @@
       },
       "RetrieveStreamRequest": {
         "properties": {
+          "agent_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Agent Id",
+            "description": "Agent ID for agent-direct mode with 'default' conversation. Use with conversation_id='default' in the URL path."
+          },
           "starting_after": {
             "type": "integer",
             "title": "Starting After",
@@ -51562,6 +51593,52 @@
           "updated_at"
         ],
         "title": "ToolSchema"
+      },
+      "letta__server__rest_api__routers__v1__agents__CompactionRequest": {
+        "properties": {
+          "compaction_settings": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CompactionSettings-Input"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Optional compaction settings to use for this summarization request. If not provided, the agent's default settings will be used."
+          }
+        },
+        "type": "object",
+        "title": "CompactionRequest"
+      },
+      "letta__server__rest_api__routers__v1__conversations__CompactionRequest": {
+        "properties": {
+          "agent_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Agent Id",
+            "description": "Agent ID for agent-direct mode with 'default' conversation. Use with conversation_id='default' in the URL path."
+          },
+          "compaction_settings": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CompactionSettings-Input"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Optional compaction settings to use for this summarization request. If not provided, the agent's default settings will be used."
+          }
+        },
+        "type": "object",
+        "title": "CompactionRequest"
       },
       "letta__server__rest_api__routers__v1__tools__ToolExecuteRequest": {
         "properties": {

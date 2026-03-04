@@ -34,7 +34,7 @@ from letta.services.run_manager import RunManager
 from letta.services.streaming_service import StreamingService
 from letta.services.summarizer.summarizer_config import CompactionSettings
 from letta.settings import settings
-from letta.validators import ConversationId
+from letta.validators import ConversationId, ConversationIdOrDefault
 
 router = APIRouter(prefix="/conversations", tags=["conversations"])
 
@@ -150,7 +150,8 @@ ConversationMessagesResponse = Annotated[
     operation_id="list_conversation_messages",
 )
 async def list_conversation_messages(
-    conversation_id: ConversationId,
+    conversation_id: ConversationIdOrDefault,
+    agent_id: Optional[str] = Query(None, description="Agent ID for agent-direct mode with 'default' conversation"),
     server: SyncServer = Depends(get_letta_server),
     headers: HeaderParams = Depends(get_headers),
     before: Optional[str] = Query(
@@ -175,15 +176,24 @@ async def list_conversation_messages(
     Returns LettaMessage objects (UserMessage, AssistantMessage, etc.) for all
     messages in the conversation, with support for cursor-based pagination.
 
-    If conversation_id is an agent ID (starts with "agent-"), returns messages
-    from the agent's default conversation (no conversation isolation).
+    **Agent-direct mode**: Pass conversation_id="default" with agent_id parameter
+    to list messages from the agent's default conversation.
+
+    **Deprecated**: Passing an agent ID as conversation_id still works but will be removed.
     """
     actor = await server.user_manager.get_actor_or_default_async(actor_id=headers.actor_id)
 
-    # Agent-direct mode: list agent's default conversation messages
-    if conversation_id.startswith("agent-"):
+    # Agent-direct mode: conversation_id="default" + agent_id param (preferred)
+    # OR conversation_id="agent-*" (backwards compat, deprecated)
+    resolved_agent_id = None
+    if conversation_id == "default" and agent_id:
+        resolved_agent_id = agent_id
+    elif conversation_id.startswith("agent-"):
+        resolved_agent_id = conversation_id
+
+    if resolved_agent_id:
         return await server.get_agent_recall_async(
-            agent_id=conversation_id,
+            agent_id=resolved_agent_id,
             after=after,
             before=before,
             limit=limit,
@@ -324,7 +334,7 @@ async def _send_agent_direct_message(
     },
 )
 async def send_conversation_message(
-    conversation_id: ConversationId,
+    conversation_id: ConversationIdOrDefault,
     request: ConversationMessageRequest = Body(...),
     server: SyncServer = Depends(get_letta_server),
     headers: HeaderParams = Depends(get_headers),
@@ -336,22 +346,28 @@ async def send_conversation_message(
     By default (streaming=true), returns a streaming response (Server-Sent Events).
     Set streaming=false to get a complete JSON response.
 
-    If conversation_id is an agent ID (starts with "agent-"), routes to agent-direct
-    mode with locking but without conversation-specific features.
+    **Agent-direct mode**: Pass conversation_id="default" with agent_id in request body
+    to send messages to the agent's default conversation with locking.
+
+    **Deprecated**: Passing an agent ID as conversation_id still works but will be removed.
     """
     actor = await server.user_manager.get_actor_or_default_async(actor_id=headers.actor_id)
 
     if not request.messages or len(request.messages) == 0:
         raise HTTPException(status_code=422, detail="Messages must not be empty")
 
-    # Detect agent-direct mode: conversation_id is actually an agent ID
-    is_agent_direct = conversation_id.startswith("agent-")
+    # Agent-direct mode: conversation_id="default" + agent_id in body (preferred)
+    # OR conversation_id="agent-*" (backwards compat, deprecated)
+    resolved_agent_id = None
+    if conversation_id == "default" and request.agent_id:
+        resolved_agent_id = request.agent_id
+    elif conversation_id.startswith("agent-"):
+        resolved_agent_id = conversation_id
 
-    if is_agent_direct:
+    if resolved_agent_id:
         # Agent-direct mode: use agent ID, enable locking, skip conversation features
-        agent_id = conversation_id
         return await _send_agent_direct_message(
-            agent_id=agent_id,
+            agent_id=resolved_agent_id,
             request=request,
             server=server,
             actor=actor,
@@ -488,7 +504,7 @@ async def send_conversation_message(
     },
 )
 async def retrieve_conversation_stream(
-    conversation_id: ConversationId,
+    conversation_id: ConversationIdOrDefault,
     request: RetrieveStreamRequest = Body(None),
     headers: HeaderParams = Depends(get_headers),
     server: SyncServer = Depends(get_letta_server),
@@ -499,18 +515,28 @@ async def retrieve_conversation_stream(
     This endpoint allows you to reconnect to an active background stream
     for a conversation, enabling recovery from network interruptions.
 
-    If conversation_id is an agent ID (starts with "agent-"), retrieves the
-    stream for the agent's most recent active run.
+    **Agent-direct mode**: Pass conversation_id="default" with agent_id in request body
+    to retrieve the stream for the agent's most recent active run.
+
+    **Deprecated**: Passing an agent ID as conversation_id still works but will be removed.
     """
     actor = await server.user_manager.get_actor_or_default_async(actor_id=headers.actor_id)
     runs_manager = RunManager()
 
+    # Agent-direct mode: conversation_id="default" + agent_id in body (preferred)
+    # OR conversation_id="agent-*" (backwards compat, deprecated)
+    resolved_agent_id = None
+    if conversation_id == "default" and request and request.agent_id:
+        resolved_agent_id = request.agent_id
+    elif conversation_id.startswith("agent-"):
+        resolved_agent_id = conversation_id
+
     # Find the most recent active run
-    if conversation_id.startswith("agent-"):
+    if resolved_agent_id:
         # Agent-direct mode: find runs by agent_id
         active_runs = await runs_manager.list_runs(
             actor=actor,
-            agent_id=conversation_id,
+            agent_id=resolved_agent_id,
             statuses=[RunStatus.created, RunStatus.running],
             limit=1,
             ascending=False,
@@ -578,7 +604,8 @@ async def retrieve_conversation_stream(
 
 @router.post("/{conversation_id}/cancel", operation_id="cancel_conversation")
 async def cancel_conversation(
-    conversation_id: ConversationId,
+    conversation_id: ConversationIdOrDefault,
+    agent_id: Optional[str] = Query(None, description="Agent ID for agent-direct mode with 'default' conversation"),
     server: SyncServer = Depends(get_letta_server),
     headers: HeaderParams = Depends(get_headers),
 ) -> dict:
@@ -587,8 +614,10 @@ async def cancel_conversation(
 
     Note: To cancel active runs, Redis is required.
 
-    If conversation_id is an agent ID (starts with "agent-"), cancels runs
-    for the agent's default conversation.
+    **Agent-direct mode**: Pass conversation_id="default" with agent_id query parameter
+    to cancel runs for the agent's default conversation.
+
+    **Deprecated**: Passing an agent ID as conversation_id still works but will be removed.
     """
     actor = await server.user_manager.get_actor_or_default_async(actor_id=headers.actor_id)
     logger.info(
@@ -601,13 +630,20 @@ async def cancel_conversation(
     if not settings.track_agent_run:
         raise HTTPException(status_code=400, detail="Agent run tracking is disabled")
 
-    # Agent-direct mode: use agent_id directly, skip conversation lookup
-    if conversation_id.startswith("agent-"):
-        agent_id = conversation_id
+    # Agent-direct mode: conversation_id="default" + agent_id param (preferred)
+    # OR conversation_id="agent-*" (backwards compat, deprecated)
+    resolved_agent_id = None
+    if conversation_id == "default" and agent_id:
+        resolved_agent_id = agent_id
+    elif conversation_id.startswith("agent-"):
+        resolved_agent_id = conversation_id
+
+    if resolved_agent_id:
+        # Agent-direct mode: use agent_id directly, skip conversation lookup
         # Find active runs for this agent (default conversation has conversation_id=None)
         runs = await server.run_manager.list_runs(
             actor=actor,
-            agent_id=agent_id,
+            agent_id=resolved_agent_id,
             statuses=[RunStatus.created, RunStatus.running],
             ascending=False,
             limit=100,
@@ -657,6 +693,10 @@ async def cancel_conversation(
 
 
 class CompactionRequest(BaseModel):
+    agent_id: Optional[str] = Field(
+        default=None,
+        description="Agent ID for agent-direct mode with 'default' conversation. Use with conversation_id='default' in the URL path.",
+    )
     compaction_settings: Optional[CompactionSettings] = Field(
         default=None,
         description="Optional compaction settings to use for this summarization request. If not provided, the agent's default settings will be used.",
@@ -671,7 +711,7 @@ class CompactionResponse(BaseModel):
 
 @router.post("/{conversation_id}/compact", response_model=CompactionResponse, operation_id="compact_conversation")
 async def compact_conversation(
-    conversation_id: ConversationId,
+    conversation_id: ConversationIdOrDefault,
     request: Optional[CompactionRequest] = Body(default=None),
     server: SyncServer = Depends(get_letta_server),
     headers: HeaderParams = Depends(get_headers),
@@ -682,15 +722,24 @@ async def compact_conversation(
     This endpoint summarizes the in-context messages for a specific conversation,
     reducing the message count while preserving important context.
 
-    If conversation_id is an agent ID (starts with "agent-"), compacts the
-    agent's default conversation messages.
+    **Agent-direct mode**: Pass conversation_id="default" with agent_id in request body
+    to compact the agent's default conversation messages.
+
+    **Deprecated**: Passing an agent ID as conversation_id still works but will be removed.
     """
     actor = await server.user_manager.get_actor_or_default_async(actor_id=headers.actor_id)
 
-    # Agent-direct mode: compact agent's default conversation
-    if conversation_id.startswith("agent-"):
-        agent_id = conversation_id
-        agent = await server.agent_manager.get_agent_by_id_async(agent_id, actor, include_relationships=["multi_agent_group"])
+    # Agent-direct mode: conversation_id="default" + agent_id in body (preferred)
+    # OR conversation_id="agent-*" (backwards compat, deprecated)
+    resolved_agent_id = None
+    if conversation_id == "default" and request and request.agent_id:
+        resolved_agent_id = request.agent_id
+    elif conversation_id.startswith("agent-"):
+        resolved_agent_id = conversation_id
+
+    if resolved_agent_id:
+        # Agent-direct mode: compact agent's default conversation
+        agent = await server.agent_manager.get_agent_by_id_async(resolved_agent_id, actor, include_relationships=["multi_agent_group"])
         in_context_messages = await server.message_manager.get_messages_by_ids_async(message_ids=agent.message_ids, actor=actor)
         agent_loop = LettaAgentV3(agent_state=agent, actor=actor)
     else:

@@ -45,7 +45,7 @@ PATH_VALIDATORS = {primitive_type.value: _create_path_validator_factory(primitiv
 
 
 def _create_conversation_id_or_default_path_validator_factory():
-    """Conversation IDs accept the usual primitive format, 'default', or an agent ID."""
+    """Conversation IDs with support for 'default' and agent IDs (backwards compatibility)."""
 
     conversation_primitive = PrimitiveType.CONVERSATION.value
     agent_primitive = PrimitiveType.AGENT.value
@@ -59,7 +59,8 @@ def _create_conversation_id_or_default_path_validator_factory():
         return Path(
             description=(
                 f"The conversation identifier. Can be a conversation ID ('{conversation_primitive}-<uuid4>'), "
-                f"an agent ID ('{agent_primitive}-<uuid4>') for agent-direct messaging, or 'default'."
+                f"'default' for agent-direct mode (with agent_id parameter), "
+                f"or an agent ID ('{agent_primitive}-<uuid4>') for backwards compatibility (deprecated)."
             ),
             pattern=conversation_or_agent_or_default_pattern,
             examples=[
@@ -72,10 +73,6 @@ def _create_conversation_id_or_default_path_validator_factory():
         )
 
     return factory
-
-
-# Override conversation ID path validation to also allow 'default' and agent IDs.
-PATH_VALIDATORS[PrimitiveType.CONVERSATION.value] = _create_conversation_id_or_default_path_validator_factory()
 
 
 # Type aliases for common ID types
@@ -97,6 +94,10 @@ SandboxConfigId = Annotated[str, PATH_VALIDATORS[PrimitiveType.SANDBOX_CONFIG.va
 StepId = Annotated[str, PATH_VALIDATORS[PrimitiveType.STEP.value]()]
 IdentityId = Annotated[str, PATH_VALIDATORS[PrimitiveType.IDENTITY.value]()]
 ConversationId = Annotated[str, PATH_VALIDATORS[PrimitiveType.CONVERSATION.value]()]
+
+# Conversation ID with support for 'default' and agent IDs (for agent-direct mode endpoints)
+# Backwards compatible - agent-* will be deprecated in favor of conversation_id='default' + agent_id param
+ConversationIdOrDefault = Annotated[str, _create_conversation_id_or_default_path_validator_factory()()]
 
 # Infrastructure types
 McpServerId = Annotated[str, PATH_VALIDATORS[PrimitiveType.MCP_SERVER.value]()]
