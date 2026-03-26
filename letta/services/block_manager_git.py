@@ -69,13 +69,32 @@ class GitEnabledBlockManager(BlockManager):
             return result.scalar_one_or_none() is not None
 
     async def _get_agent_id_for_block(self, block_id: str, actor: PydanticUser) -> Optional[str]:
-        """Get the agent ID that owns a block."""
-        async with db_registry.async_session() as session:
-            from sqlalchemy import select
+        """Get the agent ID that owns a block, preferring git-enabled agents.
 
+        For shared blocks, a LEFT JOIN + CASE ORDER BY ensures git-enabled
+        agents are returned first so block updates trigger git commits.
+        """
+        async with db_registry.async_session() as session:
+            from sqlalchemy import case, select
+
+            from letta.orm.agents_tags import AgentsTags
             from letta.orm.blocks_agents import BlocksAgents
 
-            result = await session.execute(select(BlocksAgents.agent_id).where(BlocksAgents.block_id == block_id))
+            git_priority = case(
+                (AgentsTags.tag == GIT_MEMORY_ENABLED_TAG, 0),
+                else_=1,
+            )
+
+            result = await session.execute(
+                select(BlocksAgents.agent_id)
+                .outerjoin(
+                    AgentsTags,
+                    (AgentsTags.agent_id == BlocksAgents.agent_id) & (AgentsTags.tag == GIT_MEMORY_ENABLED_TAG),
+                )
+                .where(BlocksAgents.block_id == block_id)
+                .order_by(git_priority)
+                .limit(1)
+            )
             row = result.first()
             return row[0] if row else None
 
