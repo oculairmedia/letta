@@ -1,6 +1,7 @@
 import asyncio
 import base64
 import mimetypes
+from typing import List, Union
 from urllib.parse import urlparse
 
 import httpx
